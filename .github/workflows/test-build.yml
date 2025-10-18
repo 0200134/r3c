@@ -1,11 +1,11 @@
-name: R3C Cross-Platform Build & Release (Final Verified)
+name: R3C Cross-Platform Build & Release + Timeline
 
 on:
   push:
-    branches: [ "*" ]           # 모든 브랜치에서 실행
+    branches: [ "*" ]
   pull_request:
-    branches: [ "*" ]           # PR 시에도 실행
-  workflow_dispatch:             # 수동 실행 허용 (Actions 탭에서 Run workflow 버튼 표시)
+    branches: [ "*" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -21,47 +21,33 @@ jobs:
       commit_sha: ${{ steps.metrics.outputs.commit_sha }}
 
     steps:
-      # ✅ 0. 시작 타임스탬프
-      - name: Mark start time
-        id: start
-        run: echo "START_TS=$(date +%s)" >> "$GITHUB_ENV"
-
-      # ✅ 1. 리포지토리 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ 2. 더미 테스트 생성 (없을 경우 자동)
       - name: Ensure dummy test exists
         shell: bash
         run: |
           mkdir -p tests
           if [ ! -f "tests/test_basic.cpp" ]; then
-            cat > tests/test_basic.cpp <<'CPP'
-#include <iostream>
-int main(){ std::cout << "[r3c_tests] dummy test passed\n"; return 0; }
-CPP
-            echo "✅ Created tests/test_basic.cpp"
-          else
-            echo "✅ Found existing tests/test_basic.cpp"
+            echo '#include <iostream>' > tests/test_basic.cpp
+            echo 'int main(){ std::cout << "[r3c_tests] dummy test passed\\n"; return 0; }' >> tests/test_basic.cpp
           fi
 
-      # ✅ 3. OS별 의존성 설치
-      - name: Install build tools and dependencies (Ubuntu)
+      - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake nasm g++ nlohmann-json3-dev
 
-      - name: Install build tools and dependencies (macOS)
+      - name: Install build tools (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install cmake nasm || true
           mkdir -p include/nlohmann
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
             -o include/nlohmann/json.hpp
-          echo "✅ Downloaded nlohmann/json.hpp for macOS"
 
-      - name: Install build tools and dependencies (Windows)
+      - name: Install build tools (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install nasm -y
@@ -69,119 +55,59 @@ CPP
           mkdir -p include\nlohmann
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp ^
             -o include\nlohmann\json.hpp
-          echo "✅ Downloaded nlohmann/json.hpp for Windows"
 
-      # ✅ 4. CMake 설정 (모든 OS 공통 include 경로 강제)
-      - name: Configure project
-        run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/opt/homebrew/include -I/usr/local/include"
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/usr/local/include -I/opt/homebrew/include"
 
-      # ✅ 5. 빌드 (자가복구 포함)
-      - name: Build project (self-healing)
+      - name: Build (self-healing)
         shell: bash
         run: |
-          echo "⚙️ Starting first build..."
-          if ! cmake --build build --config Release -- -j4; then
-            echo "⚠️ Build failed — attempting repair..."
-            mkdir -p include/nlohmann
-            curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
-              -o include/nlohmann/json.hpp
-            cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/opt/homebrew/include -I/usr/local/include"
-            cmake --build build --config Release -- -j2 || (echo "❌ Build failed again" && exit 1)
-          fi
-          echo "✅ Build succeeded!"
+          cmake --build build --config Release -- -j4 || {
+            echo "⚠️ Build failed, retrying..."
+            cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/usr/local/include -I/opt/homebrew/include"
+            cmake --build build --config Release -- -j2
+          }
 
-      # ✅ 6. 테스트 실행
       - name: Run tests
         shell: bash
         run: |
           if [ -f "build/bin/r3c_tests" ]; then
             ./build/bin/r3c_tests
-          else
-            echo "⚠️ No test target found, skipping."
           fi
 
-      # ✅ 7. 문서 포함
-      - name: Prepare docs bundle
-        shell: bash
-        run: |
-          mkdir -p dist/docs
-          [ -f README.md ] && cp README.md dist/docs/ || true
-          [ -f r3c_spec.md ] && cp r3c_spec.md dist/docs/ || true
-          [ -d docs ] && cp -r docs/* dist/docs/ || true
-
-      # ✅ 8. 아티팩트 업로드
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: r3c-${{ matrix.os }}
-          path: |
-            build/bin/r3c*
-            dist/docs/**
-            !**/*.pdb
-
-      # ✅ 9. 빌드 메트릭 수집
       - name: Capture metrics
         id: metrics
         shell: bash
         run: |
           END_TS=$(date +%s)
           DUR=$(( END_TS - START_TS ))
-          echo "duration_sec=${DUR}" >> "$GITHUB_OUTPUT"
           MSG="$(git log -1 --pretty=%s)"
           SHA="$(git rev-parse --short HEAD)"
+          echo "duration_sec=${DUR}" >> "$GITHUB_OUTPUT"
           echo "commit_msg=${MSG}" >> "$GITHUB_OUTPUT"
           echo "commit_sha=${SHA}" >> "$GITHUB_OUTPUT"
 
-  # 🚀 10. 릴리스 + 코멘트
-  release:
-    name: Publish GitHub Release
+  timeline:
+    name: Update Progress Timeline
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release_artifacts
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Zip artifacts (date + run#)
-        id: pack
+      - name: Update progress file
         run: |
-          cd release_artifacts
-          DATE=$(date +%Y-%m-%d)
-          for dir in */; do
-            base="${dir%/}"
-            zip -qr "${base}-${DATE}-v${{ github.run_number }}.zip" "$dir"
-          done
-          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
+          mkdir -p logs
+          DATE=$(date '+%Y-%m-%d %H:%M:%S')
+          MSG="${{ needs.build.outputs.commit_msg }}"
+          SHA="${{ needs.build.outputs.commit_sha }}"
+          DUR="${{ needs.build.outputs.duration_sec }}"
+          echo "- ${DATE} | ✅ Build success | Commit: ${SHA} | ${MSG} | ${DUR}s" >> logs/R3C_Progress_Timeline.md
 
-      - name: Create GitHub Release
-        id: rel
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ github.run_number }}"
-          name: "R3C Build #${{ github.run_number }}"
-          body: |
-            🚀 **R3C Cross-Platform Build Completed**
-            ✅ Ubuntu · macOS · Windows
-            🧩 NASM + nlohmann/json + CMake
-            📦 Docs bundled (README / r3c_spec.md)
-            🕒 Build time (sec): ${{ needs.build.outputs.duration_sec }}
-            💬 Commit: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
-          files: release_artifacts/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ✅ 11. 코멘트 자동 작성 (PR/커밋)
-      - name: Comment on PR or commit
-        if: github.event_name == 'pull_request' || github.event_name == 'push'
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            ✅ **R3C Build #${{ github.run_number }} 성공**
-            🕒 소요: ${{ needs.build.outputs.duration_sec }}초
-            💬 커밋: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
-            🔗 [릴리스 보기](${{ steps.rel.outputs.html_url }})
+      - name: Commit and push timeline
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "r3c-bot"
+          git add logs/R3C_Progress_Timeline.md
+          git commit -m "update: progress log for build #${{ github.run_number }}" || echo "no changes"
+          git push
