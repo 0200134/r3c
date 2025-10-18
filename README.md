@@ -1,23 +1,228 @@
----
+
+# 🦀 R3C — Rust → NASM Transpiler & Self-Bootstrap Compiler
+
 ![r3c_progress-0](https://img.shields.io/badge/Tasks_Completed-0-brightgreen)
-## 🧩 Contributions Welcome
-
-R3C는 **Rust 3.0 Industrial LTS Compiler**를 지향하는 오픈소스 프로젝트입니다.  
-누구나 자유롭게 기여할 수 있으며, 코드·문서·아이디어 모두 환영합니다!
-
-<p align="center">
-  <img src="https://img.shields.io/badge/Contributions-Welcome-4CAF50?style=for-the-badge&logo=github" alt="Contributions Welcome"/>
-  <img src="https://img.shields.io/badge/License-MIT-blue?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Language-Rust%20%7C%20C++%20%7C%20NASM-orange?style=for-the-badge"/>
-</p>
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Project Board](https://img.shields.io/badge/Project_Board-Active-success.svg)](https://github.com/0200134/r3c/projects/1)
 
 ---
 
-### 🤝 How to Contribute
-1. **Fork** this repo  
-2. **Create a branch** — `feature/<기능명>`  
-3. **Commit** your changes  
-4. **Open a Pull Request (PR)**  
-5. **Wait for review & merge**
+## ⚙️ Overview
 
-> 📘 자세한 절차는 [CONTRIBUTION_GUIDE.md](./docs/CONTRIBUTION_GUIDE.md) 를 참고하세요.
+**R3C** aims to make **Rust fully independent** —  
+a self-hosting compiler that converts **Rust → NASM → Executable**,  
+completely **without LLVM, libc, or CRT**.
+
+> 🔧 *“Rust independence, built line-by-line in NASM.”*
+
+---
+
+## 🧱 Architecture
+
+
+
+
+[Rust Source]
+↓
+[Transpiler: r3c]
+↓
+[NASM Assembly]
+↓
+[Assembler: NASM]
+↓
+[Executable Binary]
+
+
+
+- ✅  LLVM-free pipeline  
+- ✅  Minimal runtime, no external libs  
+- ✅  Bootstrappable (R3C builds itself)  
+- ✅  CMake + NASM portable toolchain  
+
+---
+
+## 🚀 Build & Run
+
+### Windows (MSVC / MinGW)
+```bash
+git clone https://github.com/0200134/r3c.git
+cd r3c
+cmake -B build -S .
+cmake --build build
+.\build\r3c.exe --emit-asm examples\sample.cpp
+
+
+
+Linux (optional)
+
+
+sudo apt install cmake nasm g++
+cmake -B build -S .
+cmake --build build
+./build/r3c --emit-asm examples/sample.cpp
+
+
+
+
+🧩 Features
+
+
+
+
+Feature
+Status
+Description
+
+
+
+
+Rust → NASM Transpilation
+✅
+Supports basic control flow (if/else/while)
+
+
+NASM Bootstrap
+✅
+Can compile its own output
+
+
+Std-less Runtime
+🚧
+Core runtime under development
+
+
+Linux / ELF Support
+🧠 Planned
+Cross-target expansion
+
+
+Optimization Passes
+🔜
+Constant folding, DCE, etc.
+
+
+
+
+
+🧠 Philosophy
+
+
+R3C isn’t “yet another compiler.”
+
+It’s a Rust independence experiment —
+
+to prove that a modern language can self-host,
+
+without dragging a monolithic backend.
+
+
+
+🤖 Automation
+
+
+
+
+Workflow
+Description
+
+
+
+
+project-auto.yml
+Automatically moves Issues/PRs to the Project Board
+
+
+weekly-summary.yml
+Updates task-count badge weekly
+
+
+test-build.yml (planned)
+Continuous Integration build test
+
+
+
+
+Check the Project Board → R3C Compiler Development Board
+
+for all active tasks, ideas, and milestones.
+
+
+
+🤝 Contributing
+
+
+We welcome all contributors — from bug fixers to bootstrap architects.
+
+
+👉 See CONTRIBUTING Guide
+
+👉 Open Issue Templates
+
+
+Quick Start:
+
+
+git clone https://github.com/0200134/r3c.git
+cd r3c
+git checkout -b feature/my-feature
+cmake -B build -S .
+cmake --build build
+
+
+
+Once your PR is merged, automation will mark it as ✅ Done.
+
+
+
+🧾 License
+
+
+This project is licensed under the MIT License.
+
+You’re free to use, modify, and distribute — just keep the license notice.
+
+
+
+❤️ Contributors
+
+
+
+
+Name
+Contribution
+
+
+
+
+@0200134
+Creator / Maintainer
+
+
+(you?)
+Join via PR!
+
+
+
+
+
+
+
+“One NASM line closer to Rust’s independence.”
+
+
+
+
+
+---
+
+## ✅ 적용법
+1. GitHub 웹에서 `README.md` 클릭 → ✏️ **Edit**  
+2. 위 내용 전체 복사 → 기존 내용 교체  
+3. Commit → 바로 반영됨  
+
+---
+
+---
+
+
+
