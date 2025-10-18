@@ -1,5 +1,9 @@
 #pragma once
 
-#define R3C_VERSION      "@PROJECT_VERSION@"
-#define R3C_GIT_HASH     "@GIT_HASH@"
-#define R3C_BUILD_DATE   "@BUILD_DATE@"
+#define R3C_VERSION          "@PROJECT_VERSION@"
+#define R3C_GIT_HASH         "@GIT_HASH@"
+#define R3C_BUILD_DATE       "@BUILD_DATE@"
+#define R3C_PLATFORM         "@PLATFORM_NAME@"
+#define R3C_COMPILER_NAME    "@COMPILER_NAME@"
+#define R3C_COMPILER_VERSION "@COMPILER_VERSION@"
+#define R3C_NASM_VERSION     "@NASM_VERSION@"
