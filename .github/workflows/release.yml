@@ -1,152 +1,94 @@
-name: R3C Auto Release + Package Update
+name: R3C Auto Packaging & Release
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
-  release:
-    name: Build & Package on ${{ matrix.os }}
+  package:
+    name: Package R3C for ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Clean build directory
+      - name: Install dependencies
         shell: bash
         run: |
-          rm -rf build || true
+          if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm cmake -y; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm cmake fakeroot dpkg-dev; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm cmake; fi
 
-      - name: Setup NASM
-        shell: bash
+      - name: Configure & Build
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j4
+
+      - name: Package (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm -y; fi
-          if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm; fi
-          if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm; fi
+          mkdir -p pkg/r3c/usr/local/bin
+          cp build/r3c pkg/r3c/usr/local/bin/
+          mkdir -p pkg/r3c/DEBIAN
+          cat > pkg/r3c/DEBIAN/control <<EOF
+          Package: r3c
+          Version: ${GITHUB_REF_NAME#v}
+          Section: devel
+          Priority: optional
+          Architecture: amd64
+          Maintainer: R3C Team <r3c@example.com>
+          Description: Rust→NASM Transpiler + Bootstrap Compiler
+          EOF
+          dpkg-deb --build pkg/r3c r3c-${GITHUB_REF_NAME#v}-linux-amd64.deb
 
-      - name: Setup CMake
-        uses: lukka/get-cmake@latest
-
-      - name: Configure and build
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
         run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -- -j4
+          mkdir -p dist
+          tar -czvf dist/r3c-${GITHUB_REF_NAME#v}-macos-universal.tar.gz -C build r3c
 
-      - name: Package artifacts
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           mkdir -p dist
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            cp build/Release/r3c.exe dist/r3c-win64.exe
-          elif [ "$RUNNER_OS" == "Linux" ]; then
-            cp build/r3c dist/r3c-linux-x64
-          elif [ "$RUNNER_OS" == "macOS" ]; then
-            cp build/r3c dist/r3c-macos-x64
-          fi
+          zip -j dist/r3c-${GITHUB_REF_NAME#v}-windows-x64.zip build/Release/r3c.exe
 
-      - name: Upload artifact
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
-          path: dist/
+          path: |
+            *.deb
+            dist/*.zip
+            dist/*.tar.gz
 
-  publish:
-    name: Publish Release + Package Update
+  release:
+    name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: release
+    needs: package
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v4
 
-      - name: Download build artifacts
+      - name: Download all packages
         uses: actions/download-artifact@v4
         with:
-          path: ./artifacts
+          path: ./packages
 
-      - name: Create Release Notes
-        id: notes
+      - name: Generate release notes
         run: |
-          echo "### R3C $(date)" > release_notes.txt
+          echo "R3C Release $(date)" > release_notes.txt
+          echo "" >> release_notes.txt
           git log -1 --pretty=format:"%h - %s (%an)" >> release_notes.txt
 
-      - name: Create GitHub Release
+      - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: release_notes.txt
-          files: artifacts/**/*
+          files: packages/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ---------------------------
-      # 🍺 Homebrew Formula Update
-      # ---------------------------
-      - name: Update Homebrew formula
-        if: success()
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          mkdir -p Formula
-          cat > Formula/r3c.rb <<EOF
-          class R3c < Formula
-            desc "Rust→NASM Transpiler + Bootstrap Compiler"
-            homepage "https://github.com/0200134/r3c"
-            url "https://github.com/0200134/r3c/releases/download/${VERSION}/r3c-macos-x64"
-            sha256 "$(sha256sum artifacts/r3c-macos-x64 | awk '{print $1}')"
-            version "${VERSION}"
-            def install
-              bin.install "r3c-macos-x64" => "r3c"
-            end
-          end
-          EOF
-
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add Formula/r3c.rb
-          git commit -m "Update Homebrew formula for ${VERSION}" || true
-          git push origin main || true
-
-      # ---------------------------
-      # 🪟 Scoop Manifest Update
-      # ---------------------------
-      - name: Update Scoop manifest
-        if: success()
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          mkdir -p scoop
-          cat > scoop/r3c.json <<EOF
-          {
-            "version": "${VERSION}",
-            "architecture": {
-              "64bit": {
-                "url": "https://github.com/0200134/r3c/releases/download/${VERSION}/r3c-win64.exe",
-                "bin": "r3c-win64.exe"
-              }
-            },
-            "homepage": "https://github.com/0200134/r3c",
-            "description": "Rust LTS Transpiler + NASM Bootstrap Compiler"
-          }
-          EOF
-          git add scoop/r3c.json
-          git commit -m "Update Scoop manifest ${VERSION}" || true
-          git push origin main || true
-
-      # ---------------------------
-      # 🐧 Debian Package Build
-      # ---------------------------
-      - name: Build .deb package
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          mkdir -p deb/DEBIAN
-          echo "Package: r3c" > deb/DEBIAN/control
-          echo "Version: ${VERSION#v}" >> deb/DEBIAN/control
-          echo "Architecture: amd64" >> deb/DEBIAN/control
-          echo "Maintainer: 0200134 <actions@github.com>" >> deb/DEBIAN/control
-          echo "Description: Rust→NASM Transpiler + LTS Bootstrap Compiler" >> deb/DEBIAN/control
-          mkdir -p deb/usr/local/bin
-          cp artifacts/r3c-linux-x64 deb/usr/local/bin/r3c
-          chmod 755 deb/usr/local/bin/r3c
-          dpkg-deb --build deb "r3c_${VERSION#v}_amd64.deb"
-          mv r3c_*_amd64.deb artifacts/
