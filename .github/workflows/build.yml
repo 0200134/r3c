@@ -16,30 +16,41 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
+      # 1️⃣ 코드 체크아웃
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2️⃣ 이전 빌드 캐시 정리 (bash 강제)
       - name: Clean previous build cache
+        shell: bash
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then rmdir /S /Q build 2>nul || exit 0; fi
-          if [ "$RUNNER_OS" == "Linux" ]; then rm -rf build || true; fi
-          if [ "$RUNNER_OS" == "macOS" ]; then rm -rf build || true; fi
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            rmdir /S /Q build 2>nul || exit 0
+          elif [ "$RUNNER_OS" == "Linux" ] || [ "$RUNNER_OS" == "macOS" ]; then
+            rm -rf build || true
+          fi
 
+      # 3️⃣ NASM 설치
       - name: Setup NASM
+        shell: bash
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm -y; fi
           if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm; fi
           if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm; fi
 
+      # 4️⃣ CMake 설정
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
+      # 5️⃣ 빌드 설정 및 캐시 정책 최소버전 지정
       - name: Configure build
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
 
+      # 6️⃣ 프로젝트 빌드
       - name: Build project
         run: cmake --build build --config Release -- -j4
 
+      # 7️⃣ 테스트 (있는 경우만 실행)
       - name: Run test (if available)
         continue-on-error: true
         run: |
@@ -47,6 +58,7 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then ./build/r3c --test || exit 0; fi
           if [ "$RUNNER_OS" == "macOS" ]; then ./build/r3c --test || exit 0; fi
 
+      # 8️⃣ 아티팩트 업로드
       - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
