@@ -17,18 +17,25 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # 1️⃣ 코드 체크아웃
+      # --------------------------------------
+      # 1️⃣ Checkout repository
+      # --------------------------------------
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 캐시 초기화 (CMakeCache.txt 경로 충돌 완전 방지)
-      - name: Reset old CMake build cache
-        shell: bash
+      # --------------------------------------
+      # 2️⃣ Clean build cache (cross-platform)
+      # --------------------------------------
+      - name: Clean old CMake cache
+        shell: pwsh
         run: |
-          echo "[r3c] Resetting old build cache..."
-          rm -rf build CMakeCache.txt || true
+          if (Test-Path build) { Remove-Item build -Recurse -Force }
+          if (Test-Path CMakeCache.txt) { Remove-Item CMakeCache.txt -Force }
+          if (Test-Path b) { Remove-Item b -Recurse -Force }
 
-      # 3️⃣ NASM 설치
+      # --------------------------------------
+      # 3️⃣ Install NASM
+      # --------------------------------------
       - name: Setup NASM
         shell: bash
         run: |
@@ -36,45 +43,73 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm; fi
           if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm; fi
 
-      # 4️⃣ CMake 설치
+      # --------------------------------------
+      # 4️⃣ Setup CMake
+      # --------------------------------------
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
-      # 5️⃣ 빌드 설정
+      # --------------------------------------
+      # 5️⃣ Configure (short build dir on Windows)
+      # --------------------------------------
       - name: Configure CMake
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-
-      # 6️⃣ 빌드
-      - name: Build project
-        run: cmake --build build --config Release -- -j4
-
-      # 7️⃣ 테스트 실행 (옵션)
-      - name: Run internal tests
-        continue-on-error: true
+        shell: bash
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then ./build/Release/r3c.exe test || exit 0; fi
-          if [ "$RUNNER_OS" == "Linux" ]; then ./build/r3c test || exit 0; fi
-          if [ "$RUNNER_OS" == "macOS" ]; then ./build/r3c test || exit 0; fi
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cmake -B b -S . -DCMAKE_BUILD_TYPE=Release
+          else
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          fi
 
-      # 8️⃣ 빌드 결과 업로드
-      - name: Upload build artifacts
+      # --------------------------------------
+      # 6️⃣ Build
+      # --------------------------------------
+      - name: Build Project
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            cmake --build b --config Release -- -j4
+          else
+            cmake --build build --config Release -- -j4
+          fi
+
+      # --------------------------------------
+      # 7️⃣ Run internal tests
+      # --------------------------------------
+      - name: Run Tests
+        continue-on-error: true
+        shell: bash
+        run: |
+          echo "[r3c] Running internal test..."
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            ./b/Release/r3c.exe test || exit 0
+          elif [ "$RUNNER_OS" == "Linux" ]; then
+            ./build/r3c test || exit 0
+          else
+            ./build/r3c test || exit 0
+          fi
+
+      # --------------------------------------
+      # 8️⃣ Upload build artifacts
+      # --------------------------------------
+      - name: Upload Artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: |
             build/r3c*
+            b/Release/r3c.exe
             build/Release/r3c.exe
 
-  # ---------------------------
-  # ✅ Release 자동화 (태그 푸시 시 실행)
-  # ---------------------------
+  # --------------------------------------
+  # ✅ Optional: Auto-Release when tagging
+  # --------------------------------------
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -84,14 +119,12 @@ jobs:
         with:
           path: ./artifacts
 
-      - name: Create Release Notes
-        id: notes
+      - name: Generate release notes
         run: |
           echo "R3C Release $(date)" > release_notes.txt
-          echo "" >> release_notes.txt
           git log -1 --pretty=format:"%h - %s (%an)" >> release_notes.txt
 
-      - name: Publish GitHub Release
+      - name: Publish Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: release_notes.txt
