@@ -20,8 +20,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ 2. Ensure dummy test exists (prevents CMake failure)
-      - name: Create dummy test file if missing
+      # ✅ 2. Create dummy test (prevents CMake failure)
+      - name: Ensure dummy test exists
         shell: bash
         run: |
           mkdir -p tests
@@ -33,7 +33,7 @@ jobs:
             echo "✅ Found existing tests/test_basic.cpp"
           fi
 
-      # ✅ 3. Install all dependencies per OS
+      # ✅ 3. Install build tools & dependencies
       - name: Install build tools and dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
@@ -43,7 +43,10 @@ jobs:
       - name: Install build tools and dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install cmake nasm nlohmann-json
+          brew install cmake nasm
+          mkdir -p include/nlohmann
+          curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
+          echo "✅ Downloaded nlohmann/json.hpp for macOS"
 
       - name: Install build tools and dependencies (Windows)
         if: runner.os == 'Windows'
@@ -52,7 +55,7 @@ jobs:
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
           mkdir -p include/nlohmann
           curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
-          echo "✅ Downloaded nlohmann/json.hpp for Windows build"
+          echo "✅ Downloaded nlohmann/json.hpp for Windows"
 
       # ✅ 4. Configure & Build
       - name: Configure project
@@ -61,7 +64,7 @@ jobs:
       - name: Build project
         run: cmake --build build --config Release -- -j4
 
-      # ✅ 5. Run tests (if exists)
+      # ✅ 5. Run tests
       - name: Run tests
         shell: bash
         run: |
@@ -97,8 +100,9 @@ jobs:
       - name: Package artifacts
         run: |
           cd release_artifacts
+          DATE=$(date +%Y-%m-%d)
           for dir in */; do
-            zip -r "${dir%/}-v${{ github.run_number }}.zip" "$dir"
+            zip -r "${dir%/}-${DATE}-v${{ github.run_number }}.zip" "$dir"
           done
 
       - name: Create GitHub Release
@@ -108,9 +112,9 @@ jobs:
           name: "R3C Build #${{ github.run_number }}"
           body: |
             🚀 **R3C Cross-Platform Build Completed**
-            ✅ Ubuntu, macOS, Windows
-            🧩 Includes NASM + nlohmann/json + CMake pipeline
-            🧱 Auto dummy tests handled
+            ✅ Ubuntu · macOS · Windows
+            🧩 NASM + nlohmann/json + CMake pipeline
+            🧱 Dummy tests auto-generated when missing
           files: release_artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
