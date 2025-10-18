@@ -1,10 +1,11 @@
-name: R3C Cross-Platform Build & Test
+name: R3C Cross-Platform Build & Release
 
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,15 +21,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ 이전 빌드 캐시 정리 (bash 강제)
-      - name: Clean previous build cache
+      # 2️⃣ 캐시 초기화 (CMakeCache.txt 경로 충돌 완전 방지)
+      - name: Reset old CMake build cache
         shell: bash
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            rmdir /S /Q build 2>nul || exit 0
-          elif [ "$RUNNER_OS" == "Linux" ] || [ "$RUNNER_OS" == "macOS" ]; then
-            rm -rf build || true
-          fi
+          echo "[r3c] Resetting old build cache..."
+          rm -rf build CMakeCache.txt || true
 
       # 3️⃣ NASM 설치
       - name: Setup NASM
@@ -38,27 +36,27 @@ jobs:
           if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm; fi
           if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm; fi
 
-      # 4️⃣ CMake 설정
+      # 4️⃣ CMake 설치
       - name: Setup CMake
         uses: lukka/get-cmake@latest
 
-      # 5️⃣ 빌드 설정 및 캐시 정책 최소버전 지정
-      - name: Configure build
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+      # 5️⃣ 빌드 설정
+      - name: Configure CMake
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      # 6️⃣ 프로젝트 빌드
+      # 6️⃣ 빌드
       - name: Build project
         run: cmake --build build --config Release -- -j4
 
-      # 7️⃣ 테스트 (있는 경우만 실행)
-      - name: Run test (if available)
+      # 7️⃣ 테스트 실행 (옵션)
+      - name: Run internal tests
         continue-on-error: true
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then ./build/Release/r3c.exe --test || exit 0; fi
-          if [ "$RUNNER_OS" == "Linux" ]; then ./build/r3c --test || exit 0; fi
-          if [ "$RUNNER_OS" == "macOS" ]; then ./build/r3c --test || exit 0; fi
+          if [ "$RUNNER_OS" == "Windows" ]; then ./build/Release/r3c.exe test || exit 0; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then ./build/r3c test || exit 0; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then ./build/r3c test || exit 0; fi
 
-      # 8️⃣ 아티팩트 업로드
+      # 8️⃣ 빌드 결과 업로드
       - name: Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
@@ -67,3 +65,36 @@ jobs:
           path: |
             build/r3c*
             build/Release/r3c.exe
+
+  # ---------------------------
+  # ✅ Release 자동화 (태그 푸시 시 실행)
+  # ---------------------------
+  release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Release Notes
+        id: notes
+        run: |
+          echo "R3C Release $(date)" > release_notes.txt
+          echo "" >> release_notes.txt
+          git log -1 --pretty=format:"%h - %s (%an)" >> release_notes.txt
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.txt
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
