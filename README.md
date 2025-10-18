@@ -1,5 +1,5 @@
 ---
-
+![r3c_progress-0](https://img.shields.io/badge/Tasks_Completed-0-brightgreen)
 ## 🧩 Contributions Welcome
 
 R3C는 **Rust 3.0 Industrial LTS Compiler**를 지향하는 오픈소스 프로젝트입니다.  
