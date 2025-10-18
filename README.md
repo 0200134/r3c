@@ -1,4 +1,4 @@
-
+![Build](https://github.com/0200134/r3c/actions/workflows/build.yml/badge.svg)
 # 🦀 R3C — Rust → NASM Transpiler & Self-Bootstrap Compiler
 
 ![r3c_progress-0](https://img.shields.io/badge/Tasks_Completed-0-brightgreen)
