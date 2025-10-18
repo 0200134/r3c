@@ -1,0 +1,32 @@
+name: "💡 Feature Request"
+description: "새로운 기능을 제안합니다"
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: "요약"
+      placeholder: "추가하고 싶은 기능의 간단한 요약"
+  - type: textarea
+    id: motivation
+    attributes:
+      label: "배경 및 필요성"
+      description: "이 기능이 필요한 이유를 설명해주세요."
+  - type: textarea
+    id: details
+    attributes:
+      label: "세부 내용"
+      description: "구체적인 기능 동작, API, CLI 명령어 예시 등을 포함해주세요."
+      placeholder: |
+        예시:
+        - 새로운 Rust→NASM 변환 규칙 추가
+        - `r3c.exe --lint` 옵션 지원
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "우선순위"
+      options:
+        - 낮음
+        - 보통
+        - 높음
