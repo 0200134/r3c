@@ -1,43 +1,35 @@
-#include "transpiler.hpp"
-#include "r3c_build_info.hpp"
 #include <string>
 #include <vector>
 #include <iostream>
+#include <filesystem>
+#include "pkgmgr.hpp"
+
+// r3c.cpp에서 가져오는 함수
+int r3c_entry(int argc, char** argv);
+
+int run_pipeline(const std::vector<std::string>&, const std::string&, bool, bool, const std::string&, bool);
+int pkg_main(int argc, char** argv);
+int fmt_main();
+int test_main();
+int doc_main();
 
 int main(int argc, char** argv) {
-    std::vector<std::string> args;
-    args.reserve(argc);
-    for (int i = 0; i < argc; ++i)
-        args.emplace_back(argv[i]);
-
-    // -------------------------
-    // --version / --about 지원
-    // -------------------------
     if (argc > 1) {
-        const std::string arg = args[1];
-        if (arg == "--version") {
-            std::cout << "r3c v" << R3C_VERSION
-                      << " (" << R3C_GIT_HASH
-                      << ", built " << R3C_BUILD_DATE << ")\n";
-            return 0;
-        }
-        if (arg == "--about") {
-            std::cout << "R3C Build Info\n"
-                      << "---------------------------\n"
-                      << "Version    : " << R3C_VERSION << "\n"
-                      << "Git Hash   : " << R3C_GIT_HASH << "\n"
-                      << "Build Date : " << R3C_BUILD_DATE << "\n"
-                      << "Platform   : " << R3C_PLATFORM << "\n"
-                      << "Compiler   : " << R3C_COMPILER_NAME
-                      << " " << R3C_COMPILER_VERSION << "\n"
-                      << "NASM       : " << R3C_NASM_VERSION << "\n";
-            return 0;
+        std::string cmd = argv[1];
+        if (cmd == "pkg")  return pkg_main(argc - 1, argv + 1);
+        if (cmd == "fmt")  return fmt_main();
+        if (cmd == "test") return test_main();
+        if (cmd == "doc")  return doc_main();
+        if (cmd == "build" || cmd == "run" || cmd == "clean") {
+            if (cmd == "clean") {
+                std::filesystem::remove_all("build");
+                std::cout << "[OK] cleaned\n";
+                return 0;
+            }
+            return r3c_entry(argc, argv);
         }
     }
 
-    // -------------------------
-    // 기본 파이프라인 실행
-    // -------------------------
-    const std::string asm_out = "build/out_lts.asm";
-    return run_pipeline(args, "", true, true, asm_out, false);
+    // 기본 동작: r3c 파이프라인 실행
+    return r3c_entry(argc, argv);
 }
