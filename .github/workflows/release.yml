@@ -1,0 +1,71 @@
+name: R3C Auto Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 예: v0.1.0, v1.0.0 등
+
+jobs:
+  release:
+    name: Release on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clean previous build cache
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then rmdir /S /Q build 2>nul || exit 0; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then rm -rf build || true; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then rm -rf build || true; fi
+
+      - name: Setup NASM
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm -y; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm; fi
+
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
+
+      - name: Configure build
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build project
+        run: cmake --build build --config Release -- -j4
+
+      - name: Package artifact
+        run: |
+          mkdir dist || true
+          if [ "$RUNNER_OS" == "Windows" ]; then cp build/Release/r3c.exe dist/r3c-win64.exe; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then cp build/r3c dist/r3c-linux-x64; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then cp build/r3c dist/r3c-macos-x64; fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-${{ matrix.os }}
+          path: dist/
+
+  publish:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
