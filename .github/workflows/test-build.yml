@@ -11,11 +11,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y cmake nasm
-      - name: Configure
-        run: cmake -B build -S .
+
+      - name: Clean & Configure
+        run: |
+          rm -rf build
+          cmake -B build -S .
+
       - name: Build
         run: cmake --build build --config Release -j4
-      - name: Verify
+
+      - name: Verify binary
         run: test -f build/r3c && echo "✅ Build OK" || (echo "❌ Build failed" && exit 1)
