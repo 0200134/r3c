@@ -9,16 +9,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # =====================================
-# 📦 Include 경로 설정 (macOS / Ubuntu / Windows 호환)
+# 📦 Include 경로 (모든 OS 지원)
 # =====================================
-# - macOS: Homebrew 패키지 (M1은 /opt/homebrew/include, Intel은 /usr/local/include)
-# - Ubuntu: /usr/include (apt nlohmann-json3-dev 설치 시)
-# - Windows: include/nlohmann/json.hpp (CI에서 curl 다운로드)
+# - macOS(Homebrew): /opt/homebrew/include, /usr/local/include
+# - Ubuntu(apt): /usr/include
+# - Windows(curl): ${CMAKE_SOURCE_DIR}/include
 include_directories(
+    ${CMAKE_SOURCE_DIR}/include
     /opt/homebrew/include
     /usr/local/include
     /usr/include
-    ${CMAKE_SOURCE_DIR}/include
 )
 
 # =====================================
@@ -32,7 +32,7 @@ else()
 endif()
 
 # =====================================
-# 📁 소스 파일 목록
+# 📁 소스 파일
 # =====================================
 set(SRC_FILES
     src/main.cpp
@@ -45,19 +45,19 @@ set(SRC_FILES
 )
 
 # =====================================
-# ⚙️ 실행 파일 타깃
+# ⚙️ 실행 파일
 # =====================================
 add_executable(r3c ${SRC_FILES})
 
 # =====================================
-# 💾 출력 디렉토리 지정
+# 💾 출력 디렉토리
 # =====================================
 set_target_properties(r3c PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
 # =====================================
-# 🧪 조건부 테스트 설정
+# 🧪 조건부 테스트
 # =====================================
 if(EXISTS "${CMAKE_SOURCE_DIR}/tests/test_basic.cpp")
     message(STATUS "🧪 Test file found → enabling test build...")
@@ -73,6 +73,7 @@ endif()
 # =====================================
 message(STATUS "=====================================================")
 message(STATUS "[r3c] Rust → NASM → Executable build pipeline enabled")
-message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
-message(STATUS "Build Type  : ${CMAKE_BUILD_TYPE}")
+message(STATUS "C++ Compiler : ${CMAKE_CXX_COMPILER}")
+message(STATUS "Build Type   : ${CMAKE_BUILD_TYPE}")
+message(STATUS "Source Dir   : ${CMAKE_SOURCE_DIR}")
 message(STATUS "=====================================================")
