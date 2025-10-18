@@ -215,10 +215,6 @@ Join via PR!
 
 ---
 
-## ✅ 적용법
-1. GitHub 웹에서 `README.md` 클릭 → ✏️ **Edit**  
-2. 위 내용 전체 복사 → 기존 내용 교체  
-3. Commit → 바로 반영됨  
 
 ---
 
