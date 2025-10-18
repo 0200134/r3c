@@ -16,11 +16,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # ✅ Checkout code
+      # ✅ 1. Checkout repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Always ensure test_basic.cpp exists BEFORE cmake
+      # ✅ 2. Ensure dummy test exists (prevents CMake failure)
       - name: Create dummy test file if missing
         shell: bash
         run: |
@@ -33,32 +33,35 @@ jobs:
             echo "✅ Found existing tests/test_basic.cpp"
           fi
 
-      # 🛠 Install dependencies
-      - name: Install build tools (Linux)
+      # ✅ 3. Install all dependencies per OS
+      - name: Install build tools and dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake nasm g++
+          sudo apt-get install -y cmake nasm g++ nlohmann-json3-dev
 
-      - name: Install build tools (Windows)
+      - name: Install build tools and dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake nasm nlohmann-json
+
+      - name: Install build tools and dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install nasm -y
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          mkdir -p include/nlohmann
+          curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
+          echo "✅ Downloaded nlohmann/json.hpp for Windows build"
 
-      - name: Install build tools (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install cmake nasm
-
-      # ⚙️ Configure & Build
+      # ✅ 4. Configure & Build
       - name: Configure project
         run: cmake -B build -S .
 
       - name: Build project
         run: cmake --build build --config Release -- -j4
 
-      # 🧪 Run tests (optional)
+      # ✅ 5. Run tests (if exists)
       - name: Run tests
         shell: bash
         run: |
@@ -66,11 +69,11 @@ jobs:
             echo "Running tests..."
             ./build/bin/r3c_tests
           else
-            echo "⚠️ No tests found, skipping."
+            echo "⚠️ No test target found, skipping."
           fi
 
-      # 📦 Upload build artifacts
-      - name: Upload artifact
+      # ✅ 6. Upload artifact for each OS
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
@@ -78,7 +81,7 @@ jobs:
             build/bin/r3c*
             !**/*.pdb
 
-  # 🚀 Release job
+  # 🚀 7. Release Job
   release:
     name: Publish GitHub Release
     needs: build
@@ -98,15 +101,16 @@ jobs:
             zip -r "${dir%/}-v${{ github.run_number }}.zip" "$dir"
           done
 
-      - name: Publish GitHub Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
           name: "R3C Build #${{ github.run_number }}"
           body: |
-            ✅ Cross-platform build succeeded
-            🧩 Includes NASM, CMake, and dummy tests
-            🌍 Ubuntu / macOS / Windows supported
+            🚀 **R3C Cross-Platform Build Completed**
+            ✅ Ubuntu, macOS, Windows
+            🧩 Includes NASM + nlohmann/json + CMake pipeline
+            🧱 Auto dummy tests handled
           files: release_artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
