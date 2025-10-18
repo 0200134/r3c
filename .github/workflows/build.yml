@@ -16,47 +16,42 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup NASM
-        uses: ilammy/setup-nasm@v1
-        with:
-          version: latest
-
-      - name: Install CMake
-        uses: lukka/get-cmake@v1.6.0
-        with:
-          cmakeVersion: latest
-
-      - name: Install MinGW
+      - name: Install dependencies
+        shell: powershell
         run: |
+          choco install cmake -y --installargs 'ADD_CMAKE_TO_PATH=System'
           choco install mingw -y
+          choco install nasm -y
+          refreshenv
+          cmake --version
           g++ --version
+          nasm -v
 
-      - name: Clean previous build
-        run: |
-          if exist build (
-            echo Deleting stale build folder...
-            rmdir /s /q build
-          )
+      - name: Clean build folder
+        shell: bash
+        run: rm -rf build
 
-      - name: Configure project
+      - name: Configure (CMake)
+        shell: bash
         run: cmake -B build -S . -G "MinGW Makefiles"
 
-      - name: Build project
+      - name: Build
+        shell: bash
         run: cmake --build build --config Release
 
       - name: Test transpiler
+        shell: bash
         run: |
-          echo =====================================================
-          echo [r3c] Rust LTS transpiler test (Windows)
-          echo =====================================================
-          build\r3c.exe --emit-asm --test
-        continue-on-error: true
+          echo "====================================================="
+          echo "[r3c] Rust LTS transpiler test (Windows)"
+          echo "====================================================="
+          ./build/r3c.exe --emit-asm --test || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-windows
-          path: build\r3c.exe
+          path: build/r3c.exe
 
   build-linux:
     name: 🐧 Build on Ubuntu (GCC)
@@ -71,22 +66,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake nasm
 
-      - name: Clean previous build
+      - name: Clean build folder
         run: rm -rf build
 
-      - name: Configure project
+      - name: Configure (CMake)
         run: cmake -B build -S . -G "Unix Makefiles"
 
-      - name: Build project
+      - name: Build
         run: cmake --build build --config Release
 
       - name: Test transpiler
         run: |
-          echo =====================================================
-          echo [r3c] Rust LTS transpiler test (Linux)
-          echo =====================================================
-          ./build/r3c --emit-asm --test
-        continue-on-error: true
+          echo "====================================================="
+          echo "[r3c] Rust LTS transpiler test (Linux)"
+          echo "====================================================="
+          ./build/r3c --emit-asm --test || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
