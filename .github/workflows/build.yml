@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v4
 
       # --------------------------------------
-      # 2️⃣ Clean old build cache (cross-platform)
+      # 2️⃣ Clean old CMake cache
       # --------------------------------------
       - name: Clean old CMake cache
         shell: pwsh
@@ -50,7 +50,7 @@ jobs:
         uses: lukka/get-cmake@latest
 
       # --------------------------------------
-      # 5️⃣ Configure (short build dir for Windows)
+      # 5️⃣ Configure (short build dir on Windows)
       # --------------------------------------
       - name: Configure CMake
         shell: bash
@@ -62,15 +62,17 @@ jobs:
           fi
 
       # --------------------------------------
-      # 6️⃣ Build (Windows uses /m, others use -j4)
+      # 6️⃣ Build (unified via CMAKE_BUILD_PARALLEL_LEVEL)
       # --------------------------------------
       - name: Build Project
         shell: bash
+        env:
+          CMAKE_BUILD_PARALLEL_LEVEL: 4
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then
-            cmake --build b --config Release -- /m
+            cmake --build b --config Release
           else
-            cmake --build build --config Release -- -j4
+            cmake --build build --config Release
           fi
 
       # --------------------------------------
