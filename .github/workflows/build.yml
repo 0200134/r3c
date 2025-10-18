@@ -1,135 +1,51 @@
-name: R3C Multi-Platform Build & Test
+name: R3C Cross-Platform Build & Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ main ]
 
 jobs:
-  # 🪟 Windows (MinGW + NASM)
-  build-windows:
-    name: 🪟 Windows Build (MinGW)
-    runs-on: windows-latest
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install dependencies
-        shell: powershell
+      - name: Setup NASM
         run: |
-          choco install cmake -y --installargs 'ADD_CMAKE_TO_PATH=System'
-          choco install mingw -y
-          choco install nasm -y
-          refreshenv
-          cmake --version
-          g++ --version
-          nasm -v
+          if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm -y; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm; fi
 
-      - name: Clean previous build
-        shell: bash
-        run: rm -rf build
+      - name: Setup CMake
+        uses: lukka/get-cmake@latest
 
-      - name: Configure (CMake)
-        shell: bash
-        run: cmake -B build -S . -G "MinGW Makefiles"
+      - name: Configure build
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
-        shell: bash
-        run: cmake --build build --config Release
+      - name: Build project
+        run: cmake --build build --config Release -- -j4
 
-      - name: Test transpiler
-        shell: bash
+      - name: Run test (if available)
+        continue-on-error: true
         run: |
-          echo "====================================================="
-          echo "[r3c] Test on Windows"
-          echo "====================================================="
-          ./build/r3c.exe --emit-asm --test || true
+          if [ "$RUNNER_OS" == "Windows" ]; then ./build/Release/r3c.exe --test || exit 0; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then ./build/r3c --test || exit 0; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then ./build/r3c --test || exit 0; fi
 
-      - name: Upload artifact
+      - name: Upload build artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-windows
-          path: build/r3c.exe
-
-
-  # 🐧 Linux (GCC + NASM)
-  build-linux:
-    name: 🐧 Linux Build (GCC)
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake nasm
-
-      - name: Clean previous build
-        run: rm -rf build
-
-      - name: Configure (CMake)
-        run: cmake -B build -S . -G "Unix Makefiles"
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Test transpiler
-        run: |
-          echo "====================================================="
-          echo "[r3c] Test on Linux"
-          echo "====================================================="
-          ./build/r3c --emit-asm --test || true
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: r3c-linux
-          path: build/r3c
-
-
-  # 🍎 macOS (Clang + NASM)
-  build-macos:
-    name: 🍎 macOS Build (Clang)
-    runs-on: macos-latest
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          brew update
-          brew install cmake nasm
-
-      - name: Verify toolchain
-        run: |
-          clang++ --version
-          cmake --version
-          nasm -v
-
-      - name: Clean previous build
-        run: rm -rf build
-
-      - name: Configure (CMake)
-        run: cmake -B build -S . -G "Unix Makefiles"
-
-      - name: Build
-        run: cmake --build build --config Release
-
-      - name: Test transpiler
-        run: |
-          echo "====================================================="
-          echo "[r3c] Test on macOS"
-          echo "====================================================="
-          ./build/r3c --emit-asm --test || true
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: r3c-macos
-          path: build/r3c
+          name: r3c-${{ matrix.os }}
+          path: |
+            build/r3c*
+            build/Release/r3c.exe
