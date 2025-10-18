@@ -1,67 +1,71 @@
-cmake_minimum_required(VERSION 3.20)
-project(R3C LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.10)
+project(r3c LANGUAGES CXX)
 
-# =========================================================
-# ✅ 기본 설정
-# =========================================================
-set(CMAKE_CXX_STANDARD 20)
+# =====================================
+# 🔧 기본 설정
+# =====================================
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 빌드 경고 강화
-if(MSVC)
-    add_compile_options(/W4 /permissive- /EHsc)
+# =====================================
+# 🔍 NASM 확인
+# =====================================
+find_program(NASM_EXECUTABLE nasm)
+if (NASM_EXECUTABLE)
+    message(STATUS "✅ NASM found: ${NASM_EXECUTABLE}")
 else()
-    add_compile_options(-Wall -Wextra -Wpedantic)
+    message(FATAL_ERROR "❌ NASM not found. Please install NASM before building.")
 endif()
 
-# 출력 디렉토리 통일
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-
-# =========================================================
-# ✅ 헤더 / 소스 경로
-# =========================================================
-include_directories(${CMAKE_SOURCE_DIR}/include)
-
-file(GLOB_RECURSE SRC_FILES
-    ${CMAKE_SOURCE_DIR}/src/*.cpp
-    ${CMAKE_SOURCE_DIR}/src/utils/*.cpp
+# =====================================
+# 📁 소스 파일 목록
+# =====================================
+set(SRC_FILES
+    src/main.cpp
+    src/docgen.cpp
+    src/formatter.cpp
+    src/manifest.cpp
+    src/pkgmgr.cpp
+    src/r3c.cpp
+    src/r3cpkg.cpp
 )
 
+# =====================================
+# ⚙️ 실행 파일 타깃
+# =====================================
 add_executable(r3c ${SRC_FILES})
 
-# =========================================================
-# ✅ NASM 탐지 (Windows/Linux 공용)
-# =========================================================
-find_program(NASM_EXE nasm
-    PATHS
-        "C:/Program Files/NASM"
-        "C:/Program Files (x86)/NASM"
-        /usr/bin
-        /usr/local/bin
+# =====================================
+# 💾 출력 디렉토리 지정
+# =====================================
+set_target_properties(r3c PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
-if(NOT NASM_EXE)
-    message(FATAL_ERROR "❌ NASM not found! Please install NASM before building.")
-else()
-    message(STATUS "✅ NASM found: ${NASM_EXE}")
-endif()
 
-# =========================================================
-# ✅ 테스트 빌드 옵션
-# =========================================================
-option(R3C_BUILD_TESTS "Build R3C test suite" ON)
+# =====================================
+# 🧩 추가 include / 링크 설정 (필요시)
+# =====================================
+# target_include_directories(r3c PRIVATE include)
+# target_link_libraries(r3c PRIVATE ...)
 
-if(R3C_BUILD_TESTS)
+# =====================================
+# 🧪 조건부 테스트 설정
+# =====================================
+if(EXISTS "${CMAKE_SOURCE_DIR}/tests/test_basic.cpp")
+    message(STATUS "🧪 Test file found → enabling test build...")
     enable_testing()
-    add_executable(r3c_tests ${CMAKE_SOURCE_DIR}/tests/test_basic.cpp)
-    add_test(
-        NAME R3C_BasicTest
-        COMMAND $<TARGET_FILE:r3c_tests>
-        WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}
-    )
+    add_executable(r3c_tests tests/test_basic.cpp)
+    add_test(NAME r3c_tests COMMAND r3c_tests)
+else()
+    message(WARNING "⚠️ No tests found (tests/test_basic.cpp missing) → skipping test target.")
 endif()
 
-# =========================================================
-# ✅ 설치 / 패키징 (선택)
-# =========================================================
-install(TARGETS r3c DESTINATION bin)
+# =====================================
+# 🧾 빌드 정보 출력
+# =====================================
+message(STATUS "=====================================================")
+message(STATUS "[r3c] Rust → NASM → Executable build pipeline enabled")
+message(STATUS "C++ Compiler: ${CMAKE_CXX_COMPILER}")
+message(STATUS "Build Type  : ${CMAKE_BUILD_TYPE}")
+message(STATUS "=====================================================")
