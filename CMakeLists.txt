@@ -7,6 +7,7 @@ project(r3c LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -41,14 +42,26 @@ else()
 endif()
 
 # ====================================================
-# 소스 파일 수집 (.hpp)
+# nlohmann/json 자동 포함 (header-only)
+# ====================================================
+include(FetchContent)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.2
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+# ====================================================
+# 소스 파일 수집 (.hpp 사용)
 # ====================================================
 file(GLOB_RECURSE R3C_SOURCES
   src/*.cpp
   src/*.hpp
 )
-
 add_executable(r3c ${R3C_SOURCES})
+target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
+
 set_target_properties(r3c PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
   OUTPUT_NAME "r3c"
@@ -65,15 +78,12 @@ else()
 endif()
 
 # ====================================================
-# 경로 설정
+# Rust → ASM → OBJ → EXE 자동화
 # ====================================================
 set(R3C_ASM "${CMAKE_BINARY_DIR}/out_lts.asm")
 set(R3C_OBJ "${CMAKE_BINARY_DIR}/out_lts.obj")
 set(R3C_EXE "${CMAKE_BINARY_DIR}/out_lts${OUT_EXT}")
 
-# ====================================================
-# 트랜스파일 → 어셈블 → 링크 → 실행 자동화
-# ====================================================
 add_custom_command(
   OUTPUT ${R3C_ASM}
   COMMAND $<TARGET_FILE:r3c> --emit-asm --emit-asm-from-rust --asm-out ${R3C_ASM}
@@ -96,15 +106,9 @@ add_custom_command(
   COMMENT "[r3c] Linking Object → Executable..."
 )
 
-add_custom_command(
-  TARGET r3c POST_BUILD
-  COMMAND ${R3C_EXE}
-  COMMENT "[r3c] Running final binary..."
-)
-
 add_custom_target(pipeline ALL
   DEPENDS ${R3C_EXE}
-  COMMENT "[r3c] Full Rust→ASM→OBJ→EXE→RUN pipeline complete."
+  COMMENT "[r3c] Full Rust→ASM→OBJ→EXE pipeline complete."
 )
 
 # ====================================================
