@@ -1,94 +1,118 @@
-name: R3C Auto Packaging & Release
+# =========================================================
+# 📦 .github/workflows/release.yml
+# R3C Cross-Platform Build & Release Pipeline
+# =========================================================
+
+name: R3C Cross-Platform Build & Release
 
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'          # 태그(v1.0.0 등) 푸시 시 실행
+  workflow_dispatch:   # 수동 실행도 가능
 
 jobs:
-  package:
-    name: Package R3C for ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+  build:
+    name: Build on ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+    runs-on: ${{ matrix.os }}
 
+    steps:
+      - uses: actions/checkout@v4
+
+      # -----------------------------
+      # ✅ 의존성 설치 (OS별 분기)
+      # -----------------------------
       - name: Install dependencies
         shell: bash
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm cmake -y; fi
-          if [ "$RUNNER_OS" == "Linux" ]; then sudo apt-get update && sudo apt-get install -y nasm cmake fakeroot dpkg-dev; fi
-          if [ "$RUNNER_OS" == "macOS" ]; then brew install nasm cmake; fi
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            choco install -y cmake nasm
+          elif [[ "${{ runner.os }}" == "macOS" ]]; then
+            brew install cmake nasm
+          else
+            sudo apt-get update && sudo apt-get install -y cmake nasm
+          fi
 
+      # -----------------------------
+      # 🧱 빌드 단계
+      # -----------------------------
       - name: Configure & Build
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release && cmake --build build --config Release -j4
-
-      - name: Package (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          mkdir -p pkg/r3c/usr/local/bin
-          cp build/r3c pkg/r3c/usr/local/bin/
-          mkdir -p pkg/r3c/DEBIAN
-          cat > pkg/r3c/DEBIAN/control <<EOF
-          Package: r3c
-          Version: ${GITHUB_REF_NAME#v}
-          Section: devel
-          Priority: optional
-          Architecture: amd64
-          Maintainer: R3C Team <r3c@example.com>
-          Description: Rust→NASM Transpiler + Bootstrap Compiler
-          EOF
-          dpkg-deb --build pkg/r3c r3c-${GITHUB_REF_NAME#v}-linux-amd64.deb
-
-      - name: Package (macOS)
-        if: matrix.os == 'macos-latest'
-        run: |
-          mkdir -p dist
-          tar -czvf dist/r3c-${GITHUB_REF_NAME#v}-macos-universal.tar.gz -C build r3c
-
-      - name: Package (Windows)
-        if: matrix.os == 'windows-latest'
         shell: bash
         run: |
-          mkdir -p dist
-          zip -j dist/r3c-${GITHUB_REF_NAME#v}-windows-x64.zip build/Release/r3c.exe
+          rm -rf build
+          cmake -B build -S . -DR3C_BUILD_TESTS=OFF
+          cmake --build build --config Release -j4
 
-      - name: Upload artifacts
+      # -----------------------------
+      # 🧪 실행 파일 확인
+      # -----------------------------
+      - name: Verify binary
+        shell: bash
+        run: |
+          if [ -f "build/r3c" ] || [ -f "build/r3c.exe" ]; then
+            echo "✅ Build OK"
+          else
+            echo "❌ Build failed"
+            exit 1
+          fi
+
+      # -----------------------------
+      # 📤 아티팩트 업로드
+      # -----------------------------
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-${{ matrix.os }}
+          name: r3c-${{ runner.os }}
           path: |
-            *.deb
-            dist/*.zip
-            dist/*.tar.gz
+            build/r3c
+            build/r3c.exe
+            build/*.asm
+            build/*.obj
+            build/*.elf
+            !build/CMakeFiles/**
 
+  # =========================================================
+  # 🚀 릴리스 단계 (모든 빌드 완료 후 실행)
+  # =========================================================
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: package
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+    needs: build
+    permissions:
+      contents: write
 
-      - name: Download all packages
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./packages
+          path: artifacts
 
-      - name: Generate release notes
-        run: |
-          echo "R3C Release $(date)" > release_notes.txt
-          echo "" >> release_notes.txt
-          git log -1 --pretty=format:"%h - %s (%an)" >> release_notes.txt
+      - name: Show artifact list
+        run: ls -R artifacts
 
-      - name: Publish Release
-        uses: softprops/action-gh-release@v2
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
         with:
-          body_path: release_notes.txt
-          files: packages/**/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ github.ref_name }}
+          name: "R3C ${{
+            github.ref_name
+          }} Release"
+          body: |
+            🚀 **R3C ${{
+              github.ref_name
+            }} Cross-Platform Build**
+
+            Includes binaries for:
+            - 🪟 Windows
+            - 🐧 Linux (Ubuntu)
+            - 🍎 macOS
+
+            Built automatically via GitHub Actions.
+          files: artifacts/**
