@@ -1,3 +1,0 @@
-C:/rustboot/r3c/build/CMakeFiles/r3c.dir
-C:/rustboot/r3c/build/CMakeFiles/edit_cache.dir
-C:/rustboot/r3c/build/CMakeFiles/rebuild_cache.dir
