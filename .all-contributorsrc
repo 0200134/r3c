@@ -1,0 +1,19 @@
+{
+  "projectName": "r3c",
+  "projectOwner": "0200134",
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "files": ["README.md"],
+  "imageSize": 80,
+  "commit": false,
+  "contributors": [
+    {
+      "login": "0200134",
+      "name": "0200134",
+      "avatar_url": "https://avatars.githubusercontent.com/u/0200134?v=4",
+      "profile": "https://github.com/0200134",
+      "contributions": ["code", "maintenance", "doc"]
+    }
+  ],
+  "contributorsPerLine": 7
+}
