@@ -1,0 +1,33 @@
+name: "📘 Spec Proposal"
+description: "Rust 3.0 명세(R3C Spec)에 대한 변경 제안"
+title: "[Spec] "
+labels: ["spec", "discussion"]
+body:
+  - type: input
+    id: section
+    attributes:
+      label: "관련 명세 섹션"
+      placeholder: "예: 5.2 Memory Model / 6.1 NASM Pipeline"
+  - type: textarea
+    id: summary
+    attributes:
+      label: "변경 제안 요약"
+      description: "어떤 변경 또는 추가를 제안하는지 요약"
+  - type: textarea
+    id: rationale
+    attributes:
+      label: "제안 이유 / 배경"
+      description: "이 제안이 왜 필요한지 설명"
+  - type: textarea
+    id: impact
+    attributes:
+      label: "영향도 분석"
+      description: "이 변경이 트랜스파일러, 표준 라이브러리, 또는 ABI에 미치는 영향"
+  - type: checkboxes
+    id: compatibility
+    attributes:
+      label: "하위 호환성 영향 여부"
+      options:
+        - label: "기존 코드와 호환 유지됨"
+        - label: "부분적 비호환성 존재"
+        - label: "완전한 비호환 변경"
