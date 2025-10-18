@@ -19,6 +19,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Clean previous build cache
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then rmdir /S /Q build 2>nul || exit 0; fi
+          if [ "$RUNNER_OS" == "Linux" ]; then rm -rf build || true; fi
+          if [ "$RUNNER_OS" == "macOS" ]; then rm -rf build || true; fi
+
       - name: Setup NASM
         run: |
           if [ "$RUNNER_OS" == "Windows" ]; then choco install nasm -y; fi
