@@ -1,17 +1,27 @@
-# Contributing to R3C
+# Contributing to R3C 🦀➡️⚙️
 
-감사합니다. R3C 프로젝트는 오픈 Rust 3.0 사양을 목표로 하며, 누구나 기여할 수 있습니다.
+Welcome to **R3C (Rust→NASM Compiler)** — a project aiming to build a fully self-hosted, LLVM-free Rust transpiler and NASM bootstrap pipeline.
+
+We welcome contributions from anyone interested in compilers, assembly generation, bootstrapping, and low-level systems programming.
 
 ---
 
-## 🔧 개발 환경
-- OS: Windows 10+, Linux (Ubuntu 22.04+)
-- Toolchain:
-  - CMake 3.12+
-  - NASM 2.16+
-  - clang++ 17+
-  - Rust 1.65+ (optional, for r3clib.rs)
-- 빌드:
-  ```bash
-  cmake -B build -S .
-  cmake --build build
+## ⚙️ 1. Project Goals
+
+R3C’s primary mission:
+- Build **Rust → NASM → Binary** pipeline without LLVM, libc, or CRT.
+- Make the compiler **self-hosting** (R3C can compile itself).
+- Keep the build portable: **CMake + C++17 + NASM + MinGW (Windows)**.
+- Provide reproducible builds and minimal runtime dependencies.
+
+---
+
+## 🚀 2. How to Contribute
+
+### 🪞 Step-by-step workflow
+1. **Fork** this repository  
+   → Click the “Fork” button (top right).
+2. **Clone** your fork  
+   ```bash
+   git clone https://github.com/<your-username>/r3c.git
+   cd r3c
