@@ -1,11 +1,11 @@
-name: R3C Cross-Platform Build & Release (Self-Healing + Report)
+name: R3C Cross-Platform Build & Release (Final Verified)
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "*" ]           # 모든 브랜치에서 실행
   pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+    branches: [ "*" ]           # PR 시에도 실행
+  workflow_dispatch:             # 수동 실행 허용 (Actions 탭에서 Run workflow 버튼 표시)
 
 jobs:
   build:
@@ -21,16 +21,16 @@ jobs:
       commit_sha: ${{ steps.metrics.outputs.commit_sha }}
 
     steps:
-      # 0) 시작 타임스탬프
+      # ✅ 0. 시작 타임스탬프
       - name: Mark start time
         id: start
         run: echo "START_TS=$(date +%s)" >> "$GITHUB_ENV"
 
-      # 1) 체크아웃
-      - name: Checkout
+      # ✅ 1. 리포지토리 체크아웃
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2) 더미 테스트 확보 (CMake 실패 방지)
+      # ✅ 2. 더미 테스트 생성 (없을 경우 자동)
       - name: Ensure dummy test exists
         shell: bash
         run: |
@@ -40,28 +40,28 @@ jobs:
 #include <iostream>
 int main(){ std::cout << "[r3c_tests] dummy test passed\n"; return 0; }
 CPP
-            echo "✅ created tests/test_basic.cpp"
+            echo "✅ Created tests/test_basic.cpp"
           else
-            echo "✅ found tests/test_basic.cpp"
+            echo "✅ Found existing tests/test_basic.cpp"
           fi
 
-      # 3) 의존성
-      - name: Install deps (Ubuntu)
+      # ✅ 3. OS별 의존성 설치
+      - name: Install build tools and dependencies (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake nasm g++ nlohmann-json3-dev
 
-      - name: Install deps (macOS)  # brew 실패해도 계속
+      - name: Install build tools and dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
           brew install cmake nasm || true
           mkdir -p include/nlohmann
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
             -o include/nlohmann/json.hpp
-          echo "✅ json.hpp ready (macOS)"
+          echo "✅ Downloaded nlohmann/json.hpp for macOS"
 
-      - name: Install deps (Windows)
+      - name: Install build tools and dependencies (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install nasm -y
@@ -69,41 +69,38 @@ CPP
           mkdir -p include\nlohmann
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp ^
             -o include\nlohmann\json.hpp
-          echo "✅ json.hpp ready (Windows)"
+          echo "✅ Downloaded nlohmann/json.hpp for Windows"
 
-      # 4) CMake 설정 (+ 로컬 include 강제)
-      - name: Configure
-        run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
+      # ✅ 4. CMake 설정 (모든 OS 공통 include 경로 강제)
+      - name: Configure project
+        run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/opt/homebrew/include -I/usr/local/include"
 
-      # 5) 빌드 (자가복구)
-      - name: Build (self-healing)
+      # ✅ 5. 빌드 (자가복구 포함)
+      - name: Build project (self-healing)
         shell: bash
         run: |
-          set +e
-          cmake --build build --config Release -- -j4
-          rc=$?
-          if [ $rc -ne 0 ]; then
-            echo "⚠️ first build failed, repairing..."
+          echo "⚙️ Starting first build..."
+          if ! cmake --build build --config Release -- -j4; then
+            echo "⚠️ Build failed — attempting repair..."
             mkdir -p include/nlohmann
             curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
               -o include/nlohmann/json.hpp
-            cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
-            cmake --build build --config Release -- -j2
-            rc=$?
+            cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/opt/homebrew/include -I/usr/local/include"
+            cmake --build build --config Release -- -j2 || (echo "❌ Build failed again" && exit 1)
           fi
-          exit $rc
+          echo "✅ Build succeeded!"
 
-      # 6) (선택) 테스트 실행
+      # ✅ 6. 테스트 실행
       - name: Run tests
         shell: bash
         run: |
           if [ -f "build/bin/r3c_tests" ]; then
             ./build/bin/r3c_tests
           else
-            echo "⚠️ no test target, skip"
+            echo "⚠️ No test target found, skipping."
           fi
 
-      # 7) 문서 묶기 (README, r3c_spec.md 있으면 포함)
+      # ✅ 7. 문서 포함
       - name: Prepare docs bundle
         shell: bash
         run: |
@@ -111,12 +108,9 @@ CPP
           [ -f README.md ] && cp README.md dist/docs/ || true
           [ -f r3c_spec.md ] && cp r3c_spec.md dist/docs/ || true
           [ -d docs ] && cp -r docs/* dist/docs/ || true
-          echo "# R3C Build Docs" > dist/docs/_bundle_index.md
-          echo "- README.md" >> dist/docs/_bundle_index.md
-          echo "- r3c_spec.md (if present)" >> dist/docs/_bundle_index.md
 
-      # 8) 아티팩트 업로드 (OS별)
-      - name: Upload artifacts
+      # ✅ 8. 아티팩트 업로드
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
@@ -125,7 +119,7 @@ CPP
             dist/docs/**
             !**/*.pdb
 
-      # 9) 메트릭(빌드시간/커밋메시지)
+      # ✅ 9. 빌드 메트릭 수집
       - name: Capture metrics
         id: metrics
         shell: bash
@@ -133,17 +127,17 @@ CPP
           END_TS=$(date +%s)
           DUR=$(( END_TS - START_TS ))
           echo "duration_sec=${DUR}" >> "$GITHUB_OUTPUT"
-          # 최근 커밋
           MSG="$(git log -1 --pretty=%s)"
           SHA="$(git rev-parse --short HEAD)"
           echo "commit_msg=${MSG}" >> "$GITHUB_OUTPUT"
           echo "commit_sha=${SHA}" >> "$GITHUB_OUTPUT"
 
+  # 🚀 10. 릴리스 + 코멘트
   release:
-    name: Release & Comment
+    name: Publish GitHub Release
     needs: build
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
 
     steps:
       - name: Download artifacts
@@ -151,14 +145,14 @@ CPP
         with:
           path: release_artifacts
 
-      - name: Zip per OS (with date & run#)
+      - name: Zip artifacts (date + run#)
         id: pack
         run: |
           cd release_artifacts
           DATE=$(date +%Y-%m-%d)
-          for d in */; do
-            base="${d%/}"
-            zip -qr "${base}-${DATE}-v${{ github.run_number }}.zip" "$d"
+          for dir in */; do
+            base="${dir%/}"
+            zip -qr "${base}-${DATE}-v${{ github.run_number }}.zip" "$dir"
           done
           echo "date=${DATE}" >> "$GITHUB_OUTPUT"
 
@@ -172,16 +166,16 @@ CPP
             🚀 **R3C Cross-Platform Build Completed**
             ✅ Ubuntu · macOS · Windows
             🧩 NASM + nlohmann/json + CMake
-            📦 Docs bundled (README / r3c_spec.md if exists)
+            📦 Docs bundled (README / r3c_spec.md)
             🕒 Build time (sec): ${{ needs.build.outputs.duration_sec }}
             💬 Commit: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
           files: release_artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # PR 이벤트면 PR 코멘트, push면 커밋 코멘트
-      - name: PR comment (if PR)
-        if: github.event_name == 'pull_request'
+      # ✅ 11. 코멘트 자동 작성 (PR/커밋)
+      - name: Comment on PR or commit
+        if: github.event_name == 'pull_request' || github.event_name == 'push'
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -190,16 +184,4 @@ CPP
             ✅ **R3C Build #${{ github.run_number }} 성공**
             🕒 소요: ${{ needs.build.outputs.duration_sec }}초
             💬 커밋: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
-            🔗 릴리스: ${{ steps.rel.outputs.html_url }}
-
-      - name: Commit comment (if push)
-        if: github.event_name == 'push'
-        uses: peter-evans/commit-comment@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          commit: ${{ github.sha }}
-          body: |
-            ✅ **R3C Build #${{ github.run_number }} 성공**
-            🕒 소요: ${{ needs.build.outputs.duration_sec }}초
-            💬 커밋: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
-            🔗 릴리스: ${{ steps.rel.outputs.html_url }}
+            🔗 [릴리스 보기](${{ steps.rel.outputs.html_url }})
