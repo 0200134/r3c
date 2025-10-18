@@ -1,0 +1,10 @@
+/build/
+/*.obj
+/*.exe
+*.pdb
+*.asm
+*.bak
+*.refactored.rs
+*.log
+*.tmp
+*.DS_Store
