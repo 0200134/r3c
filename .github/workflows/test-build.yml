@@ -1,4 +1,4 @@
-name: R3C Cross-Platform Build & Release (Auto-Comment + Self-Healing)
+name: R3C Cross-Platform Build & Release (Self-Healing + Report)
 
 on:
   push:
@@ -15,86 +15,132 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
+    outputs:
+      duration_sec: ${{ steps.metrics.outputs.duration_sec }}
+      commit_msg: ${{ steps.metrics.outputs.commit_msg }}
+      commit_sha: ${{ steps.metrics.outputs.commit_sha }}
+
     steps:
-      # ✅ 1. Checkout repository
-      - name: Checkout repository
+      # 0) 시작 타임스탬프
+      - name: Mark start time
+        id: start
+        run: echo "START_TS=$(date +%s)" >> "$GITHUB_ENV"
+
+      # 1) 체크아웃
+      - name: Checkout
         uses: actions/checkout@v4
 
-      # ✅ 2. Create dummy test
+      # 2) 더미 테스트 확보 (CMake 실패 방지)
       - name: Ensure dummy test exists
         shell: bash
         run: |
           mkdir -p tests
           if [ ! -f "tests/test_basic.cpp" ]; then
-            echo '#include <iostream>' > tests/test_basic.cpp
-            echo 'int main(){ std::cout << "[r3c_tests] dummy test passed\\n"; return 0; }' >> tests/test_basic.cpp
-            echo "✅ Created dummy tests/test_basic.cpp"
+            cat > tests/test_basic.cpp <<'CPP'
+#include <iostream>
+int main(){ std::cout << "[r3c_tests] dummy test passed\n"; return 0; }
+CPP
+            echo "✅ created tests/test_basic.cpp"
+          else
+            echo "✅ found tests/test_basic.cpp"
           fi
 
-      # ✅ 3. Install dependencies
-      - name: Install build tools and dependencies (Ubuntu)
+      # 3) 의존성
+      - name: Install deps (Ubuntu)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake nasm g++ nlohmann-json3-dev
 
-      - name: Install build tools and dependencies (macOS)
+      - name: Install deps (macOS)  # brew 실패해도 계속
         if: runner.os == 'macOS'
         run: |
           brew install cmake nasm || true
           mkdir -p include/nlohmann
-          curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
-          echo "✅ Downloaded nlohmann/json.hpp for macOS"
+          curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
+            -o include/nlohmann/json.hpp
+          echo "✅ json.hpp ready (macOS)"
 
-      - name: Install build tools and dependencies (Windows)
+      - name: Install deps (Windows)
         if: runner.os == 'Windows'
         run: |
           choco install nasm -y
           choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          mkdir -p include/nlohmann
-          curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
-          echo "✅ Downloaded nlohmann/json.hpp for Windows"
+          mkdir -p include\nlohmann
+          curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp ^
+            -o include\nlohmann\json.hpp
+          echo "✅ json.hpp ready (Windows)"
 
-      # ✅ 4. Configure + Self-healing build
-      - name: Configure CMake project
+      # 4) CMake 설정 (+ 로컬 include 강제)
+      - name: Configure
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
 
-      - name: Build project (auto-recovery)
+      # 5) 빌드 (자가복구)
+      - name: Build (self-healing)
         shell: bash
         run: |
-          echo "⚙️ Starting first build..."
-          if ! cmake --build build --config Release -- -j4; then
-            echo "⚠️ Build failed — repairing..."
+          set +e
+          cmake --build build --config Release -- -j4
+          rc=$?
+          if [ $rc -ne 0 ]; then
+            echo "⚠️ first build failed, repairing..."
             mkdir -p include/nlohmann
-            curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
+            curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
+              -o include/nlohmann/json.hpp
             cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
-            echo "🛠 Retrying build..."
-            cmake --build build --config Release -- -j2 || (echo "❌ Build failed again" && exit 1)
+            cmake --build build --config Release -- -j2
+            rc=$?
           fi
-          echo "✅ Build succeeded!"
+          exit $rc
 
-      # ✅ 5. Run tests
+      # 6) (선택) 테스트 실행
       - name: Run tests
         shell: bash
         run: |
           if [ -f "build/bin/r3c_tests" ]; then
             ./build/bin/r3c_tests
           else
-            echo "⚠️ No test target found, skipping."
+            echo "⚠️ no test target, skip"
           fi
 
-      # ✅ 6. Upload artifacts
-      - name: Upload build artifact
+      # 7) 문서 묶기 (README, r3c_spec.md 있으면 포함)
+      - name: Prepare docs bundle
+        shell: bash
+        run: |
+          mkdir -p dist/docs
+          [ -f README.md ] && cp README.md dist/docs/ || true
+          [ -f r3c_spec.md ] && cp r3c_spec.md dist/docs/ || true
+          [ -d docs ] && cp -r docs/* dist/docs/ || true
+          echo "# R3C Build Docs" > dist/docs/_bundle_index.md
+          echo "- README.md" >> dist/docs/_bundle_index.md
+          echo "- r3c_spec.md (if present)" >> dist/docs/_bundle_index.md
+
+      # 8) 아티팩트 업로드 (OS별)
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: |
             build/bin/r3c*
+            dist/docs/**
             !**/*.pdb
 
-  # 🚀 7. Release job
+      # 9) 메트릭(빌드시간/커밋메시지)
+      - name: Capture metrics
+        id: metrics
+        shell: bash
+        run: |
+          END_TS=$(date +%s)
+          DUR=$(( END_TS - START_TS ))
+          echo "duration_sec=${DUR}" >> "$GITHUB_OUTPUT"
+          # 최근 커밋
+          MSG="$(git log -1 --pretty=%s)"
+          SHA="$(git rev-parse --short HEAD)"
+          echo "commit_msg=${MSG}" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=${SHA}" >> "$GITHUB_OUTPUT"
+
   release:
-    name: Publish GitHub Release
+    name: Release & Comment
     needs: build
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
@@ -105,16 +151,19 @@ jobs:
         with:
           path: release_artifacts
 
-      - name: Package artifacts
+      - name: Zip per OS (with date & run#)
+        id: pack
         run: |
           cd release_artifacts
           DATE=$(date +%Y-%m-%d)
-          for dir in */; do
-            zip -r "${dir%/}-${DATE}-v${{ github.run_number }}.zip" "$dir"
+          for d in */; do
+            base="${d%/}"
+            zip -qr "${base}-${DATE}-v${{ github.run_number }}.zip" "$d"
           done
+          echo "date=${DATE}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        id: release
+        id: rel
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
@@ -122,21 +171,35 @@ jobs:
           body: |
             🚀 **R3C Cross-Platform Build Completed**
             ✅ Ubuntu · macOS · Windows
-            🧩 NASM + nlohmann/json + CMake pipeline
-            🧱 Self-healing: rebuilds if header missing
+            🧩 NASM + nlohmann/json + CMake
+            📦 Docs bundled (README / r3c_spec.md if exists)
+            🕒 Build time (sec): ${{ needs.build.outputs.duration_sec }}
+            💬 Commit: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
           files: release_artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ 8. Auto-comment on PR or commit
-      - name: Post build summary comment
-        if: github.event_name == 'pull_request' || github.event_name == 'push'
+      # PR 이벤트면 PR 코멘트, push면 커밋 코멘트
+      - name: PR comment (if PR)
+        if: github.event_name == 'pull_request'
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
             ✅ **R3C Build #${{ github.run_number }} 성공**
-            🧱 빌드 OS: Windows · Ubuntu · macOS
-            🔗 [릴리스 페이지 보기](${{ steps.release.outputs.upload_url }})
-            🚀 상태: 모든 플랫폼 빌드 및 테스트 통과
+            🕒 소요: ${{ needs.build.outputs.duration_sec }}초
+            💬 커밋: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
+            🔗 릴리스: ${{ steps.rel.outputs.html_url }}
+
+      - name: Commit comment (if push)
+        if: github.event_name == 'push'
+        uses: peter-evans/commit-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit: ${{ github.sha }}
+          body: |
+            ✅ **R3C Build #${{ github.run_number }} 성공**
+            🕒 소요: ${{ needs.build.outputs.duration_sec }}초
+            💬 커밋: `${{ needs.build.outputs.commit_sha }}` — ${{ needs.build.outputs.commit_msg }}
+            🔗 릴리스: ${{ steps.rel.outputs.html_url }}
