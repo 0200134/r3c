@@ -16,30 +16,24 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # -----------------------------------
-      # ✅ Checkout repository
-      # -----------------------------------
-      - name: Checkout code
+      # ✅ Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # -----------------------------------
-      # 🧩 Auto-create dummy test file (defensive)
-      # -----------------------------------
-      - name: Ensure test file exists
+      # ✅ Always ensure test_basic.cpp exists BEFORE cmake
+      - name: Create dummy test file if missing
+        shell: bash
         run: |
           mkdir -p tests
           if [ ! -f "tests/test_basic.cpp" ]; then
             echo '#include <iostream>' > tests/test_basic.cpp
             echo 'int main(){ std::cout << "[r3c_tests] dummy test passed\\n"; return 0; }' >> tests/test_basic.cpp
-            echo "✅ Created dummy tests/test_basic.cpp (for CI safety)"
+            echo "✅ Created dummy tests/test_basic.cpp"
           else
             echo "✅ Found existing tests/test_basic.cpp"
           fi
-        shell: bash
 
-      # -----------------------------------
       # 🛠 Install dependencies
-      # -----------------------------------
       - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -57,32 +51,26 @@ jobs:
         run: |
           brew install cmake nasm
 
-      # -----------------------------------
-      # ⚙️ Configure + Build
-      # -----------------------------------
+      # ⚙️ Configure & Build
       - name: Configure project
         run: cmake -B build -S .
 
       - name: Build project
         run: cmake --build build --config Release -- -j4
 
-      # -----------------------------------
-      # 🧪 Run tests
-      # -----------------------------------
+      # 🧪 Run tests (optional)
       - name: Run tests
+        shell: bash
         run: |
           if [ -f "build/bin/r3c_tests" ]; then
             echo "Running tests..."
             ./build/bin/r3c_tests
           else
-            echo "⚠️ No compiled test target found, skipping."
+            echo "⚠️ No tests found, skipping."
           fi
-        shell: bash
 
-      # -----------------------------------
       # 📦 Upload build artifacts
-      # -----------------------------------
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
@@ -90,9 +78,7 @@ jobs:
             build/bin/r3c*
             !**/*.pdb
 
-  # -----------------------------------
   # 🚀 Release job
-  # -----------------------------------
   release:
     name: Publish GitHub Release
     needs: build
@@ -105,23 +91,22 @@ jobs:
         with:
           path: release_artifacts
 
-      - name: Create ZIP packages
+      - name: Package artifacts
         run: |
           cd release_artifacts
           for dir in */; do
-            zip -r "${dir%/}.zip" "$dir"
+            zip -r "${dir%/}-v${{ github.run_number }}.zip" "$dir"
           done
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "v${{ github.run_number }}"
           name: "R3C Build #${{ github.run_number }}"
           body: |
-            🚀 **R3C Cross-Platform Build**
-            - ✅ Ubuntu, macOS, Windows builds
-            - 🧩 NASM + CMake pipeline
-            - 🧱 Auto-generated dummy test if missing
+            ✅ Cross-platform build succeeded
+            🧩 Includes NASM, CMake, and dummy tests
+            🌍 Ubuntu / macOS / Windows supported
           files: release_artifacts/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
