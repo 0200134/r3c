@@ -1,44 +1,29 @@
+#include "transpiler.hpp"
 #include <string>
 #include <vector>
 #include <iostream>
-#include <filesystem>
-#include "pkgmgr.hpp"
 
-using namespace std;
-namespace fs = std::filesystem;
+// R3C entry point function (no main conflict)
+int r3c_entry(int argc, char** argv) {
+    std::vector<std::string> args;
+    args.reserve(argc);
+    for (int i = 0; i < argc; ++i)
+        args.emplace_back(argv[i]);
 
-// forward declarations
-int run_pipeline(const vector<string>&, const string&, bool, bool, const string&, bool);
-int pkg_main(int argc, char** argv);
-int fmt_main();
-int test_main();
-int doc_main();
+    const std::string asm_out = "build/out_lts.asm";
 
-int main(int argc, char** argv) {
-    if (argc > 1) {
-        string cmd = argv[1];
+    std::cout << "=====================================================\n";
+    std::cout << "[r3c] Rust LTS transpiler + NASM bootstrap pipeline\n";
+    std::cout << "=====================================================\n";
+    std::cout << "[STEP] Running pipeline...\n";
 
-        if (cmd == "pkg")  return pkg_main(argc - 1, argv + 1);
-        if (cmd == "fmt")  return fmt_main();
-        if (cmd == "test") return test_main();
-        if (cmd == "doc")  return doc_main();
+    int result = run_pipeline(args, "", true, true, asm_out, false);
 
-        if (cmd == "build" || cmd == "run" || cmd == "clean") {
-            if (cmd == "clean") {
-                fs::remove_all("build");
-                cout << "[OK] cleaned\n";
-                return 0;
-            }
-            vector<string> args;
-            return run_pipeline(args, "", true, false, "build/out_lts.asm", true);
-        }
-
-        cerr << "[ERR] Unknown command: " << cmd << "\n";
-        cerr << "Available: pkg, build, run, fmt, doc, test, clean\n";
-        return 1;
+    if (result == 0) {
+        std::cout << "[OK] NASM generated successfully: " << asm_out << "\n";
+    } else {
+        std::cerr << "[FAIL] Pipeline failed with code " << result << "\n";
     }
 
-    // Default: interactive pipeline (manual input)
-    vector<string> args;
-    return run_pipeline(args, "", true, false, "build/out_lts.asm", true);
+    return result;
 }
