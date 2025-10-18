@@ -1,0 +1,9 @@
+[package]
+name = "hello"
+version = "0.1.0"
+target = "win"      # win / linux
+
+[dependencies]
+io   = "local:rustlib/io.rs"
+fs   = "local:rustlib/fs.rs"
+math = "local:rustlib/math.rs"

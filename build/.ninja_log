@@ -1,0 +1,8 @@
+# ninja log v6
+57	419	7824630054146968	CMakeFiles/r3c.dir/src/stdlib.cpp.obj	8eba9579b22910d3
+28	439	7824729064046637	CMakeFiles/r3c.dir/src/main.cpp.obj	7d3e0c7499abbc1e
+33	5788	7824729064106591	CMakeFiles/r3c.dir/src/transpiler.cpp.obj	a96f54eb25a9b6b1
+5790	5922	7824729121666127	r3c.exe	38a02fef347ef94d
+24	452	7824732212082449	CMakeFiles/r3c.dir/src/main.cpp.obj	7d3e0c7499abbc1e
+29	5968	7824732212142459	CMakeFiles/r3c.dir/src/transpiler.cpp.obj	a96f54eb25a9b6b1
+5970	6103	7824732271540925	r3c.exe	38a02fef347ef94d
