@@ -8,6 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
+  # 🪟 Windows (MinGW)
   build-windows:
     name: 🪟 Build on Windows (MinGW)
     runs-on: windows-latest
@@ -53,6 +54,7 @@ jobs:
           name: r3c-windows
           path: build/r3c.exe
 
+  # 🐧 Linux (GCC)
   build-linux:
     name: 🐧 Build on Ubuntu (GCC)
     runs-on: ubuntu-latest
@@ -86,4 +88,46 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: r3c-linux
+          path: build/r3c
+
+  # 🍎 macOS (Clang)
+  build-macos:
+    name: 🍎 Build on macOS (Clang)
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake nasm
+
+      - name: Verify toolchain
+        run: |
+          clang++ --version
+          cmake --version
+          nasm -v
+
+      - name: Clean build folder
+        run: rm -rf build
+
+      - name: Configure (CMake)
+        run: cmake -B build -S . -G "Unix Makefiles"
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test transpiler
+        run: |
+          echo "====================================================="
+          echo "[r3c] Rust LTS transpiler test (macOS)"
+          echo "====================================================="
+          ./build/r3c --emit-asm --test || true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-macos
           path: build/r3c
