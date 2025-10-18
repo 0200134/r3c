@@ -8,13 +8,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  # 🪟 Windows (MinGW)
+  # 🪟 Windows (MinGW + NASM)
   build-windows:
-    name: 🪟 Build on Windows (MinGW)
+    name: 🪟 Windows Build (MinGW)
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Install dependencies
@@ -28,7 +28,7 @@ jobs:
           g++ --version
           nasm -v
 
-      - name: Clean build folder
+      - name: Clean previous build
         shell: bash
         run: rm -rf build
 
@@ -44,7 +44,7 @@ jobs:
         shell: bash
         run: |
           echo "====================================================="
-          echo "[r3c] Rust LTS transpiler test (Windows)"
+          echo "[r3c] Test on Windows"
           echo "====================================================="
           ./build/r3c.exe --emit-asm --test || true
 
@@ -54,13 +54,14 @@ jobs:
           name: r3c-windows
           path: build/r3c.exe
 
-  # 🐧 Linux (GCC)
+
+  # 🐧 Linux (GCC + NASM)
   build-linux:
-    name: 🐧 Build on Ubuntu (GCC)
+    name: 🐧 Linux Build (GCC)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Install dependencies
@@ -68,7 +69,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential cmake nasm
 
-      - name: Clean build folder
+      - name: Clean previous build
         run: rm -rf build
 
       - name: Configure (CMake)
@@ -80,7 +81,7 @@ jobs:
       - name: Test transpiler
         run: |
           echo "====================================================="
-          echo "[r3c] Rust LTS transpiler test (Linux)"
+          echo "[r3c] Test on Linux"
           echo "====================================================="
           ./build/r3c --emit-asm --test || true
 
@@ -90,13 +91,14 @@ jobs:
           name: r3c-linux
           path: build/r3c
 
-  # 🍎 macOS (Clang)
+
+  # 🍎 macOS (Clang + NASM)
   build-macos:
-    name: 🍎 Build on macOS (Clang)
+    name: 🍎 macOS Build (Clang)
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
       - name: Install dependencies
@@ -110,7 +112,7 @@ jobs:
           cmake --version
           nasm -v
 
-      - name: Clean build folder
+      - name: Clean previous build
         run: rm -rf build
 
       - name: Configure (CMake)
@@ -122,7 +124,7 @@ jobs:
       - name: Test transpiler
         run: |
           echo "====================================================="
-          echo "[r3c] Rust LTS transpiler test (macOS)"
+          echo "[r3c] Test on macOS"
           echo "====================================================="
           ./build/r3c --emit-asm --test || true
 
