@@ -1,0 +1,39 @@
+name: "🐛 Bug Report"
+description: "버그를 제보합니다"
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: "R3C Version"
+      placeholder: "v1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "문제 설명"
+      description: "무슨 일이 일어났는지 자세히 설명해주세요."
+      placeholder: "예: NASM 변환 시 레지스터 값이 잘못됩니다."
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: "재현 단계"
+      description: "문제를 재현하려면 어떤 명령을 실행해야 하나요?"
+      placeholder: |
+        1. `cmake -B build -S .`
+        2. `cmake --build build`
+        3. `.\build\r3c.exe --emit-asm-from-rust`
+        4. 오류 발생
+
+  - type: textarea
+    id: log
+    attributes:
+      label: "빌드 로그 또는 출력"
+      render: shell
+      placeholder: |
+        [STEP] Running pipeline...
+        [ERR] ASM emit failed
