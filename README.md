@@ -1,167 +1,93 @@
-![Build](https://github.com/0200134/r3c/actions/workflows/build.yml/badge.svg)
-# 🦀 R3C — Rust → NASM Transpiler & Self-Bootstrap Compiler
+# 🦀 r3c — Rust LTS Transpiler + NASM Bootstrap
 
-![r3c_progress-0](https://img.shields.io/badge/Tasks_Completed-0-brightgreen)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Project Board](https://img.shields.io/badge/Project_Board-Active-success.svg)](https://github.com/0200134/r3c/projects/1)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/0200134/r3c/actions)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0200134/r3c/blob/main/LICENSE)
+[![Language](https://img.shields.io/badge/language-Rust%20%2B%20NASM-orange)](#)
+[![Project Board](https://img.shields.io/badge/board-R3C%20Compiler%20Dev-blueviolet)](https://github.com/0200134/r3c/projects)
+[![No C Allowed](https://img.shields.io/badge/C%20code-forbidden-red)](#)
 
----
-
-## ⚙️ Overview
-
-**R3C** aims to make **Rust fully independent** —  
-a self-hosting compiler that converts **Rust → NASM → Executable**,  
-completely **without LLVM, libc, or CRT**.
-
-> 🔧 *“Rust independence, built line-by-line in NASM.”*
+> **No C. No LLVM. Only Rust and Assembly.**  
+> _“C deserves rest — Rust must now walk on its own.”_
 
 ---
 
-## 🧱 Architecture
+## 🧠 Philosophy
 
-
-
-
-[Rust Source]
-↓
-[Transpiler: r3c]
-↓
-[NASM Assembly]
-↓
-[Assembler: NASM]
-↓
-[Executable Binary]
-
-
-
-- ✅  LLVM-free pipeline  
-- ✅  Minimal runtime, no external libs  
-- ✅  Bootstrappable (R3C builds itself)  
-- ✅  CMake + NASM portable toolchain  
-
----
-
-## 🚀 Build & Run
-
-### Windows (MSVC / MinGW)
-```bash
-git clone https://github.com/0200134/r3c.git
-cd r3c
-cmake -B build -S .
-cmake --build build
-.\build\r3c.exe --emit-asm examples\sample.cpp
-
-
-
-Linux (optional)
-
-
-sudo apt install cmake nasm g++
-cmake -B build -S .
-cmake --build build
-./build/r3c --emit-asm examples/sample.cpp
-
-
-
-
-🧩 Features
-
-
-
-
-Feature
-Status
-Description
-
-
-
-
-Rust → NASM Transpilation
-✅
-Supports basic control flow (if/else/while)
-
-
-NASM Bootstrap
-✅
-Can compile its own output
-
-
-Std-less Runtime
-🚧
-Core runtime under development
-
-
-Linux / ELF Support
-🧠 Planned
-Cross-target expansion
-
-
-Optimization Passes
-🔜
-Constant folding, DCE, etc.
-
-
-
-
-
-🧠 Philosophy
-
-
-R3C isn’t “yet another compiler.”
-
-It’s a Rust independence experiment —
-
-to prove that a modern language can self-host,
-
+R3C isn’t *“yet another compiler.”*  
+It’s a **Rust independence experiment** —  
+to prove that a modern language can self-host  
 without dragging a monolithic backend.
 
+C built the world.  
+R3C builds the next one — free from C, free from LLVM.
 
+> “Respect the C.  
+> Replace the dependency.  
+> Rebuild the freedom.”
 
-🤖 Automation
+---
 
-
-
-
-Workflow
-Description
-
-
-
-
-project-auto.yml
-Automatically moves Issues/PRs to the Project Board
-
-
-weekly-summary.yml
-Updates task-count badge weekly
-
-
-test-build.yml (planned)
-Continuous Integration build test
+## ⚙️ Architecture Overview
 
 
 
 
-Check the Project Board → R3C Compiler Development Board
-
-for all active tasks, ideas, and milestones.
+Rust Source  ──▶  r3c  ──▶  NASM ASM  ──▶  OBJ  ──▶  EXE
 
 
 
-🤝 Contributing
+- **Transpile:** Rust → NASM  
+- **Assemble:** NASM → Object  
+- **Link:** Direct OS API linking (no libc / CRT)  
+- **Goal:** Full self-bootstrap (`r3c` builds `r3c`)
 
+All builds are linear, deterministic, and fully independent.  
+No C, no Clang, no LLVM in the pipeline.
 
-We welcome all contributors — from bug fixers to bootstrap architects.
+---
 
+## 🚫 C Language Policy
 
-👉 See CONTRIBUTING Guide
+C is **forbidden** in this project.
 
-👉 Open Issue Templates
+| Forbidden | Reason |
+|------------|--------|
+| `#include <stdio.h>` | libc dependency |
+| `malloc`, `free`, `printf` | CRT linkage |
+| `main()` | legacy entry point |
+| Any `.c` file | breaks independence |
 
+> “We inherit C’s discipline — not its runtime.”
 
-Quick Start:
+---
 
+## 🤖 Automation
 
+| Workflow | Description |
+|-----------|-------------|
+| `project-auto.yml` | Automatically moves Issues/PRs to the Project Board |
+| `weekly-summary.yml` | Updates task-count badge weekly |
+| `test-build.yml` *(planned)* | Continuous Integration build test |
+
+🔗 **Project Board:** [R3C Compiler Development Board](https://github.com/0200134/r3c/projects)
+
+---
+
+## 🤝 Contributing
+
+We welcome all contributors — from **bug fixers** to **bootstrap architects.**
+
+### Rules
+1. **No C.** Rust + NASM only.  
+2. Follow the philosophy before writing code.  
+3. Document every architectural decision.
+
+👉 [CONTRIBUTING Guide](https://github.com/0200134/r3c/blob/main/CONTRIBUTING.md)  
+👉 [Issue Templates](https://github.com/0200134/r3c/issues/new/choose)
+
+### Quick Start
+
+```bash
 git clone https://github.com/0200134/r3c.git
 cd r3c
 git checkout -b feature/my-feature
@@ -170,14 +96,14 @@ cmake --build build
 
 
 
-Once your PR is merged, automation will mark it as ✅ Done.
+When your PR is merged, the automation will mark it as ✅ Done.
 
 
 
 🧾 License
 
 
-This project is licensed under the MIT License.
+Licensed under the MIT License.
 
 You’re free to use, modify, and distribute — just keep the license notice.
 
@@ -189,7 +115,7 @@ You’re free to use, modify, and distribute — just keep the license notice.
 
 
 Name
-Contribution
+Role
 
 
 
@@ -206,19 +132,27 @@ Join via PR!
 
 
 
-
 “One NASM line closer to Rust’s independence.”
 
 
 
 
 
+🏁 Summary
+
+
+R3C is not just another transpiler —
+
+it’s the first step toward a self-hosted Rust world.
+
+
+
+
+No C. No LLVM. Only Rust and Assembly.
+
+
+
+
+
 ---
-
-
----
-
----
-
-
 
