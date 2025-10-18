@@ -9,6 +9,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # =====================================
+# 📦 Include 경로 설정 (macOS / Ubuntu / Windows 호환)
+# =====================================
+# - macOS: Homebrew 패키지 (M1은 /opt/homebrew/include, Intel은 /usr/local/include)
+# - Ubuntu: /usr/include (apt nlohmann-json3-dev 설치 시)
+# - Windows: include/nlohmann/json.hpp (CI에서 curl 다운로드)
+include_directories(
+    /opt/homebrew/include
+    /usr/local/include
+    /usr/include
+    ${CMAKE_SOURCE_DIR}/include
+)
+
+# =====================================
 # 🔍 NASM 확인
 # =====================================
 find_program(NASM_EXECUTABLE nasm)
@@ -42,12 +55,6 @@ add_executable(r3c ${SRC_FILES})
 set_target_properties(r3c PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
-
-# =====================================
-# 🧩 추가 include / 링크 설정 (필요시)
-# =====================================
-# target_include_directories(r3c PRIVATE include)
-# target_link_libraries(r3c PRIVATE ...)
 
 # =====================================
 # 🧪 조건부 테스트 설정
