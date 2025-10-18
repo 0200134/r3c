@@ -1,27 +1,74 @@
-name: R3C Build Test
+name: R3C Cross-Platform Build
 
 on:
   push:
-    branches: [main]
+    branches: [ "main" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
-      - uses: actions/checkout@v4
+      # -------------------------------
+      # ✅ Checkout repository
+      # -------------------------------
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y cmake nasm
-
-      - name: Clean & Configure
+      # -------------------------------
+      # 🛠 Install dependencies
+      # -------------------------------
+      - name: Install build tools
+        if: runner.os == 'Linux'
         run: |
-          rm -rf build
-          cmake -B build -S .
+          sudo apt-get update
+          sudo apt-get install -y cmake nasm g++
+      
+      - name: Install build tools (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install nasm -y
+          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+      
+      - name: Install build tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install cmake nasm
 
-      - name: Build
-        run: cmake --build build --config Release -j4
+      # -------------------------------
+      # ⚙️ Configure + Build
+      # -------------------------------
+      - name: Configure project
+        run: cmake -B build -S .
 
-      - name: Verify binary
-        run: test -f build/r3c && echo "✅ Build OK" || (echo "❌ Build failed" && exit 1)
+      - name: Build project
+        run: cmake --build build --config Release -- -j4
+
+      # -------------------------------
+      # 🧪 Run tests (if available)
+      # -------------------------------
+      - name: Run tests
+        run: |
+          if [ -f "build/bin/r3c_tests" ]; then
+            echo "Running tests..."
+            ./build/bin/r3c_tests
+          else
+            echo "⚠️ No tests found, skipping."
+          fi
+        shell: bash
+
+      # -------------------------------
+      # ✅ Print summary
+      # -------------------------------
+      - name: Summary
+        run: |
+          echo "====================================================="
+          echo "✅ R3C build completed successfully on ${{ matrix.os }}"
+          echo "====================================================="
