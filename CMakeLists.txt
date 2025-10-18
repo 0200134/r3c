@@ -1,121 +1,115 @@
-cmake_minimum_required(VERSION 3.22)
-project(r3c LANGUAGES CXX)
+# ================================================
+# R3C - Rust→NASM Transpiler + LTS Bootstrap Compiler
+# Cross-Platform CMake Build (>= 3.16)
+# ================================================
 
-# ====================================================
-# [R3C] Rust LTS → NASM Full Bootstrap Pipeline
-# ====================================================
+cmake_minimum_required(VERSION 3.16...3.30)
+cmake_policy(VERSION 3.16)
 
+project(r3c
+    VERSION 0.3.0
+    DESCRIPTION "Rust LTS Transpiler & NASM Bootstrap Compiler"
+    LANGUAGES CXX
+)
+
+# ----------------------------------------
+# Global Build Settings
+# ----------------------------------------
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-endif()
-
-# ====================================================
-# 플랫폼 감지
-# ====================================================
-if(WIN32)
-  message(STATUS "[r3c] Platform: Windows")
-  add_definitions(-DPLATFORM_WINDOWS)
-  set(ASM_FORMAT win64)
-  set(OUT_EXT ".exe")
+# ----------------------------------------
+# Platform Detection
+# ----------------------------------------
+if (WIN32)
+    message(STATUS "[r3c] Platform: Windows")
 elseif(APPLE)
-  message(STATUS "[r3c] Platform: macOS")
-  add_definitions(-DPLATFORM_MACOS)
-  set(ASM_FORMAT macho64)
-  set(OUT_EXT "")
+    message(STATUS "[r3c] Platform: macOS")
+elseif(UNIX)
+    message(STATUS "[r3c] Platform: Linux")
 else()
-  message(STATUS "[r3c] Platform: Linux")
-  add_definitions(-DPLATFORM_LINUX)
-  set(ASM_FORMAT elf64)
-  set(OUT_EXT "")
+    message(WARNING "[r3c] Unknown platform detected!")
 endif()
 
-# ====================================================
-# 컴파일러 옵션
-# ====================================================
-if(MSVC)
-  add_compile_options(/O2 /W3 /EHsc)
+# ----------------------------------------
+# Detect Git Commit Hash
+# ----------------------------------------
+find_package(Git QUIET)
+if(Git_FOUND)
+    execute_process(
+        COMMAND ${GIT_EXECUTABLE} rev-parse --short HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
 else()
-  add_compile_options(-O2 -Wall -Wextra -Wno-unused-result)
+    set(GIT_HASH "unknown")
 endif()
 
-# ====================================================
-# nlohmann/json 자동 포함 (header-only)
-# ====================================================
+# ----------------------------------------
+# Build Date & Version
+# ----------------------------------------
+string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
+configure_file(
+    ${CMAKE_SOURCE_DIR}/include/r3c_build_info.hpp.in
+    ${CMAKE_BINARY_DIR}/generated/r3c_build_info.hpp
+    @ONLY
+)
+
+include_directories(${CMAKE_BINARY_DIR}/generated)
+include_directories(${CMAKE_SOURCE_DIR}/include)
+
+# ----------------------------------------
+# NASM Check
+# ----------------------------------------
+find_program(NASM_EXE nasm)
+if (NOT NASM_EXE)
+    message(FATAL_ERROR "NASM not found. Please install nasm.")
+else()
+    message(STATUS "[r3c] NASM found: ${NASM_EXE}")
+endif()
+
+# ----------------------------------------
+# Dependencies
+# ----------------------------------------
 include(FetchContent)
 FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.2
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
-# ====================================================
-# 소스 파일 수집 (.hpp 사용)
-# ====================================================
-file(GLOB_RECURSE R3C_SOURCES
-  src/*.cpp
-  src/*.hpp
-)
-add_executable(r3c ${R3C_SOURCES})
+# ----------------------------------------
+# Source Files
+# ----------------------------------------
+file(GLOB SRC_FILES src/*.cpp)
+
+add_executable(r3c ${SRC_FILES})
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
 
-set_target_properties(r3c PROPERTIES
-  RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-  OUTPUT_NAME "r3c"
+# ----------------------------------------
+# Version Info for Binary
+# ----------------------------------------
+target_compile_definitions(r3c PRIVATE
+    R3C_VERSION="${PROJECT_VERSION}"
+    R3C_GIT_HASH="${GIT_HASH}"
+    R3C_BUILD_DATE="${BUILD_DATE}"
 )
 
-# ====================================================
-# NASM 감지
-# ====================================================
-find_program(NASM_EXECUTABLE nasm)
-if(NASM_EXECUTABLE)
-  message(STATUS "[r3c] NASM found: ${NASM_EXECUTABLE}")
-else()
-  message(FATAL_ERROR "[r3c] NASM not found! Please install NASM.")
-endif()
+# ----------------------------------------
+# Install
+# ----------------------------------------
+install(TARGETS r3c DESTINATION bin)
 
-# ====================================================
-# Rust → ASM → OBJ → EXE 자동화
-# ====================================================
-set(R3C_ASM "${CMAKE_BINARY_DIR}/out_lts.asm")
-set(R3C_OBJ "${CMAKE_BINARY_DIR}/out_lts.obj")
-set(R3C_EXE "${CMAKE_BINARY_DIR}/out_lts${OUT_EXT}")
-
-add_custom_command(
-  OUTPUT ${R3C_ASM}
-  COMMAND $<TARGET_FILE:r3c> --emit-asm --emit-asm-from-rust --asm-out ${R3C_ASM}
-  DEPENDS r3c
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  COMMENT "[r3c] Transpiling Rust → NASM..."
-)
-
-add_custom_command(
-  OUTPUT ${R3C_OBJ}
-  COMMAND ${NASM_EXECUTABLE} -f ${ASM_FORMAT} ${R3C_ASM} -o ${R3C_OBJ}
-  DEPENDS ${R3C_ASM}
-  COMMENT "[r3c] Assembling NASM → Object..."
-)
-
-add_custom_command(
-  OUTPUT ${R3C_EXE}
-  COMMAND ${CMAKE_CXX_COMPILER} ${R3C_OBJ} -o ${R3C_EXE}
-  DEPENDS ${R3C_OBJ}
-  COMMENT "[r3c] Linking Object → Executable..."
-)
-
-add_custom_target(pipeline ALL
-  DEPENDS ${R3C_EXE}
-  COMMENT "[r3c] Full Rust→ASM→OBJ→EXE pipeline complete."
-)
-
-# ====================================================
-# 테스트 명령
-# ====================================================
-enable_testing()
-add_test(NAME r3c_test
-  COMMAND r3c --emit-asm --test
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+# ----------------------------------------
+# Test Target
+# ----------------------------------------
+add_custom_target(test
+    COMMAND r3c --test
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "[r3c] Running internal test"
 )
