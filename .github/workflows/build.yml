@@ -14,28 +14,33 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up NASM
-        uses: ilammy/setup-nasm@v1.4.1
+      - name: Install NASM
+        run: |
+          choco install nasm -y
+          echo "C:\Program Files\NASM" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          nasm -v
 
       - name: Install MinGW-w64
         run: |
           choco install mingw --version=13.2.0 -y
-          echo "PATH=C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin;$PATH" >> $env:GITHUB_PATH
+          echo "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          gcc --version
 
-      - name: Configure with CMake
+      - name: Configure CMake
         run: cmake -B build -S . -G "MinGW Makefiles"
 
-      - name: Build project
+      - name: Build R3C
         run: cmake --build build --config Release
 
       - name: Run transpiler test
+        working-directory: build
         run: |
-          build\\r3c.exe --emit-asm --emit-asm-from-rust --asm-out build\\test.asm
-          nasm -f win64 build\\test.asm -o build\\test.obj
-          g++ build\\test.obj -o build\\test.exe
+          .\r3c.exe --emit-asm --emit-asm-from-rust --asm-out out.asm
+          nasm -f win64 out.asm -o out.obj
+          g++ out.obj -o out.exe
           echo "✅ Transpile + assemble + link succeeded."
 
-      - name: Upload build artifacts
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-build
