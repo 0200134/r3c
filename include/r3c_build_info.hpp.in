@@ -1,0 +1,5 @@
+#pragma once
+
+#define R3C_VERSION      "@PROJECT_VERSION@"
+#define R3C_GIT_HASH     "@GIT_HASH@"
+#define R3C_BUILD_DATE   "@BUILD_DATE@"
