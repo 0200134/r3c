@@ -1,0 +1,55 @@
+name: "Weekly R3C Progress Summary"
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"  # 매주 월요일 00:00 UTC (한국시간 오전 9시)
+  workflow_dispatch:      # 수동 실행도 가능
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  weekly_summary:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Count completed items
+        id: count
+        run: |
+          DONE_COUNT=$(gh project item-list https://github.com/0200134/r3c/projects/1 --limit 500 --format json | jq '.items[] | select(.status=="🔵 Done")' | wc -l)
+          echo "done_count=$DONE_COUNT" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update README badge
+        run: |
+          DONE=${{ steps.count.outputs.done_count }}
+          echo "✅ Completed tasks this week: $DONE"
+          
+          # README.md 상단에 있는 배지를 자동 교체
+          awk -v d=$DONE '
+            NR==1 { 
+              if ($0 ~ /r3c_progress/) {
+                sub(/r3c_progress-[0-9]+/, "r3c_progress-" d)
+              } else {
+                print "![r3c_progress-" d "](https://img.shields.io/badge/Tasks_Completed-" d "-brightgreen)"
+              }
+            } 
+            {print}
+          ' README.md > README_tmp.md
+
+          mv README_tmp.md README.md
+        shell: bash
+
+      - name: Commit & push badge update
+        run: |
+          git config --global user.name "r3c-bot"
+          git config --global user.email "bot@r3c.dev"
+          git add README.md
+          git commit -m "update: weekly summary badge (done tasks)"
+          git push
