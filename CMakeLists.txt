@@ -1,6 +1,6 @@
 # ================================================
 # R3C - Rust→NASM Transpiler + LTS Bootstrap Compiler
-# Cross-Platform CMake Build
+# Cross-Platform CMake Build Configuration
 # ================================================
 
 cmake_minimum_required(VERSION 3.16...3.30)
@@ -22,7 +22,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ----------------------------------------
-# Platform Detection
+# Detect Platform
 # ----------------------------------------
 if (WIN32)
     message(STATUS "[r3c] Platform: Windows")
@@ -35,7 +35,7 @@ else()
 endif()
 
 # ----------------------------------------
-# Git Commit Hash
+# Get Git Commit Hash
 # ----------------------------------------
 find_package(Git QUIET)
 if(Git_FOUND)
@@ -50,13 +50,12 @@ else()
 endif()
 
 # ----------------------------------------
-# Build Date & Compiler Info
+# Build Date / Compiler Info
 # ----------------------------------------
 string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
 set(COMPILER_NAME "${CMAKE_CXX_COMPILER_ID}")
 set(COMPILER_VERSION "${CMAKE_CXX_COMPILER_VERSION}")
 
-# Platform Name
 if (WIN32)
     set(PLATFORM_NAME "Windows")
 elseif(APPLE)
@@ -67,7 +66,9 @@ else()
     set(PLATFORM_NAME "Unknown")
 endif()
 
-# NASM Version (if available)
+# ----------------------------------------
+# NASM Detection
+# ----------------------------------------
 find_program(NASM_EXE nasm)
 if (NOT NASM_EXE)
     message(FATAL_ERROR "NASM not found. Please install nasm.")
@@ -81,7 +82,7 @@ else()
 endif()
 
 # ----------------------------------------
-# Include directories
+# Include Directories
 # ----------------------------------------
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
@@ -90,7 +91,7 @@ include_directories(
 )
 
 # ----------------------------------------
-# Generate build info header
+# Build Info Header (template substitution)
 # ----------------------------------------
 configure_file(
     ${CMAKE_SOURCE_DIR}/include/r3c_build_info.hpp.in
@@ -110,9 +111,9 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 # ----------------------------------------
-# Source Files
+# Source Files (⚠️ 중복 main 제거)
 # ----------------------------------------
-file(GLOB SRC_FILES
+set(SRC_FILES
     src/main.cpp
     src/pkgmgr.cpp
     src/formatter.cpp
@@ -120,18 +121,21 @@ file(GLOB SRC_FILES
     src/docgen.cpp
     src/transpiler.cpp
     src/stdlib_r3c.cpp
-    src/r3cpkg.cpp
-    src/r3c.cpp
     src/manifest.cpp
+    src/r3c.cpp        # ✅ optional core logic file (no main())
 )
 
+# ⚠️ 중복되는 보조 실행 파일 제거
+# r3cpkg.cpp와 같은 별도 main 포함 파일은 제외
+# 예: set(EXCLUDE_FILES src/r3cpkg.cpp)
+
 # ----------------------------------------
-# Executable
+# Executable Target
 # ----------------------------------------
 add_executable(r3c ${SRC_FILES})
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
 
-# Embed build metadata
+# Embed build metadata into compiler macros
 target_compile_definitions(r3c PRIVATE
     R3C_VERSION="${PROJECT_VERSION}"
     R3C_GIT_HASH="${GIT_HASH}"
@@ -143,15 +147,15 @@ target_compile_definitions(r3c PRIVATE
 )
 
 # ----------------------------------------
-# Installation
+# Installation Rule
 # ----------------------------------------
 install(TARGETS r3c DESTINATION bin)
 
 # ----------------------------------------
-# Custom Target: Test
+# Custom Target: test
 # ----------------------------------------
-add_custom_target(test
-    COMMAND r3c --test
+add_custom_target(run-tests
+    COMMAND r3c test
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMENT "[r3c] Running internal test"
+    COMMENT "[r3c] Running internal tests..."
 )
