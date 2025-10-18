@@ -1,4 +1,4 @@
-name: R3C Build & Test (Windows-MinGW)
+name: R3C Multi-Platform Build & Test
 
 on:
   push:
@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build R3C
+  build-windows:
+    name: 🪟 Build on Windows (MinGW)
     runs-on: windows-latest
 
     steps:
@@ -21,16 +21,13 @@ jobs:
         with:
           version: latest
 
-      - name: Install CMake & MinGW
-        uses: lukka/get-cmake@v3
+      - name: Install CMake
+        uses: lukka/get-cmake@v1.6.0
         with:
           cmakeVersion: latest
 
-      - name: Verify toolchain
+      - name: Install MinGW
         run: |
-          cmake --version
-          nasm -v
-          g++ --version || echo "MinGW not preinstalled, installing..."
           choco install mingw -y
           g++ --version
 
@@ -41,24 +38,58 @@ jobs:
             rmdir /s /q build
           )
 
-      - name: Configure project (CMake)
-        run: |
-          cmake -B build -S . -G "MinGW Makefiles"
+      - name: Configure project
+        run: cmake -B build -S . -G "MinGW Makefiles"
 
       - name: Build project
-        run: |
-          cmake --build build --config Release
+        run: cmake --build build --config Release
 
-      - name: Test Transpiler
+      - name: Test transpiler
         run: |
           echo =====================================================
-          echo [r3c] Rust LTS transpiler test
+          echo [r3c] Rust LTS transpiler test (Windows)
           echo =====================================================
           build\r3c.exe --emit-asm --test
         continue-on-error: true
 
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-executable
+          name: r3c-windows
           path: build\r3c.exe
+
+  build-linux:
+    name: 🐧 Build on Ubuntu (GCC)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake nasm
+
+      - name: Clean previous build
+        run: rm -rf build
+
+      - name: Configure project
+        run: cmake -B build -S . -G "Unix Makefiles"
+
+      - name: Build project
+        run: cmake --build build --config Release
+
+      - name: Test transpiler
+        run: |
+          echo =====================================================
+          echo [r3c] Rust LTS transpiler test (Linux)
+          echo =====================================================
+          ./build/r3c --emit-asm --test
+        continue-on-error: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-linux
+          path: build/r3c
