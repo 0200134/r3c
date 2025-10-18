@@ -12,7 +12,6 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
-      projects: write
       contents: read
 
     steps:
