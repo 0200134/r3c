@@ -1,153 +1,237 @@
-# 🤝 Contributing to R3C
+🧩 Contributing to R3C
 
-> “No C. No LLVM. Only Rust and Assembly.”  
-> R3C is an experimental Rust compiler bootstrap — aiming for a self-hosted ecosystem.
 
----
+Thank you for your interest in R3C (Rust Runtime Recompiler & Cross-compiler).
 
-## 🧠 Philosophy
+R3C is an open experiment to prove that a modern compiler can self-host without C or LLVM.
 
-R3C는 단순히 코드를 짜는 프로젝트가 아니다.  
-Rust가 **C나 LLVM 없이 독립적으로 살아남을 수 있는지 실험하는 엔진**이다.  
-기여자는 “Rust 독립성 실현”이라는 큰 목표를 공유해야 한다.
 
----
+Your contribution — no matter how small — helps evolve this project into an independent, industrial-grade compiler toolchain.
 
-## ⚙️ 환경 세팅
 
-### 🪟 Windows
-```bash
+
+⚙️ Quick Setup
+
+
 git clone https://github.com/0200134/r3c.git
 cd r3c
-cmake -B build -S .
-cmake --build build --config Release
-```
-
-### 🐧 Linux
-```bash
-sudo apt install cmake nasm -y
-git clone https://github.com/0200134/r3c.git
-cd r3c
-cmake -B build -S .
-cmake --build build -j4
-```
-
----
-
-## 🧩 브랜치 규칙
-
-| 목적 | 브랜치 접두사 | 예시 |
-|------|---------------|------|
-| 새 기능 | `feature/` | `feature/linker-pipeline` |
-| 버그 수정 | `fix/` | `fix/tokenizer-bug` |
-| 문서 보강 | `docs/` | `docs/update-readme` |
-| 리팩터링 | `refactor/` | `refactor/ast-cleanup` |
-
-```bash
-git checkout -b feature/my-feature
-```
-
----
-
-## 🧱 커밋 규칙
-
-커밋 메시지는 반드시 `[scope]: action` 형태로 작성한다.
-
-| 예시 | 설명 |
-|------|------|
-| `[transpiler]: add match expression` | 트랜스파일러 기능 추가 |
-| `[linker]: fix ELF output bug` | 링커 오류 수정 |
-| `[docs]: update linking pipeline spec` | 문서 보강 |
-| `[ci]: add build workflow` | 자동화 수정 |
-
----
-
-## 🔍 코드 스타일
-
-- **C++17 이상** 사용  
-- **탭 대신 4칸 스페이스**  
-- **함수명:** `camelCase()`  
-- **클래스명:** `PascalCase`  
-- **전역 변수 금지** (모두 구조체/클래스 스코프로 한정)  
-- 모든 파일 끝에는 개행 필수  
-
----
-
-## 🧪 테스트 및 빌드 검증
-
-PR 제출 전에 반드시 실행:
-
-```bash
 cmake -B build -S .
 cmake --build build
-```
 
-빌드 후:
-- `build/r3c` 또는 `build/r3c.exe` 생성 확인  
-- `r3c --emit-asm --asm-out build/out.asm` 동작 확인  
 
----
 
-## 🧰 PR 생성 절차
+To test locally:
 
-1. Fork → Clone → 새 브랜치 생성  
-2. 코드 수정 및 빌드 확인  
-3. 커밋 & 푸시:
-   ```bash
-   git add .
-   git commit -m "[scope]: message"
-   git push origin feature/my-feature
-   ```
-4. GitHub에서 Pull Request 생성  
-5. CI (GitHub Actions) 빌드 통과 시 자동 리뷰 요청됨  
-6. 승인되면 merge 처리  
 
----
+./build/r3c --emit-asm --emit-asm-from-rust --asm-out build/out.asm
 
-## 🧾 Issue 작성 규칙
 
-이슈는 명확한 “문제 → 기대 동작” 구조로 작성.
 
-**예시:**
-```text
-### 문제
-`r3c --link` 실행 시 out.elf가 생성되지 않음
 
-### 기대 동작
-정상 링크 후 실행 가능한 out.elf 생성
+🧠 Contribution Areas
 
-### 환경
-OS: Ubuntu 24.04
-CMake: 3.28
-NASM: 2.16
-```
 
----
+You can contribute in many ways:
 
-## 🧠 리뷰 원칙
 
-- 기술적 논의만 허용 (인신공격, 감정표현 금지)  
-- PR은 최소 1명의 리뷰 승인 후 머지  
-- 코드 스타일 및 빌드 테스트 불통 시 반려  
 
----
 
-## ❤️ 코드 기여 외 방법
+Area
+Task Example
+Difficulty
 
-- 문서 보강 (`docs/*.md`)  
-- 버그 리포트 및 아이디어 제안  
-- 번역, UI, 자동화 지원  
-- Rust 파트(`rustlib/`) 개선  
 
----
 
-## 📜 License
 
-모든 기여물은 MIT License로 통합된다.  
-PR 제출 시 해당 조건에 자동 동의한 것으로 간주된다.
+🧠 Parser Engine
+Add support for new Rust syntax: match, enum, impl, mod, etc.
+🟡 Medium
 
----
 
-**작성자:** [@0200134](https://github.com/0200134)  
-**문서 버전:** 1.0.0 (2025-10)  
-**위치:** `CONTRIBUTING.md`
+⚙️ Backend / Emitter
+Add emit_linux() to output ELF64 NASM and test on Ubuntu.
+🔴 Hard
+
+
+🧩 Refactor Engine
+Improve auto_refactor_rust() rules, handle unused imports/variables.
+🟡 Medium
+
+
+🧾 Docs & Comments
+Add function headers (/// AutoDoc), fix typos, improve explanations.
+🟢 Easy
+
+
+🧪 Tests
+Add .rs test files under /tests/ and link them in CI.
+🟡 Medium
+
+
+🧱 Diagnostics
+Enhance error messages and [STEP]/[ERR] color formatting.
+🟢 Easy
+
+
+🎨 Design / Branding
+Improve R3C logo, badges, and README presentation.
+🟢 Easy
+
+
+🔒 Security Review
+Harden file handling and system() usage, sandbox assembly calls.
+🔴 Hard
+
+
+
+
+
+🪄 Code Style
+
+
+
+
+Language: C++17
+
+
+Indentation: 4 spaces, no tabs
+
+
+Line endings: LF (\n)
+
+
+Encoding: UTF-8 (no BOM)
+
+
+Naming: snake_case for functions, CamelCase for structs/classes
+
+
+Logging: use ok(), err(), step(), diag() — no printf
+
+
+
+
+
+🧪 Testing
+
+
+R3C includes test automation via GitHub Actions (Linux/Mac/Windows).
+
+
+Add new tests under tests/ as simple Rust examples:
+
+
+fn main() {
+    let mut x = 0;
+    for i in 0..5 {
+        x += i;
+    }
+    println!("{}", x);
+}
+
+
+
+Then confirm:
+
+
+cmake --build build --target r3c_tests
+
+
+
+
+🧾 Pull Request Rules
+
+
+
+
+Fork → Branch → PR
+
+git checkout -b feature/your-feature
+
+
+
+
+
+Keep commits atomic and descriptive.
+
+Example:
+
+[parser] add match-expression support
+[test] add rust/while_loop.rs sample
+
+
+
+
+
+Run all builds before submitting:
+
+cmake --build build --parallel
+
+
+
+
+
+PR titles should be clear and scoped:
+
+[refactor] cleanup parse_rust() logs
+
+
+
+
+
+PRs that pass all CI builds are merged automatically.
+
+
+
+
+
+❤️ Recognition
+
+
+All accepted contributors appear automatically in:
+
+
+
+
+README.md under ❤️ Contributors
+
+
+AUTHORS.md (generated periodically)
+
+
+GitHub “Contributors” panel
+
+
+
+
+
+💬 Community
+
+
+
+
+Issues: for bug reports, features, discussions
+
+
+Pull Requests: for code or docs
+
+
+Discussions: general talk, proposals, and experiments
+
+
+
+
+If you have any creative idea — compiler design, new architecture, or meme-worthy philosophy — open a discussion under #r3c-core.
+
+
+
+🦾 “Show, Don’t Tell.”
+
+
+
+
+R3C’s principle is not talk — it’s proof by code.
+
+If it builds, it counts. If it runs, it matters.
+
+
