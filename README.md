@@ -1,3 +1,8 @@
+
+<!-- DASHBOARD_START -->
+<!-- 이 아래 부분은 자동으로 갱신됩니다 -->
+<!-- DASHBOARD_END -->
+
 # 🦀 r3c — Rust LTS Transpiler + NASM Bootstrap
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/0200134/r3c/actions)
