@@ -1,0 +1,80 @@
+name: 🧠 R3C Self-Fix Pipeline
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  self-heal:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check and fix missing r3c.hpp
+        run: |
+          mkdir -p include
+          if [ ! -f include/r3c.hpp ]; then
+            echo "⚙️ Creating missing include/r3c.hpp ..."
+            cat > include/r3c.hpp <<'EOF'
+#pragma once
+#include <string>
+#include <vector>
+#include <cstdio>
+
+int run_pipeline(const std::vector<std::string>& args,
+                 const std::string& manifest,
+                 bool emit_asm,
+                 bool emit_rust,
+                 const std::string& out_dir,
+                 bool verbose);
+
+inline void r3c_banner() {
+    printf("=====================================================\n");
+    printf("[r3c] Rust LTS transpiler + NASM bootstrap pipeline\n");
+    printf("=====================================================\n");
+}
+EOF
+          fi
+
+      - name: Ensure nlohmann/json.hpp exists
+        run: |
+          mkdir -p include/nlohmann
+          if [ ! -f include/nlohmann/json.hpp ]; then
+            echo "📦 Fetching nlohmann/json.hpp ..."
+            curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp -o include/nlohmann/json.hpp
+          fi
+
+      - name: Patch r3cpkg.cpp if missing JSON include
+        run: |
+          if ! grep -q "nlohmann/json.hpp" src/r3cpkg.cpp; then
+            echo "🔧 Adding missing JSON include to r3cpkg.cpp ..."
+            sed -i '1i #include <nlohmann/json.hpp>\nusing json = nlohmann::json;\n' src/r3cpkg.cpp
+          fi
+
+      - name: Ensure include paths in CMakeLists.txt
+        run: |
+          if ! grep -q "include_directories" CMakeLists.txt; then
+            echo "🏗️ Adding include directories to CMakeLists.txt ..."
+            echo '
+include_directories(
+  ${CMAKE_SOURCE_DIR}/include
+  ${CMAKE_SOURCE_DIR}/include/nlohmann
+  ${CMAKE_SOURCE_DIR}/src
+)
+if(APPLE)
+  target_link_libraries(r3c PRIVATE c++ m)
+endif()
+' >> CMakeLists.txt
+          fi
+
+      - name: Commit and push fixes
+        run: |
+          git config user.name "r3c-bot"
+          git config user.email "bot@r3c.local"
+          git add include src CMakeLists.txt
+          git commit -m "🤖 auto-fix: recovered missing headers and JSON includes" || echo "No changes"
+          git push
