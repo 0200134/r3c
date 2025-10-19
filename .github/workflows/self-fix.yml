@@ -1,4 +1,4 @@
-name: 🔁 R3C Self-Fix Automation (v2)
+name: 🔁 R3C Self-Fix Automation (v3 Safe)
 
 on:
   workflow_dispatch:
@@ -6,12 +6,6 @@ on:
     branches: [ main ]
   pull_request:
     types: [ opened, synchronize ]
-
-# ✅ 이 부분이 핵심 — GitHub Token 권한 설정
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
 
 jobs:
   self-fix:
@@ -31,7 +25,7 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1
 
       # =====================================================
-      # 2️⃣ Build (cross-platform)
+      # 2️⃣ Build
       # =====================================================
       - name: ⚙️ Configure project
         shell: bash
@@ -44,29 +38,51 @@ jobs:
         run: cmake --build build -j4 >> build_log.txt 2>&1
 
       # =====================================================
-      # 3️⃣ Self-Fix (auto repair)
+      # 3️⃣ Self-Fix (safe conditional mode)
       # =====================================================
-      - name: 🧠 Analyze and auto-fix build issues
+      - name: 🧠 Conditional self-repair
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
-          echo "⚠️ Build failed — attempting self-repair..."
+          echo "⚠️ Build failed — analyzing repair conditions..." >> build_log.txt
           mkdir -p include/nlohmann
           mkdir -p src
-          echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
-          echo "// 🩹 Auto-generated stub for r3c_stub.cpp" > src/r3c_stub.cpp
-          echo "✅ Stubs regenerated." >> build_log.txt
+          # json.hpp 없는 경우만 생성
+          if [ ! -f include/nlohmann/json.hpp ]; then
+            echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
+            echo "✅ json.hpp stub generated" >> build_log.txt
+          fi
+          # r3c_stub.cpp는 transpiler.cpp 없을 때만 생성
+          if [ ! -f src/transpiler.cpp ]; then
+            echo "// 🩹 Auto-generated stub for missing transpiler.cpp" > src/r3c_stub.cpp
+            echo "✅ transpiler stub generated" >> build_log.txt
+          else
+            echo "✅ Real transpiler.cpp exists, skipping stub regen" >> build_log.txt
+          fi
 
-      - name: 🔁 Rebuild after fix
+      # =====================================================
+      # 4️⃣ Rebuild after conditional fix
+      # =====================================================
+      - name: 🔁 Rebuild after conditional fix
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
-          echo "🔄 Rebuilding after self-fix..." >> build_log.txt
+          echo "🔄 Rebuilding after conditional self-fix..." >> build_log.txt
           cmake -B build -S . >> build_log.txt 2>&1
-          cmake --build build -j4 >> build_log.txt 2>&1 || echo "⚠️ Build still failing after fix." >> build_log.txt
+          cmake --build build -j4 >> build_log.txt 2>&1 || echo "⚠️ Still failing after fix" >> build_log.txt
 
       # =====================================================
-      # 4️⃣ Commit & Push Fix (only if fix applied)
+      # 5️⃣ CMake sanity check — ensure all sources included
+      # =====================================================
+      - name: 🧩 Ensure all sources included
+        shell: bash
+        run: |
+          echo "Verifying that transpiler.cpp and pipeline.cpp are part of build..."
+          grep -q "transpiler.cpp" CMakeLists.txt || echo "⚠️ transpiler.cpp not found in CMakeLists.txt" >> build_log.txt
+          grep -q "pipeline.cpp" CMakeLists.txt || echo "⚠️ pipeline.cpp not found in CMakeLists.txt" >> build_log.txt
+
+      # =====================================================
+      # 6️⃣ Commit & Push Fix (optional)
       # =====================================================
       - name: 📤 Commit & Push auto-fix
         if: ${{ steps.build.outcome == 'failure' }}
@@ -77,34 +93,29 @@ jobs:
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
           git add include/nlohmann/json.hpp src/r3c_stub.cpp || true
-          git commit -m "🩹 self-fix: regenerated missing files" || true
-          git push origin HEAD:${{ github.ref }} || echo "⚠️ Push skipped (no permission)."
+          git commit -m "🩹 self-fix: conditional stub regeneration (safe mode)" || true
+          git push origin HEAD:${{ github.ref }} || echo "⚠️ Push skipped (no permission)" >> build_log.txt
 
       # =====================================================
-      # 5️⃣ Create issue when build fails (logs included)
+      # 7️⃣ Create issue if still fails
       # =====================================================
       - name: 🪄 Create issue from build log
         if: ${{ steps.build.outcome == 'failure' }}
         uses: peter-evans/create-issue-from-file@v4
         with:
-          title: "❌ Build failed on ${{ runner.os }} — Auto-Fix Attempted"
+          title: "❌ Build failed on ${{ runner.os }} — Safe Self-Fix Attempted"
           content-filepath: build_log.txt
           labels: |
             auto-fix
             ci-failure
 
       # =====================================================
-      # 6️⃣ Add summary to Actions tab
+      # 8️⃣ Summary
       # =====================================================
       - name: 🧾 Summary
         shell: bash
         run: |
           echo "=====================================================" >> build_log.txt
-          echo "R3C Self-Fix Summary" >> build_log.txt
+          echo "R3C Self-Fix (Safe Mode) Summary" >> build_log.txt
           echo "=====================================================" >> build_log.txt
-          if [ '${{ steps.build.outcome }}' = 'failure' ]; then
-            echo "🧩 Self-fix applied (stub regenerated)." >> build_log.txt
-          else
-            echo "✅ Build succeeded — no fix needed." >> build_log.txt
-          fi
           cat build_log.txt
