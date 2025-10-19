@@ -1,4 +1,4 @@
-name: 🧠 R3C Self-Fix & Auto-Rebuild (Adaptive)
+name: 🧠 R3C Self-Fix & Auto-Rebuild (Full Autonomous)
 
 on:
   workflow_dispatch:
@@ -24,20 +24,20 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧩 Checkout repo
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔍 Diagnose
+      - name: 🔍 Diagnose repo structure
         run: |
-          echo "Checking include/src..."
-          ls include || echo "(no include)"
-          ls src || echo "(no src)"
+          echo "🔍 Checking include/src files..."
+          ls -R include || echo "(no include)"
+          ls -R src || echo "(no src)"
 
-      - name: 🧰 Fix include/r3c.hpp
+      - name: ⚙️ Restore missing include/r3c.hpp
         run: |
           mkdir -p include
           if [ ! -f include/r3c.hpp ]; then
-            echo "Creating missing r3c.hpp..."
+            echo "Creating include/r3c.hpp..."
             cat > include/r3c.hpp <<'EOF'
 #pragma once
 #include <string>
@@ -57,23 +57,32 @@ inline void r3c_banner() {
     printf("=====================================================\n");
 }
 EOF
+          else
+            echo "✅ include/r3c.hpp already exists."
           fi
 
       - name: 📦 Ensure nlohmann/json.hpp exists
         run: |
           mkdir -p include/nlohmann
           if [ ! -f include/nlohmann/json.hpp ]; then
+            echo "Downloading nlohmann/json.hpp..."
             curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
               -o include/nlohmann/json.hpp
+          else
+            echo "✅ JSON header already exists."
           fi
 
-      - name: 🧩 Fix JSON include in src/r3cpkg.cpp
+      - name: 🔧 Fix JSON include in r3cpkg.cpp
         run: |
           if [ -f src/r3cpkg.cpp ]; then
             if ! grep -q "nlohmann/json.hpp" src/r3cpkg.cpp; then
-              echo "Injecting JSON include..."
+              echo "Injecting missing include..."
               sed -i '1i #include <nlohmann/json.hpp>\nusing json = nlohmann::json;\n' src/r3cpkg.cpp
+            else
+              echo "✅ JSON include already present."
             fi
+          else
+            echo "⚠️ src/r3cpkg.cpp not found!"
           fi
 
       - name: 💾 Commit and push fixes
@@ -81,13 +90,18 @@ EOF
           git config user.name "r3c-bot"
           git config user.email "bot@r3c.local"
           git add include src CMakeLists.txt || true
-          git commit -m "🤖 auto-fix: repaired headers & JSON includes" || echo "No changes"
-          git push || echo "No push needed"
+          git commit -m "🤖 auto-fix: repaired headers & JSON includes" || echo "No changes to commit"
+          git push || echo "No push required"
 
-      - name: 🚀 Trigger rebuild after fix
+      - name: 🚀 Trigger rebuild (via PAT)
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.R3C_TOKEN }}
           repository: ${{ github.repository }}
           event-type: trigger-rebuild
           client-payload: '{"reason": "auto rebuild after self-fix"}'
+
+      - name: 🧠 Log confirmation
+        run: |
+          echo "✅ Self-fix executed successfully."
+          echo "🧩 Rebuild trigger dispatched using R3C_TOKEN."
