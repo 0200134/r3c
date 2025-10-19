@@ -1,0 +1,13 @@
+name: 🌱 Good First Issue
+description: For simple refactor, doc or test contributions
+title: "[GoodFirst] "
+labels: ["good first issue", "help wanted"]
+body:
+  - type: textarea
+    id: desc
+    attributes:
+      label: Task description
+      description: Explain what should be changed or added.
+      placeholder: "Example: Add missing docstring in transpiler.cpp"
+    validations:
+      required: true
