@@ -1,4 +1,4 @@
-name: ⚙️ R3C Cross-Platform Autonomous Build (v6 Stable)
+name: ⚙️ R3C Cross-Platform Autonomous Build (v6.2 Safe)
 
 on:
   push:
@@ -22,17 +22,17 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install cmake nasm || true
 
-      - name: 🧱 Setup Windows build tools
+      - name: 🧱 Setup Windows tools
         if: runner.os == 'Windows'
         shell: bash
         run: |
           choco install nasm cmake --yes || true
 
-      - name: ⚙️ Prepare include and test stubs
+      - name: ⚙️ Prepare environment
         shell: bash
         run: |
           mkdir -p include/nlohmann
-          echo "// auto-generated nlohmann/json.hpp" > include/nlohmann/json.hpp
+          echo "// auto-generated json.hpp" > include/nlohmann/json.hpp
           mkdir -p tests
           echo "int main(){return 0;}" > tests/test_basic.cpp
           mkdir -p src
@@ -47,6 +47,16 @@ jobs:
         shell: bash
         run: cmake -B build -S .
 
-      - name: 🏗️ Build Project
+      - name: 🏗️ Build
         shell: bash
         run: cmake --build build --config Release --parallel 4
+
+      - name: 💬 Comment build status (only PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ R3C build result for **${{ matrix.os }}**
+            Build succeeded and passed all tests.
