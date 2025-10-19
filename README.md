@@ -138,11 +138,6 @@ Name	Role	Contact
 
 ---
 
-<p align="center"><i>
-🧠 Built to evolve.<br>
-Self-healing, self-building, self-sustaining.
-</i></p>
-```
 ---
 
 ---
