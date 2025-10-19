@@ -1,7 +1,11 @@
 #pragma once
+#include "r3cpkg.hpp"
+#include <nlohmann/json.hpp>
+
+
 #include <string>
 #include <map>
-
+using json = nlohmann::json;
 class r3c_pkg {
 public:
     void load_index(const std::string& path);
