@@ -1,0 +1,32 @@
+name: R3C Auto Rebuild After Issue Close (v6)
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  contents: write
+  actions: write
+  issues: write
+
+jobs:
+  rebuild:
+    if: contains(github.event.issue.title, 'R3C Build Failed')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Comment that issue was resolved
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            ✅ **이슈가 닫혔습니다.**
+            - R3C는 자동으로 재빌드를 시작합니다.
+            - 빌드 결과는 다음 실행에서 확인 가능합니다.
+            🔁 **Auto-Rebuild Triggered**
+
+      - name: Trigger new build
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "R3C Autonomous Build Line (v5)"
+          ref: "main"
