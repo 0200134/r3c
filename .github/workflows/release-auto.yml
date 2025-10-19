@@ -1,4 +1,4 @@
-name: 🚀 Auto Release (Version + Changelog + Artifact)
+name: 🚀 Auto Semantic Release (Smart Version + Changelog + Artifact)
 
 on:
   push:
@@ -16,10 +16,10 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 태그 비교를 위해 전체 기록 필요
+          fetch-depth: 0
 
       - name: ⚙️ Setup build environment
-        run: sudo apt-get update && sudo apt-get install -y cmake g++ nasm zip
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ nasm zip jq
 
       - name: 🧱 Build R3C binary
         run: |
@@ -29,23 +29,37 @@ jobs:
           cp build/r3c dist/ || true
           zip -r dist/r3c_build.zip dist/*
 
-      - name: 🧮 Calculate next version
+      - name: 🧮 Determine next semantic version
         id: version
         run: |
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "Latest tag: $TAG"
-          IFS='.' read -r MAJOR MINOR PATCH <<<"${TAG#v}"
-          PATCH=$((PATCH + 1))
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Last tag: $LAST_TAG"
+
+          COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"%s")
+          MAJOR=$(echo ${LAST_TAG#v} | cut -d. -f1)
+          MINOR=$(echo ${LAST_TAG#v} | cut -d. -f2)
+          PATCH=$(echo ${LAST_TAG#v} | cut -d. -f3)
+
+          BUMP="patch"
+          echo "$COMMITS" | grep -qiE "^breaking|!" && BUMP="major"
+          echo "$COMMITS" | grep -qiE "^feat:" && [ "$BUMP" != "major" ] && BUMP="minor"
+
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
+            MINOR=$((MINOR+1)); PATCH=0
+          else
+            PATCH=$((PATCH+1))
+          fi
+
           NEW_TAG="v$MAJOR.$MINOR.$PATCH"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
-          echo "Next version: $NEW_TAG"
+          echo "📦 Bump type: $BUMP → $NEW_TAG"
 
       - name: 🧾 Generate changelog
-        id: changelog
         run: |
-          echo "🧾 Generating changelog..."
           echo "## $NEW_TAG ($(date +'%Y-%m-%d'))" > changelog.txt
-          git log -1 --pretty=format:"- %s" >> changelog.txt
+          git log -10 --pretty=format:"- %s (%h)" >> changelog.txt
           echo -e "\n" >> changelog.txt
           cat changelog.txt
           cat changelog.txt >> CHANGELOG.md
