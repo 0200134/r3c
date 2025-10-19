@@ -1,4 +1,4 @@
-name: R3C Autonomous Build Line v2
+name: R3C Autonomous Build Line (Stable v3)
 
 on:
   push:
@@ -8,6 +8,11 @@ on:
   schedule:
     - cron: "0 */12 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
   autobuild:
@@ -85,23 +90,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 🚨 7. 실패 시 이슈 자동 생성
+      # 🚨 7. 실패 시 이슈 자동 생성 (continue-on-error 추가)
       - name: Auto Report Issue
         if: steps.build_step.outputs.success != 'true'
+        continue-on-error: true
         uses: peter-evans/create-issue-from-file@v4
         with:
           title: "❌ AutoBuild failed on ${{ matrix.os }}"
           content-filepath: build_log.txt
-          labels: |
-            autobuild
-            ci
-            failure
+          labels: autobuild, ci, failure
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # 💬 8. 결과 자동 코멘트 (PR/Push 모두 대응)
       - name: Post Build Comment
         if: always()
+        continue-on-error: true
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
