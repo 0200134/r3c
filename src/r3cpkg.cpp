@@ -4,6 +4,8 @@
 #include <sstream>
 #include <filesystem>
 #include <nlohmann/json.hpp>  // ✅ JSON 헤더 추가
+#include "r3cpkg.hpp"
+#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 namespace fs = std::filesystem;
