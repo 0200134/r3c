@@ -1,12 +1,9 @@
 name: 📊 R3C Traffic Analytics
 
 on:
-  # ✅ main 브랜치에 push될 때마다 자동 실행
   push:
     branches: [ main ]
-  # ✅ 수동 실행 버튼도 유지
   workflow_dispatch:
-  # ✅ 매일 UTC 00:00 (한국시간 오전 9시)에 자동 실행
   schedule:
     - cron: "0 0 * * *"
 
@@ -29,11 +26,12 @@ jobs:
       - name: Generate traffic chart
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
         run: |
           python3 <<'EOF'
 import requests, matplotlib.pyplot as plt, pandas as pd, os
 
-repo = "${{ github.repository }}"
+repo = os.environ["REPO"]
 headers = {"Authorization": f"token {os.environ['GITHUB_TOKEN']}"}
 
 views = requests.get(f"https://api.github.com/repos/{repo}/traffic/views", headers=headers).json()
