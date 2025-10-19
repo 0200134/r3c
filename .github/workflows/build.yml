@@ -1,13 +1,12 @@
-name: ⚙️ R3C Cross-Platform Autonomous Build (v6.4 Stable Loop)
+name: ⚙️ R3C Cross-Platform Autonomous Build (v7.0 Self-Healing)
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
-  actions: read
   contents: write
-  workflows: write
 
 jobs:
   build:
@@ -17,46 +16,78 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
 
-      # 🧱 OS별 필수 패키지 설치
+      # -------------------------------------------------------------
+      # ① Self-Fix 단계 : 자동으로 include/json 누락 복구
+      # -------------------------------------------------------------
+      - name: 🧠 Self-Fix before build
+        run: |
+          echo "🩹 Running pre-build self-fix..."
+          mkdir -p include/nlohmann
+          # r3c.hpp 자동 생성
+          if [ ! -f include/r3c.hpp ]; then
+            echo "Creating include/r3c.hpp..."
+            cat > include/r3c.hpp <<'EOF'
+#pragma once
+#include <string>
+#include <vector>
+#include <cstdio>
+
+int run_pipeline(const std::vector<std::string>& args,
+                 const std::string& manifest,
+                 bool emit_asm,
+                 bool emit_rust,
+                 const std::string& out_dir,
+                 bool verbose);
+
+inline void r3c_banner() {
+    printf("=====================================================\n");
+    printf("[r3c] Rust LTS transpiler + NASM bootstrap pipeline\n");
+    printf("=====================================================\n");
+}
+EOF
+          fi
+
+          # json.hpp 자동 다운로드
+          if [ ! -f include/nlohmann/json.hpp ]; then
+            echo "Downloading nlohmann/json.hpp..."
+            curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
+              -o include/nlohmann/json.hpp
+          fi
+
+          # r3cpkg.cpp에 json include 삽입
+          if [ -f src/r3cpkg.cpp ]; then
+            if ! grep -q "nlohmann/json.hpp" src/r3cpkg.cpp; then
+              echo "Injecting include into r3cpkg.cpp"
+              sed -i '1i #include <nlohmann/json.hpp>\nusing json = nlohmann::json;\n' src/r3cpkg.cpp || true
+            fi
+          fi
+
+      # -------------------------------------------------------------
+      # ② 의존성 설치
+      # -------------------------------------------------------------
       - name: 🧱 Install dependencies (Linux)
         if: runner.os == 'Linux'
-        shell: bash
         run: sudo apt update && sudo apt install -y cmake g++ nasm
 
       - name: 🧱 Install dependencies (macOS)
         if: runner.os == 'macOS'
-        shell: bash
         run: brew install cmake nasm || true
 
       - name: 🧱 Setup Windows build tools
         if: runner.os == 'Windows'
         shell: bash
-        run: choco install cmake nasm --yes || true
+        run: choco install nasm cmake --yes || true
 
-      # ⚙️ 기본 구조 생성
-      - name: ⚙️ Prepare include/test/stub
-        shell: bash
-        run: |
-          mkdir -p include/nlohmann
-          echo "// auto-generated json.hpp" > include/nlohmann/json.hpp
-          mkdir -p tests
-          echo "int main(){return 0;}" > tests/test_basic.cpp
-          mkdir -p src
-          if [ ! -f src/r3c_stub.cpp ]; then
-            echo '#include <string>' > src/r3c_stub.cpp
-            echo '#include <vector>' >> src/r3c_stub.cpp
-            echo 'int run_pipeline(const std::vector<std::string>&, const std::string&, bool, bool, const std::string&, bool){return 0;}' >> src/r3c_stub.cpp
-            echo 'int test_main(){return 0;}' >> src/r3c_stub.cpp
-          fi
-
-      # 🧩 CMake 설정
+      # -------------------------------------------------------------
+      # ③ CMake 구성 및 빌드 시도
+      # -------------------------------------------------------------
       - name: 🧩 Configure project
         shell: bash
         run: cmake -B build -S . -DCMAKE_VERBOSE_MAKEFILE=ON
 
-      # 🏗️ 빌드 시도 (3회 자동 재시도)
       - name: 🏗️ Build with 3 retries
         shell: bash
         run: |
@@ -73,28 +104,24 @@ jobs:
           echo "❌ Build failed after 3 attempts"
           exit 1
 
-      # 🧱 PR 빌드 결과 코멘트
-      - name: 💬 Comment build result (only PR)
-        if: ${{ github.event_name == 'pull_request' }}
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            🧱 **R3C Build Report**
-            - OS: ${{ matrix.os }}
-            - Status: ${{ job.status }}
-            - Run ID: ${{ github.run_id }}
-            ⚙️ Auto-retry complete. See logs for details.
-
-      # 🧠 빌드 실패 시 self-fix 트리거
-      - name: 🔁 Trigger self-fix workflow
+      # -------------------------------------------------------------
+      # ④ 실패 로그 표시 (debug)
+      # -------------------------------------------------------------
+      - name: 🧠 Show last 100 lines
         if: failure()
         shell: bash
-        run: echo "🚀 Triggering self-fix workflow..."
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.R3C_TOKEN }}
-          repository: ${{ github.repository }}
-          event-type: trigger-self-fix
-          client-payload: '{"status": "build failed, initiating self-fix"}'
+        run: |
+          echo "🧩 Showing last 100 lines of logs..."
+          find build -type f | grep -E ".log|CMake.*txt" | head -n 1 | xargs -r tail -n 100 || true
+
+      # -------------------------------------------------------------
+      # ⑤ Auto Commit Fix (optional)
+      # -------------------------------------------------------------
+      - name: 💾 Commit and Push Fixes
+        if: failure()
+        run: |
+          git config user.name "r3c-bot"
+          git config user.email "bot@r3c.local"
+          git add include src CMakeLists.txt || true
+          git commit -m "🤖 auto-fix (build.yml self-healing pass)" || echo "No changes"
+          git push || echo "No push needed"
