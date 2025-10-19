@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+
+contact_links:
+  - name: 💬 Discussion Board
+    url: https://github.com/0200134/r3c/discussions
+    about: "For questions, design proposals, or general talk about the R3C project."
+
+  - name: 📜 Contribution Guide
+    url: https://github.com/0200134/r3c/blob/main/CONTRIBUTING.md
+    about: "Read before contributing — includes code style, build steps, and PR rules."
+
+  - name: 🧠 Project Board
+    url: https://github.com/0200134/r3c/projects
+    about: "Track ongoing compiler tasks, backend progress, and feature roadmaps."
