@@ -7,6 +7,12 @@ on:
   pull_request:
     types: [ opened, synchronize ]
 
+# ✅ 이 부분이 핵심 — GitHub Token 권한 설정
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
 jobs:
   self-fix:
     runs-on: ${{ matrix.os }}
