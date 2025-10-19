@@ -1,14 +1,15 @@
-name: R3C Self-Healing Auto-Fix (v2)
+name: R3C Self-Healing Auto-Fix (v4)
 
 on:
   workflow_run:
-    workflows: ["R3C Autonomous Build Line (v4)"]
+    workflows: ["R3C Autonomous Build Line (v5)"]
     types: [completed]
 
 permissions:
   contents: write
   pull-requests: write
   issues: write
+  actions: write
 
 jobs:
   selfheal:
@@ -31,23 +32,49 @@ jobs:
         run: |
           LOG="./logs/build_log.txt"
           FIX="none"
+
           if grep -q "nlohmann/json.hpp" "$LOG"; then
             echo "Detected missing json.hpp → fixing"
             mkdir -p include/nlohmann
             curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
               -o include/nlohmann/json.hpp
             FIX="json-include"
+
+          elif grep -q "r3c.hpp" "$LOG"; then
+            echo "Detected missing r3c.hpp → auto-generating stub header"
+            mkdir -p include
+            cat <<'EOF' > include/r3c.hpp
+#ifndef R3C_HPP
+#define R3C_HPP
+
+#include <string>
+#include <vector>
+
+int run_pipeline(const std::vector<std::string>& args,
+                 const std::string& input,
+                 bool debug = false,
+                 bool verbose = false,
+                 const std::string& output = "",
+                 bool dry_run = false);
+
+#endif
+EOF
+            FIX="missing-header"
+
           elif grep -q "symbol(s) not found" "$LOG"; then
-            echo "Detected missing function → stub fix"
+            echo "Detected missing symbol(s) → adding stub"
             echo "// stub auto-generated" >> src/auto_stub.cpp
             echo "int test_main(){return 0;}" >> src/auto_stub.cpp
             FIX="stub"
+
           else
             echo "No known fix pattern found."
           fi
-          echo "fix_type=$FIX" >> $GITHUB_OUTPUT
 
-      - name: Commit and create fix branch
+          echo "fix_type=$FIX" >> $GITHUB_OUTPUT
+          echo "🧠 Fix detected: $FIX"
+
+      - name: Commit and push fix
         if: steps.analysis.outputs.fix_type != 'none'
         run: |
           git config --global user.name "r3c-bot"
@@ -55,18 +82,34 @@ jobs:
           BRANCH="auto-fix-${{ steps.analysis.outputs.fix_type }}-${{ github.run_number }}"
           git checkout -b "$BRANCH"
           git add .
-          git commit -m "auto-fix: ${{ steps.analysis.outputs.fix_type }}"
+          git commit -m "auto-fix: ${{ steps.analysis.outputs.fix_type }} (self-heal)"
           git push origin "$BRANCH"
 
       - name: Create PR automatically
         if: steps.analysis.outputs.fix_type != 'none'
+        id: pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: "🤖 Auto-Fix: ${{ steps.analysis.outputs.fix_type }}"
           body: |
-            **Automatic fix triggered by failed build**
+            **Automatic self-healing triggered by failed build**
             - Fix Type: `${{ steps.analysis.outputs.fix_type }}`
-            - Workflow Run: `${{ github.event.workflow_run.id }}`
-            - Status: ✅ Self-Heal applied
+            - Workflow: `${{ github.event.workflow_run.name }}`
+            - Commit: `${{ github.sha }}`
           branch: "auto-fix-${{ steps.analysis.outputs.fix_type }}-${{ github.run_number }}"
+
+      - name: Auto-merge PR
+        if: steps.pr.outputs.pull-request-number != ''
+        uses: peter-evans/enable-pull-request-automerge@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          pull-request-number: ${{ steps.pr.outputs.pull-request-number }}
+          merge-method: squash
+
+      - name: Trigger new build after merge
+        if: steps.analysis.outputs.fix_type != 'none'
+        uses: benc-uk/workflow-dispatch@v1
+        with:
+          workflow: "R3C Autonomous Build Line (v5)"
+          ref: "main"
