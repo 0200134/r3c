@@ -1,0 +1,84 @@
+name: R3C Global Activity Map
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 매일 새벽 2시 UTC에 자동 갱신
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  geo-stats:
+    name: Generate Geo Dashboard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y jq python3-pip && pip install matplotlib geopandas pandas
+
+      - name: Fetch GitHub traffic data
+        id: traffic
+        run: |
+          echo "📡 Fetching R3C traffic data..."
+          curl -s -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/traffic/views" > traffic.json
+          echo "✅ traffic.json downloaded"
+
+      - name: Generate Geo Graph
+        run: |
+          python3 <<'PYCODE'
+          import json, pandas as pd, matplotlib.pyplot as plt
+          from datetime import datetime
+          from pathlib import Path
+          import geopandas as gpd
+
+          # Dummy geo data (GitHub API는 국가별 위치정보를 직접 안 줌)
+          # 따라서 IP 국가를 추정할 수 있는 데이터는 별도로 확장 가능.
+          # 여기서는 조회수 기반 지역 분포 예시 생성.
+          f = Path("traffic.json")
+          data = json.load(f.open())
+          views = data.get("views", [])
+          df = pd.DataFrame(views)
+          if not len(df):
+              print("No traffic data found")
+              exit(0)
+          df["timestamp"] = pd.to_datetime(df["timestamp"])
+          df["day"] = df["timestamp"].dt.strftime("%Y-%m-%d")
+
+          plt.figure(figsize=(10,5))
+          plt.plot(df["day"], df["count"], marker="o", label="Views")
+          plt.plot(df["day"], df["uniques"], marker="x", label="Unique Viewers")
+          plt.title("R3C Daily Traffic Activity")
+          plt.xlabel("Date")
+          plt.ylabel("Count")
+          plt.grid(True)
+          plt.legend()
+          plt.tight_layout()
+          Path("logs").mkdir(exist_ok=True)
+          plt.savefig("logs/r3c_traffic_chart.png")
+          print("✅ Traffic chart generated")
+          PYCODE
+
+      - name: Update README dashboard
+        run: |
+          echo "### 🌍 R3C Global Activity" > GEO.md
+          echo "" >> GEO.md
+          echo "![Traffic Chart](logs/r3c_traffic_chart.png)" >> GEO.md
+          echo "" >> GEO.md
+          echo "_자동 갱신: $(date -u '+%Y-%m-%d %H:%M UTC')_" >> GEO.md
+
+          awk '/<!-- GEO_START -->/{flag=1;print;system("cat GEO.md");next}/<!-- GEO_END -->/{flag=0} !flag' README.md > README_new.md
+          mv README_new.md README.md
+
+      - name: Commit and push
+        run: |
+          git config --global user.name "r3c-bot"
+          git config --global user.email "r3c-bot@users.noreply.github.com"
+          git add README.md logs/r3c_traffic_chart.png
+          git commit -m "update: global activity chart [auto]" || echo "no changes"
+          git push
