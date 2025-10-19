@@ -3,6 +3,8 @@ name: ⚙️ R3C Cross-Platform Autonomous Build (v6.3 Debug+Safe)
 on:
   push:
   pull_request:
+  repository_dispatch:
+    types: [trigger-rebuild, trigger-self-fix]
 
 jobs:
   build:
@@ -63,21 +65,6 @@ jobs:
           echo "❌ Build failed after 3 attempts"
           exit 1
 
-      - name: 🧠 Show last 100 log lines
-        if: failure()
-        shell: bash
-        run: |
-          echo "🧩 Showing last 100 lines from build output..."
-          # 우선 빌드 디렉토리에 남은 로그 파일 탐색
-          LOG_FILE=$(find build -type f \( -name "*.log" -o -name "CMake*.txt" \) 2>/dev/null | head -n 1)
-          if [ -n "$LOG_FILE" ]; then
-            echo "Found log: $LOG_FILE"
-            tail -n 100 "$LOG_FILE" || true
-          else
-            echo "No log file found, printing raw CMake output..."
-            find build -type f | tail -n 50 || true
-          fi
-
       - name: 💬 Comment build result (only PR)
         if: ${{ github.event_name == 'pull_request' }}
         uses: peter-evans/create-or-update-comment@v3
@@ -89,3 +76,12 @@ jobs:
             - Status: ${{ job.status }}
             - Date: ${{ github.run_id }}
             ⚙️ Auto-retry and debug logs have been generated.
+
+      - name: 🔁 Trigger self-fix (if build fails)
+        if: failure()
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          event-type: trigger-self-fix
+          client-payload: '{"reason": "build failure"}'
