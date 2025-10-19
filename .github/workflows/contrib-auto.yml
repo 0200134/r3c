@@ -1,0 +1,58 @@
+name: 🤖 R3C Contributor Automation
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      # PR 자동 라벨링
+      - name: 🏷️ Auto-label pull request
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 빌드 테스트
+      - name: ⚙️ Build verification
+        run: |
+          echo "Running build check..."
+          cmake -B build -S .
+          cmake --build build --parallel 4
+
+      # PR 코멘트 자동 생성
+      - name: 💬 Comment PR status
+        if: always()
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            ✅ **R3C Build Automation Report**
+            - Status: ${{ job.status }}
+            - OS: Ubuntu-latest
+            - PR Author: @${{ github.actor }}
+            ---
+            This is an automated test build.
+            Maintainers will review your contribution shortly.
+
+      # 신규 기여자 환영 메시지
+      - name: 🙌 Welcome first-time contributor
+        if: github.event.pull_request.user.login != '0200134'
+        uses: actions/first-interaction@v1
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: >
+            👋 Welcome to **R3C**! Thanks for opening your first issue.
+          pr-message: >
+            🎉 Welcome to **R3C**! Your PR was successfully received.
+            The build system will check compatibility and maintainers will review soon.
