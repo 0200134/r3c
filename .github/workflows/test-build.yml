@@ -1,4 +1,4 @@
-name: R3C Cross-Platform Build & Release + Timeline
+name: R3C Cross-Platform Build & Release (Self-Contained)
 
 on:
   push:
@@ -13,101 +13,78 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
-    outputs:
-      duration_sec: ${{ steps.metrics.outputs.duration_sec }}
-      commit_msg: ${{ steps.metrics.outputs.commit_msg }}
-      commit_sha: ${{ steps.metrics.outputs.commit_sha }}
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout repository
+      # ✅ 1. Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
+      # ✅ 2. Create dummy test
       - name: Ensure dummy test exists
         shell: bash
         run: |
           mkdir -p tests
-          if [ ! -f "tests/test_basic.cpp" ]; then
+          if [ ! -f tests/test_basic.cpp ]; then
             echo '#include <iostream>' > tests/test_basic.cpp
             echo 'int main(){ std::cout << "[r3c_tests] dummy test passed\\n"; return 0; }' >> tests/test_basic.cpp
           fi
 
-      - name: Install build tools (Linux)
-        if: runner.os == 'Linux'
+      # ✅ 3. Prepare build tools (curl, cmake, nasm)
+      - name: Prepare base tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake nasm g++ nlohmann-json3-dev
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake nasm
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            which cmake || (curl -L https://github.com/Kitware/CMake/releases/download/v3.30.2/cmake-3.30.2-macos-universal.tar.gz -o cmake.tar.gz && tar -xzf cmake.tar.gz && sudo cp -r cmake-3.30.2-macos-universal/CMake.app/Contents/bin/* /usr/local/bin)
+            which nasm || (curl -L https://www.nasm.us/pub/nasm/releasebuilds/2.16.03/macosx/nasm-2.16.03-macosx.zip -o nasm.zip && unzip -q nasm.zip && sudo cp nasm-2.16.03/nasm /usr/local/bin/)
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
+            choco install nasm -y
+          fi
+          echo "✅ Base tools ready."
 
-      - name: Install build tools (macOS)
-        if: runner.os == 'macOS'
+      # ✅ 4. Always download json.hpp (모든 OS 동일)
+      - name: Fetch nlohmann/json.hpp
+        shell: bash
         run: |
-          brew install cmake nasm || true
           mkdir -p include/nlohmann
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
             -o include/nlohmann/json.hpp
+          echo "✅ Downloaded json.hpp into include/nlohmann/"
 
-      - name: Install build tools (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          choco install nasm -y
-          choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          mkdir -p include\nlohmann
-          curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp ^
-            -o include\nlohmann\json.hpp
-
-      - name: Configure CMake
+      # ✅ 5. Configure CMake
+      - name: Configure CMake project
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/usr/local/include -I/opt/homebrew/include"
 
-      - name: Build (self-healing)
+      # ✅ 6. Build (retry once if fail)
+      - name: Build project
         shell: bash
         run: |
-          cmake --build build --config Release -- -j4 || {
-            echo "⚠️ Build failed, retrying..."
+          echo "⚙️ Starting build on $RUNNER_OS..."
+          if ! cmake --build build --config Release -- -j4; then
+            echo "⚠️ Build failed once — retrying..."
             cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -I/usr/local/include -I/opt/homebrew/include"
             cmake --build build --config Release -- -j2
-          }
+          fi
+          echo "✅ Build success!"
 
+      # ✅ 7. Run tests (if available)
       - name: Run tests
         shell: bash
         run: |
           if [ -f "build/bin/r3c_tests" ]; then
             ./build/bin/r3c_tests
+          else
+            echo "⚠️ No test target found, skipping."
           fi
 
-      - name: Capture metrics
-        id: metrics
-        shell: bash
-        run: |
-          END_TS=$(date +%s)
-          DUR=$(( END_TS - START_TS ))
-          MSG="$(git log -1 --pretty=%s)"
-          SHA="$(git rev-parse --short HEAD)"
-          echo "duration_sec=${DUR}" >> "$GITHUB_OUTPUT"
-          echo "commit_msg=${MSG}" >> "$GITHUB_OUTPUT"
-          echo "commit_sha=${SHA}" >> "$GITHUB_OUTPUT"
-
-  timeline:
-    name: Update Progress Timeline
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Update progress file
-        run: |
-          mkdir -p logs
-          DATE=$(date '+%Y-%m-%d %H:%M:%S')
-          MSG="${{ needs.build.outputs.commit_msg }}"
-          SHA="${{ needs.build.outputs.commit_sha }}"
-          DUR="${{ needs.build.outputs.duration_sec }}"
-          echo "- ${DATE} | ✅ Build success | Commit: ${SHA} | ${MSG} | ${DUR}s" >> logs/R3C_Progress_Timeline.md
-
-      - name: Commit and push timeline
-        run: |
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "r3c-bot"
-          git add logs/R3C_Progress_Timeline.md
-          git commit -m "update: progress log for build #${{ github.run_number }}" || echo "no changes"
-          git push
+      # ✅ 8. Upload artifact
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-${{ matrix.os }}
+          path: |
+            build/bin/r3c*
+            !**/*.pdb
