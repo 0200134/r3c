@@ -1,0 +1,95 @@
+name: R3C Traffic & Stats Auto-Updater (v3 Full Sync)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 매일 00시 UTC (한국시간 오전 9시)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-traffic:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: pip install matplotlib pandas requests
+
+      - name: Generate Traffic Chart
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          mkdir -p logs
+          python <<'EOF'
+          import os, requests, pandas as pd, matplotlib.pyplot as plt, re
+
+          token = os.getenv("GITHUB_TOKEN")
+          repo = os.getenv("REPO")
+          headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+
+          # --- Fetch traffic stats ---
+          r = requests.get(f"https://api.github.com/repos/{repo}/traffic/views", headers=headers)
+          data = r.json().get("views", [])
+          if not data:
+              print("No traffic data, skipping chart.")
+              exit(0)
+
+          df = pd.DataFrame(data)
+          df["timestamp"] = pd.to_datetime(df["timestamp"])
+          df.set_index("timestamp", inplace=True)
+
+          # --- Generate plot ---
+          plt.figure(figsize=(8,4))
+          plt.plot(df.index, df["count"], marker='o', label="Views")
+          plt.plot(df.index, df["uniques"], marker='s', label="Unique Visitors")
+          plt.title("R3C Traffic Overview")
+          plt.xlabel("Date")
+          plt.ylabel("Views")
+          plt.grid(True)
+          plt.legend()
+
+          output_path = os.path.join(os.getcwd(), "logs", "r3c_traffic_chart.png")
+          plt.savefig(output_path)
+          print(f"✅ Chart saved: {output_path}")
+
+          # --- Update README.md ---
+          readme_path = os.path.join(os.getcwd(), "README.md")
+          if os.path.exists(readme_path):
+              with open(readme_path, "r", encoding="utf-8") as f:
+                  content = f.read()
+
+              img_tag = "![Traffic Chart](logs/r3c_traffic_chart.png)"
+              if "![Traffic Chart]" in content:
+                  # Replace existing image
+                  content = re.sub(r"!\[Traffic Chart\]\(.*?\)", img_tag, content)
+              else:
+                  # Append to bottom
+                  content += f"\n\n## 📊 Traffic Statistics\n{img_tag}\n"
+
+              with open(readme_path, "w", encoding="utf-8") as f:
+                  f.write(content)
+              print("✅ README updated with traffic chart.")
+          EOF
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "r3c-bot"
+          git config --global user.email "r3c-bot@users.noreply.github.com"
+
+          if [ -f "logs/r3c_traffic_chart.png" ]; then
+            git add logs/ || true
+          fi
+          git add README.md || true
+
+          git commit -m "auto-update: traffic chart & stats" || echo "No files changed, skipping commit."
+          git push origin main || echo "⚠️ Push skipped or already up to date."
