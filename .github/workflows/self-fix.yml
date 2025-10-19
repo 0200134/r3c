@@ -5,8 +5,11 @@ on:
   push:
     branches: [ main ]
   workflow_run:
-    workflows: []  # ✅ 모든 워크플로 대상으로
+    workflows:
+      - "⚙️ R3C Cross-Platform Autonomous Build (v6.3 Debug+Safe)"
     types: [completed]
+  repository_dispatch:
+    types: [trigger-self-fix]
 
 permissions:
   contents: write
@@ -16,14 +19,75 @@ jobs:
     if: >
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'repository_dispatch' ||
       github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
-    ...
-    - name: 🚀 Trigger rebuild automatically
-      if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
-      uses: peter-evans/repository-dispatch@v3
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        repository: ${{ github.repository }}
-        event-type: trigger-rebuild
-        client-payload: '{"reason": "auto rebuild after self-fix"}'
+
+    steps:
+      - name: 🧩 Checkout repo
+        uses: actions/checkout@v4
+
+      - name: 🔍 Diagnose
+        run: |
+          echo "Checking include/src..."
+          ls include || echo "(no include)"
+          ls src || echo "(no src)"
+
+      - name: 🧰 Fix include/r3c.hpp
+        run: |
+          mkdir -p include
+          if [ ! -f include/r3c.hpp ]; then
+            echo "Creating missing r3c.hpp..."
+            cat > include/r3c.hpp <<'EOF'
+#pragma once
+#include <string>
+#include <vector>
+#include <cstdio>
+
+int run_pipeline(const std::vector<std::string>& args,
+                 const std::string& manifest,
+                 bool emit_asm,
+                 bool emit_rust,
+                 const std::string& out_dir,
+                 bool verbose);
+
+inline void r3c_banner() {
+    printf("=====================================================\n");
+    printf("[r3c] Rust LTS transpiler + NASM bootstrap pipeline\n");
+    printf("=====================================================\n");
+}
+EOF
+          fi
+
+      - name: 📦 Ensure nlohmann/json.hpp exists
+        run: |
+          mkdir -p include/nlohmann
+          if [ ! -f include/nlohmann/json.hpp ]; then
+            curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
+              -o include/nlohmann/json.hpp
+          fi
+
+      - name: 🧩 Fix JSON include in src/r3cpkg.cpp
+        run: |
+          if [ -f src/r3cpkg.cpp ]; then
+            if ! grep -q "nlohmann/json.hpp" src/r3cpkg.cpp; then
+              echo "Injecting JSON include..."
+              sed -i '1i #include <nlohmann/json.hpp>\nusing json = nlohmann::json;\n' src/r3cpkg.cpp
+            fi
+          fi
+
+      - name: 💾 Commit and push fixes
+        run: |
+          git config user.name "r3c-bot"
+          git config user.email "bot@r3c.local"
+          git add include src CMakeLists.txt || true
+          git commit -m "🤖 auto-fix: repaired headers & JSON includes" || echo "No changes"
+          git push || echo "No push needed"
+
+      - name: 🚀 Trigger rebuild after fix
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          event-type: trigger-rebuild
+          client-payload: '{"reason": "auto rebuild after self-fix"}'
