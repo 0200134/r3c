@@ -160,4 +160,6 @@ No C. No LLVM. Only Rust and Assembly.
 
 
 ---
-
+<!-- GEO_START -->
+<!-- 아래는 자동 갱신되는 전세계 활동 데이터입니다 -->
+<!-- GEO_END -->
