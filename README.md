@@ -1,3 +1,6 @@
+> 🧠 R3C — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
+
+
 🚀 1000+ views milestone — Thank you all for checking out R3C!
 
 ---
