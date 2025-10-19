@@ -1,4 +1,4 @@
-name: R3C Cross-Platform Build & Test (v5 Win-Stable)
+name: ⚙️ R3C Cross-Platform Autonomous Build (v6 Universal Stable)
 
 on:
   push:
@@ -10,87 +10,92 @@ permissions:
 
 jobs:
   build-windows:
-    name: Build on Windows
+    name: 🪟 Build on Windows
     runs-on: windows-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup CMake
-        uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: '3.28.0'
-
-      - name: Setup NASM
-        uses: ilammy/setup-nasm@v1
-
-      - name: Configure MSVC
-        shell: pwsh
+      - name: 🧱 Setup CMake and NASM
         run: |
-          echo "⚙️ Setting up MSVC environment..."
-          choco install visualstudio2022community --no-progress -y --ignore-checksums
-          choco install visualstudio2022buildtools --no-progress -y --ignore-checksums
-          echo "✅ MSVC toolchain installed."
+          choco install cmake -y --no-progress
+          choco install nasm -y --no-progress
 
-      - name: Configure CMake (x64 Release)
-        run: cmake -B build -S . -A x64 -DCMAKE_BUILD_TYPE=Release
+      - name: ⚙️ Configure (x64 Release)
+        shell: bash
+        run: |
+          mkdir -p include/nlohmann
+          echo "// auto-generated json.hpp stub" > include/nlohmann/json.hpp
+          cmake -B build -S . -A x64 -DCMAKE_BUILD_TYPE=Release
 
-      - name: Build
+      - name: 🏗️ Build
+        shell: bash
         run: cmake --build build --config Release --parallel 4
 
-      - name: Run Tests
+      - name: 🧪 Run Tests
+        shell: bash
         run: |
-          if (Test-Path "build\\r3c_tests.exe") {
+          if [ -f "build/r3c_tests.exe" ]; then
             ./build/r3c_tests.exe
-          } else {
-            Write-Host "⚠️ No tests found, skipping."
-          }
+          else
+            echo "⚠️ No tests found, skipping."
+          fi
 
-      - name: Upload Build Artifacts
+      - name: 📦 Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-windows-bin
+          name: r3c-windows-binaries
           path: |
             build/**/*.exe
             build/**/*.log
             bin/**/*.exe
 
   build-linux:
-    name: Build on Ubuntu
+    name: 🐧 Build on Ubuntu
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup dependencies
-        run: sudo apt update && sudo apt install -y build-essential nasm cmake
-      - name: Configure and build
+
+      - name: ⚙️ Install dependencies
+        run: sudo apt update && sudo apt install -y build-essential cmake nasm
+
+      - name: 🧩 Configure and Build
         run: |
+          mkdir -p include/nlohmann
+          echo "// auto-generated json.hpp stub" > include/nlohmann/json.hpp
           cmake -B build -S .
           cmake --build build --config Release --parallel 4
-      - name: Upload artifacts
+
+      - name: 📦 Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-linux-bin
+          name: r3c-linux-binaries
           path: build/r3c
 
   build-macos:
-    name: Build on macOS
+    name: 🍎 Build on macOS
     runs-on: macos-latest
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install NASM and CMake
-        run: brew install nasm cmake
-      - name: Configure and build
+
+      - name: ⚙️ Install tools
+        run: brew install cmake nasm
+
+      - name: 🧩 Configure and Build
+        shell: bash
         run: |
+          mkdir -p include/nlohmann
+          echo "// auto-generated json.hpp stub" > include/nlohmann/json.hpp
           cmake -B build -S .
           cmake --build build --config Release --parallel 4
-      - name: Upload artifacts
+
+      - name: 📦 Upload Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-macos-bin
+          name: r3c-macos-binaries
           path: build/r3c
