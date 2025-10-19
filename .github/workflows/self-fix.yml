@@ -1,9 +1,9 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3)
-# R3C Self-Healing Automation — Cross-Platform Safe Mode
+# 🔁 .github/workflows/self-fix.yml (v3.1)
+# R3C Self-Healing Automation — Cross-Platform Stable Edition
 # =========================================================
 
-name: 🔁 R3C Self-Fix Automation (v3)
+name: 🔁 R3C Self-Fix Automation (v3.1)
 
 on:
   push:
@@ -14,7 +14,6 @@ on:
 
 defaults:
   run:
-    # ✅ Ensure we run from the repository root, not .github/workflows/
     working-directory: ${{ github.workspace }}
 
 jobs:
@@ -42,7 +41,7 @@ jobs:
       - name: ⚙️ Configure project
         shell: bash
         run: |
-          echo "🧹 Cleaning build dir..."
+          echo "🧹 Cleaning build directory..."
           rm -rf build
           echo "🛠️ Running CMake configure..."
           cmake -B build -S $GITHUB_WORKSPACE | tee build_log.txt
@@ -56,14 +55,15 @@ jobs:
           cmake --build build --config Release -j4 | tee -a build_log.txt
 
       # =====================================================
-      # 3️⃣ Auto-Fix (stubs if failure)
+      # 3️⃣ Auto-Fix (stub regeneration)
       # =====================================================
       - name: 🧠 Auto-fix missing headers or stubs
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
           echo "⚠️ Build failed — applying stub fix..."
-          mkdir -p include/nlohmann src
+          mkdir -p include/nlohmann 2>/dev/null || true
+          mkdir -p src 2>/dev/null || true
           echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
           echo "// 🩹 Auto-generated stub for r3c_stub.cpp" > src/r3c_stub.cpp
           echo "✅ Stubs regenerated." | tee -a build_log.txt
