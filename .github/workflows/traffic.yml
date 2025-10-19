@@ -1,71 +1,45 @@
-name: 📊 R3C Traffic Analytics v2
+name: 📈 Auto Traffic + Good First Issue Badge
 
 on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
   schedule:
-    - cron: "0 0 * * *"   # UTC 00:00 (KST 09:00)
+    - cron: '0 */12 * * *'   # 12시간마다 실행
+  workflow_dispatch:
 
 permissions:
   contents: write
 
-concurrency:
-  group: traffic-analytics
-  cancel-in-progress: true
-
 jobs:
-  traffic:
+  update-readme:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
+      - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: ⚙️ Get traffic data
+        uses: sangonzal/gh-traffic@v2
+        id: traffic
         with:
-          python-version: '3.x'
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Pip cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('scripts/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install deps
+      - name: 🧩 Get issue stats
+        id: issues
         run: |
-          pip install -r scripts/requirements.txt
+          echo "COUNT=$(gh issue list --label 'good first issue' --state open --json number | jq length)" >> $GITHUB_ENV
 
-      - name: Generate traffic artifacts
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
+      - name: 🖋️ Update README badges
         run: |
-          set -euo pipefail
-          python scripts/traffic_gen.py
+          VIEWS=${{ steps.traffic.outputs.count_views }}
+          CLONES=${{ steps.traffic.outputs.count_clones }}
+          GFIS=${{ env.COUNT }}
 
-      - name: Commit & push if changed
-        env:
-          GH_USER: ${{ github.actor }}
+          sed -i 's/!\[Views\].*/![Views](https:\/\/img.shields.io\/badge\/Views-'$VIEWS'-green)/' README.md
+          sed -i 's/!\[Clones\].*/![Clones](https:\/\/img.shields.io\/badge\/Clones-'$CLONES'-blue)/' README.md
+          sed -i 's/!\[GoodFirstIssue\].*/![GoodFirstIssue](https:\/\/img.shields.io\/badge\/Good%20First%20Issues-'$GFIS'-purple)/' README.md
+
+      - name: 🪶 Commit changes
         run: |
-          set -e
-          git config user.name "${GH_USER}"
-          git config user.email "${GH_USER}@users.noreply.github.com"
-          git add analytics/traffic_data.csv analytics/traffic_chart.png || true
-          if ! git diff --cached --quiet; then
-            TODAY=$(date -u +'%Y-%m-%d')
-            git commit -m "📈 auto: traffic update (${TODAY} UTC)"
-            git push
-          else
-            echo "No changes to commit."
-          fi
-
-      - name: Upload artifacts (optional)
-        uses: actions/upload-artifact@v4
-        with:
-          name: traffic-artifacts
-          path: analytics/
-          if-no-files-found: ignore
+          git config user.name "r3c-bot"
+          git config user.email "actions@github.com"
+          git add README.md
+          git commit -m "auto: update traffic + issue stats"
+          git push
