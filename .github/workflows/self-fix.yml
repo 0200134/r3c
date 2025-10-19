@@ -1,15 +1,19 @@
-name: 🧠 R3C Self-Fix Pipeline
+name: 🧠 R3C Self-Fix & Auto-Rebuild
 
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  workflow_run:
+    workflows: ["R3C 크로스 플랫폼 빌드 및 테스트(v5 Win-Stable)"]
+    types:
+      - completed
 
 jobs:
   self-heal:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' || github.event_name == 'push' }}
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -78,3 +82,12 @@ endif()
           git add include src CMakeLists.txt
           git commit -m "🤖 auto-fix: recovered missing headers and JSON includes" || echo "No changes"
           git push
+
+      - name: 🚀 Trigger rebuild
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          event-type: trigger-rebuild
+          client-payload: '{"reason": "auto rebuild after self-heal"}'
