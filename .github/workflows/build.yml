@@ -1,4 +1,4 @@
-name: ⚙️ R3C Cross-Platform Autonomous Build (v6.2 Safe)
+name: ⚙️ R3C Cross-Platform Autonomous Build (v6.3 Debug+Safe)
 
 on:
   push:
@@ -22,13 +22,13 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install cmake nasm || true
 
-      - name: 🧱 Setup Windows tools
+      - name: 🧱 Setup Windows build tools
         if: runner.os == 'Windows'
         shell: bash
         run: |
           choco install nasm cmake --yes || true
 
-      - name: ⚙️ Prepare environment
+      - name: ⚙️ Prepare include/test/stub
         shell: bash
         run: |
           mkdir -p include/nlohmann
@@ -43,20 +43,49 @@ jobs:
             echo 'int test_main(){return 0;}' >> src/r3c_stub.cpp
           fi
 
-      - name: 🧩 Configure CMake
+      - name: 🧩 Configure project
         shell: bash
-        run: cmake -B build -S .
+        run: cmake -B build -S . -DCMAKE_VERBOSE_MAKEFILE=ON
 
-      - name: 🏗️ Build
+      - name: 🏗️ Build with 3 retries
         shell: bash
-        run: cmake --build build --config Release --parallel 4
+        run: |
+          echo "⚙️ Building on $RUNNER_OS..."
+          for i in 1 2 3; do
+            echo "🔁 Attempt $i..."
+            if cmake --build build --config Release --parallel 4; then
+              echo "✅ Build succeeded on attempt $i"
+              exit 0
+            else
+              echo "⚠️ Build failed attempt $i"
+            fi
+          done
+          echo "❌ Build failed after 3 attempts"
+          exit 1
 
-      - name: 💬 Comment build status (only PR)
+      - name: 🧠 Show last 100 log lines
+        if: failure()
+        shell: bash
+        run: |
+          echo "🧩 Showing last 100 lines from build output..."
+          # 우선 빌드 디렉토리에 남은 로그 파일 탐색
+          LOG_FILE=$(find build -type f \( -name "*.log" -o -name "CMake*.txt" \) 2>/dev/null | head -n 1)
+          if [ -n "$LOG_FILE" ]; then
+            echo "Found log: $LOG_FILE"
+            tail -n 100 "$LOG_FILE" || true
+          else
+            echo "No log file found, printing raw CMake output..."
+            find build -type f | tail -n 50 || true
+          fi
+
+      - name: 💬 Comment build result (only PR)
         if: ${{ github.event_name == 'pull_request' }}
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ✅ R3C build result for **${{ matrix.os }}**
-            Build succeeded and passed all tests.
+            🧱 **R3C build report for ${{ matrix.os }}**
+            - Status: ${{ job.status }}
+            - Date: ${{ github.run_id }}
+            ⚙️ Auto-retry and debug logs have been generated.
