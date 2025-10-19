@@ -3,23 +3,94 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <filesystem>
 #include <cstdlib>
 #include <sstream>
-#include <filesystem>
 
-using namespace std;
 namespace fs = std::filesystem;
 
-static int run_shell_cmd(const std::string &cmd, bool debug) {
-    if (debug)
-        std::cout << "[CMD] " << cmd << std::endl;
+//----------------------------------------------------
+// 공통 실행 함수
+//----------------------------------------------------
+static int exec_cmd(const std::string& cmd, const std::string& stage) {
+    std::cout << "[R3C][" << stage << "] $ " << cmd << "\n";
     int ret = std::system(cmd.c_str());
     if (ret != 0) {
-        std::cerr << "❌ Command failed: " << cmd << " (exit " << ret << ")\n";
+        std::cerr << "❌ Stage failed: " << stage << " (exit " << ret << ")\n";
+        return ret;
     }
-    return ret;
+    std::cout << "✅ Stage done: " << stage << "\n";
+    return 0;
 }
 
+//----------------------------------------------------
+// 1️⃣ Rust → NASM
+//----------------------------------------------------
+static int stage_transpile(const std::string& input, const std::string& asm_out) {
+    std::ofstream f(asm_out);
+    if (!f.is_open()) {
+        std::cerr << "❌ Cannot write ASM output: " << asm_out << "\n";
+        return 1;
+    }
+
+    // TODO: 실제 Rust 파싱 → ASM 변환 로직 삽입
+    f << "section .text\n"
+      << "global _start\n"
+      << "_start:\n"
+      << "    mov rax, 60\n"
+      << "    xor rdi, rdi\n"
+      << "    syscall\n";
+    f.close();
+
+    std::cout << "[R3C] Generated dummy NASM file: " << asm_out << "\n";
+    return 0;
+}
+
+//----------------------------------------------------
+// 2️⃣ Assemble (NASM → .o)
+//----------------------------------------------------
+static int stage_assemble(const std::string& asm_out, const std::string& obj_out) {
+#if defined(_WIN32)
+    std::stringstream cmd;
+    cmd << "nasm -f win64 \"" << asm_out << "\" -o \"" << obj_out << "\"";
+#else
+    std::stringstream cmd;
+    cmd << "nasm -f elf64 \"" << asm_out << "\" -o \"" << obj_out << "\"";
+#endif
+    return exec_cmd(cmd.str(), "assemble");
+}
+
+//----------------------------------------------------
+// 3️⃣ Link (.o → exe)
+//----------------------------------------------------
+static int stage_link(const std::string& obj_out, const std::string& exe_out) {
+#if defined(_WIN32)
+    std::stringstream cmd;
+    cmd << "link /subsystem:console /entry:main /out:" << exe_out << " " << obj_out;
+#else
+    std::stringstream cmd;
+    cmd << "ld -o " << exe_out << " " << obj_out;
+#endif
+    return exec_cmd(cmd.str(), "link");
+}
+
+//----------------------------------------------------
+// 4️⃣ Execute
+//----------------------------------------------------
+static void stage_run(const std::string& exe_out) {
+    std::cout << "[R3C][run] Executing " << exe_out << " ...\n";
+#if defined(_WIN32)
+    std::system(exe_out.c_str());
+#else
+    std::stringstream cmd;
+    cmd << "./" << exe_out;
+    std::system(cmd.str().c_str());
+#endif
+}
+
+//----------------------------------------------------
+// 5️⃣ 파이프라인 자동화
+//----------------------------------------------------
 int run_pipeline(const std::vector<std::string>& args,
                  const std::string& file,
                  bool emit_asm,
@@ -28,72 +99,22 @@ int run_pipeline(const std::vector<std::string>& args,
                  bool debug)
 {
     std::cout << "=====================================================\n";
-    std::cout << "[r3c] Rust LTS transpiler + NASM bootstrap pipeline\n";
+    std::cout << "[R3C] Auto Pipeline: Rust → NASM → OBJ → EXE\n";
     std::cout << "=====================================================\n";
-    std::cout << "[STEP] Running pipeline...\n";
-
-    fs::path input(file);
-    if (!fs::exists(input)) {
-        std::cerr << "❌ Input file not found: " << input << std::endl;
-        return 1;
-    }
 
     fs::create_directories("build");
+    std::string asm_out = "build/out.asm";
+    std::string obj_out = "build/out.o";
+    std::string exe_out = output.empty() ? "build/out.exe" : output;
 
-    string asm_out = "build/out_lts.asm";
-    string obj_out = "build/out_lts.o";
-    string exe_out = output.empty() ? "build/out_lts.exe" : output;
-
-    // 1️⃣ Rust → NASM (Transpile)
-    std::cout << "=====================================================\n";
-    std::cout << "[r3c] Rust->NASM extended (if/else/while + ops + run_shell)\n";
-    std::cout << "=====================================================\n";
-
-    // 실제 transpiler 로직이 나중에 추가될 예정.
-    // 여기서는 더미 ASM 출력.
-    std::ofstream asm_file(asm_out);
-    asm_file << "section .text\n";
-    asm_file << "global _start\n";
-    asm_file << "_start:\n";
-    asm_file << "    mov rax, 60\n";
-    asm_file << "    xor rdi, rdi\n";
-    asm_file << "    syscall\n";
-    asm_file.close();
-
-    std::cout << "[OK] NASM generated (extended)\n";
-
-    // 2️⃣ Assemble
-    std::cout << "[STEP] assembling\n";
-    std::stringstream assemble_cmd;
-#if defined(_WIN32)
-    assemble_cmd << "nasm -f win64 \"" << asm_out << "\" -o \"" << obj_out << "\"";
-#else
-    assemble_cmd << "nasm -f elf64 \"" << asm_out << "\" -o \"" << obj_out << "\"";
-#endif
-    if (run_shell_cmd(assemble_cmd.str(), debug) != 0) return 2;
-
-    // 3️⃣ Link
-    std::cout << "[STEP] linking\n";
-#if defined(_WIN32)
-    std::stringstream link_cmd;
-    link_cmd << "link /subsystem:console /entry:main /out:" << exe_out << " " << obj_out;
-    if (run_shell_cmd(link_cmd.str(), debug) != 0) return 3;
-#else
-    std::stringstream link_cmd;
-    link_cmd << "ld -o " << exe_out << " " << obj_out;
-    if (run_shell_cmd(link_cmd.str(), debug) != 0) return 3;
-#endif
-
-    std::cout << "[OK] Linked executable: " << exe_out << std::endl;
-
-    // 4️⃣ Optional: Run output
-    if (run_shell) {
-        std::cout << "[STEP] executing " << exe_out << " ...\n";
-        run_shell_cmd(exe_out, debug);
-    }
+    // 자동 순서 실행
+    if (int e = stage_transpile(file, asm_out)) return e;
+    if (int e = stage_assemble(asm_out, obj_out)) return e;
+    if (int e = stage_link(obj_out, exe_out)) return e;
+    if (run_shell) stage_run(exe_out);
 
     std::cout << "=====================================================\n";
-    std::cout << "[r3c] pipeline finished successfully\n";
+    std::cout << "[R3C] Pipeline finished successfully\n";
     std::cout << "=====================================================\n";
     return 0;
 }
