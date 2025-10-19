@@ -1,58 +1,79 @@
-name: 🤖 R3C Contributor Automation
+name: 🤖 R3C Contributor Automation (Full)
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 jobs:
-  auto-review:
+  contrib-auto:
     runs-on: ubuntu-latest
 
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # PR 자동 라벨링
+      # 🔖 자동 라벨링 (파일 경로 기반)
       - name: 🏷️ Auto-label pull request
         uses: actions/labeler@v5
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # 빌드 테스트
+      # ⚙️ 빌드 테스트 (Ubuntu 기준)
       - name: ⚙️ Build verification
         run: |
           echo "Running build check..."
           cmake -B build -S .
           cmake --build build --parallel 4
 
-      # PR 코멘트 자동 생성
-      - name: 💬 Comment PR status
+      # 💬 자동 상태 코멘트
+      - name: 💬 Comment PR build status
         if: always()
         uses: peter-evans/create-or-update-comment@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
           body: |
-            ✅ **R3C Build Automation Report**
-            - Status: ${{ job.status }}
+            🧱 **R3C Build Report**
+            - Status: `${{ job.status }}`
             - OS: Ubuntu-latest
-            - PR Author: @${{ github.actor }}
+            - Commit: `${{ github.sha }}`
+            - Author: @${{ github.actor }}
             ---
-            This is an automated test build.
-            Maintainers will review your contribution shortly.
+            ✅ Auto-tested via GitHub Actions.
+            Maintainers will review this shortly.
 
-      # 신규 기여자 환영 메시지
+      # 🙌 신규 기여자 환영 메시지
       - name: 🙌 Welcome first-time contributor
         if: github.event.pull_request.user.login != '0200134'
         uses: actions/first-interaction@v1
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
-          issue-message: >
-            👋 Welcome to **R3C**! Thanks for opening your first issue.
           pr-message: >
-            🎉 Welcome to **R3C**! Your PR was successfully received.
-            The build system will check compatibility and maintainers will review soon.
+            🎉 Welcome to **R3C**!  
+            Thanks for your first contribution.  
+            The automated CI has already tested your code.  
+            A maintainer will review and merge soon. 🧠
+
+      # 👥 리뷰어 자동 배정
+      - name: 👥 Assign reviewers automatically
+        uses: kentaro-m/auto-assign-action@v2.2.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          reviewers: |
+            0200134
+          assignees: |
+            0200134
+
+      # 🔀 빌드 성공 시 자동 병합 (optional)
+      - name: 🔀 Auto-merge if all checks pass
+        if: ${{ success() && github.event.pull_request.user.login != '0200134' }}
+        uses: pascalgn/automerge-action@v0.16.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: squash
+          MERGE_LABELS: ready-to-merge
