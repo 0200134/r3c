@@ -3,8 +3,11 @@ name: ⚙️ R3C Cross-Platform Autonomous Build (v6.3 Debug+Safe)
 on:
   push:
   pull_request:
-  repository_dispatch:
-    types: [trigger-rebuild, trigger-self-fix]
+
+permissions:
+  actions: read
+  contents: write
+  workflows: write
 
 jobs:
   build:
@@ -27,8 +30,7 @@ jobs:
       - name: 🧱 Setup Windows build tools
         if: runner.os == 'Windows'
         shell: bash
-        run: |
-          choco install nasm cmake --yes || true
+        run: choco install nasm cmake --yes || true
 
       - name: ⚙️ Prepare include/test/stub
         shell: bash
@@ -75,13 +77,13 @@ jobs:
             🧱 **R3C build report for ${{ matrix.os }}**
             - Status: ${{ job.status }}
             - Date: ${{ github.run_id }}
-            ⚙️ Auto-retry and debug logs have been generated.
+            ⚙️ Auto-retry and debug logs generated.
 
-      - name: 🔁 Trigger self-fix (if build fails)
+      - name: 🔁 Trigger self-fix workflow (on failure)
         if: failure()
         uses: peter-evans/repository-dispatch@v3
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.R3C_TOKEN }}
           repository: ${{ github.repository }}
           event-type: trigger-self-fix
-          client-payload: '{"reason": "build failure"}'
+          client-payload: '{"status": "build failed, triggering self-fix"}'
