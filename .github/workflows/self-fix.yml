@@ -1,33 +1,20 @@
-name: 🧠 R3C Self-Fix & Auto-Rebuild (Tested Autonomous)
+name: 🧠 R3C Self-Fix & Auto-Rebuild (Autonomous Loop)
 
 on:
-  # ✅ 수동 실행용 버튼
   workflow_dispatch:
-
-  # ✅ main 브랜치 푸시 시 자동 실행
   push:
     branches: [ main ]
-
-  # ✅ 빌드 워크플로 완료 시 자동 실행 (성공/실패 모두)
-  workflow_run:
-    workflows:
-      - "⚙️ R3C Cross-Platform Autonomous Build (v6.3 Debug+Safe)"
-    types: [completed]
-    branches:
-      - main
+  repository_dispatch:
+    types: [trigger-self-fix]
 
 permissions:
+  actions: read
   contents: write
+  workflows: write
 
 jobs:
   self-heal:
-    if: >
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'repository_dispatch' ||
-      github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
-
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
@@ -35,15 +22,14 @@ jobs:
       - name: 🧠 Diagnostic header
         run: |
           echo "====================================================="
-          echo "R3C SELF-FIX WORKFLOW TRIGGERED"
-          echo "Event: ${{ github.event_name }}"
-          echo "Workflow Run Conclusion: ${{ github.event.workflow_run.conclusion || 'N/A' }}"
+          echo "R3C SELF-FIX TRIGGERED"
+          echo "Triggered by: ${{ github.event_name }}"
           echo "====================================================="
 
-      - name: 🔍 Check file structure
+      - name: 🔍 Check directories
         run: |
-          ls -R include || echo "(no include)"
-          ls -R src || echo "(no src)"
+          ls -R include || echo "(no include dir)"
+          ls -R src || echo "(no src dir)"
 
       - name: ⚙️ Auto-create include/r3c.hpp if missing
         run: |
@@ -84,23 +70,22 @@ EOF
             echo "✅ JSON header already exists."
           fi
 
-      - name: 💾 Commit and push auto-fix
+      - name: 💾 Commit and push fixes
         run: |
           git config user.name "r3c-bot"
           git config user.email "bot@r3c.local"
           git add include src CMakeLists.txt || true
-          git commit -m "🤖 auto-fix (self-heal test)" || echo "No changes"
+          git commit -m "🤖 auto-fix: repaired headers & JSON includes" || echo "No changes"
           git push || echo "No push needed"
 
-      - name: 🚀 Trigger test rebuild event (echo)
+      - name: 🚀 Trigger rebuild automatically
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.R3C_TOKEN }}
           repository: ${{ github.repository }}
-          event-type: test-self-fix
-          client-payload: '{"status": "triggered from self-fix.yml"}'
+          event-type: trigger-rebuild
+          client-payload: '{"reason": "auto rebuild after self-fix"}'
 
       - name: 🧩 Confirmation Log
         run: |
-          echo "✅ Self-fix workflow completed."
-          echo "🧠 Event test-self-fix dispatched successfully."
+          echo "✅ Self-fix completed and rebuild event dispatched."
