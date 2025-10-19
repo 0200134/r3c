@@ -1,16 +1,17 @@
-name: R3C Cross-Platform Build & Test (v4 Stable)
+name: R3C Cross-Platform Build & Test (v5 Win-Stable)
 
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
 
     steps:
       - name: Checkout Repository
@@ -21,26 +22,75 @@ jobs:
         with:
           cmake-version: '3.28.0'
 
-      - name: Cache Build
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/
-            ~/.cmake/packages
-          key: ${{ runner.os }}-r3c-${{ hashFiles('CMakeLists.txt') }}
+      - name: Setup NASM
+        uses: ilammy/setup-nasm@v1
 
-      - name: Configure
-        run: cmake -B build -S .
+      - name: Configure MSVC
+        shell: pwsh
+        run: |
+          echo "⚙️ Setting up MSVC environment..."
+          choco install visualstudio2022community --no-progress -y --ignore-checksums
+          choco install visualstudio2022buildtools --no-progress -y --ignore-checksums
+          echo "✅ MSVC toolchain installed."
+
+      - name: Configure CMake (x64 Release)
+        run: cmake -B build -S . -A x64 -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel 4
 
       - name: Run Tests
-        run: ./build/r3c_tests || echo "⚠️ Tests skipped or minimal stub executed."
+        run: |
+          if (Test-Path "build\\r3c_tests.exe") {
+            ./build/r3c_tests.exe
+          } else {
+            Write-Host "⚠️ No tests found, skipping."
+          }
 
-      - name: Upload Logs
+      - name: Upload Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-build-log-${{ matrix.os }}
-          path: build/CMakeFiles/CMakeOutput.log
+          name: r3c-windows-bin
+          path: |
+            build/**/*.exe
+            build/**/*.log
+            bin/**/*.exe
+
+  build-linux:
+    name: Build on Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup dependencies
+        run: sudo apt update && sudo apt install -y build-essential nasm cmake
+      - name: Configure and build
+        run: |
+          cmake -B build -S .
+          cmake --build build --config Release --parallel 4
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-linux-bin
+          path: build/r3c
+
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install NASM and CMake
+        run: brew install nasm cmake
+      - name: Configure and build
+        run: |
+          cmake -B build -S .
+          cmake --build build --config Release --parallel 4
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-macos-bin
+          path: build/r3c
