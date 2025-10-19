@@ -1,116 +1,29 @@
 name: 🧠 R3C Self-Fix & Auto-Rebuild (Adaptive)
 
 on:
-  # ✅ 수동 실행도 가능
   workflow_dispatch:
-  # ✅ main에 push될 때 자동 실행
   push:
     branches: [ main ]
-  # ✅ 어떤 빌드 워크플로라도 실패하면 작동
   workflow_run:
-    workflows-ignore: [] # 모든 워크플로 대상으로
+    workflows: []  # ✅ 모든 워크플로 대상으로
     types: [completed]
+
+permissions:
+  contents: write
 
 jobs:
   self-heal:
-    # ✅ 실패했을 때만 작동하도록 조건 추가
     if: >
       github.event_name == 'push' ||
       github.event_name == 'workflow_dispatch' ||
       github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🔍 Diagnose missing files
-        run: |
-          echo "Checking for missing files..."
-          ls -R include || echo "(no include directory found)"
-          ls -R src || echo "(no src directory found)"
-
-      - name: ⚙️ Create missing include/r3c.hpp
-        run: |
-          mkdir -p include
-          if [ ! -f include/r3c.hpp ]; then
-            echo "Creating include/r3c.hpp ..."
-            cat > include/r3c.hpp <<'EOF'
-#pragma once
-#include <string>
-#include <vector>
-#include <cstdio>
-
-int run_pipeline(const std::vector<std::string>& args,
-                 const std::string& manifest,
-                 bool emit_asm,
-                 bool emit_rust,
-                 const std::string& out_dir,
-                 bool verbose);
-
-inline void r3c_banner() {
-    printf("=====================================================\n");
-    printf("[r3c] Rust LTS transpiler + NASM bootstrap pipeline\n");
-    printf("=====================================================\n");
-}
-EOF
-          else
-            echo "✅ r3c.hpp already exists."
-          fi
-
-      - name: 📦 Ensure nlohmann/json.hpp exists
-        run: |
-          mkdir -p include/nlohmann
-          if [ ! -f include/nlohmann/json.hpp ]; then
-            echo "Downloading nlohmann/json.hpp ..."
-            curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
-              -o include/nlohmann/json.hpp
-          else
-            echo "✅ nlohmann/json.hpp already present."
-          fi
-
-      - name: 🔧 Fix missing JSON include in src/r3cpkg.cpp
-        run: |
-          if [ -f src/r3cpkg.cpp ]; then
-            if ! grep -q "nlohmann/json.hpp" src/r3cpkg.cpp; then
-              echo "Injecting JSON include into r3cpkg.cpp ..."
-              sed -i '1i #include <nlohmann/json.hpp>\nusing json = nlohmann::json;\n' src/r3cpkg.cpp
-            else
-              echo "✅ JSON include already present in r3cpkg.cpp"
-            fi
-          else
-            echo "⚠️ src/r3cpkg.cpp not found!"
-          fi
-
-      - name: 🏗️ Ensure include paths in CMakeLists.txt
-        run: |
-          if ! grep -q "include_directories" CMakeLists.txt; then
-            echo "Appending include directories to CMakeLists.txt ..."
-            echo '
-include_directories(
-  ${CMAKE_SOURCE_DIR}/include
-  ${CMAKE_SOURCE_DIR}/include/nlohmann
-  ${CMAKE_SOURCE_DIR}/src
-)
-if(APPLE)
-  target_link_libraries(r3c PRIVATE c++ m)
-endif()
-' >> CMakeLists.txt
-          fi
-
-      - name: 💾 Commit and push fixes
-        run: |
-          git config user.name "r3c-bot"
-          git config user.email "bot@r3c.local"
-          git add include src CMakeLists.txt
-          git commit -m "🤖 auto-fix: repaired headers & JSON includes" || echo "No changes to commit"
-          git push || echo "No push required"
-
-      - name: 🚀 Trigger rebuild automatically
-        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
-        uses: peter-evans/repository-dispatch@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          repository: ${{ github.repository }}
-          event-type: trigger-rebuild
-          client-payload: '{"reason": "auto rebuild after self-fix"}'
+    ...
+    - name: 🚀 Trigger rebuild automatically
+      if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
+      uses: peter-evans/repository-dispatch@v3
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        repository: ${{ github.repository }}
+        event-type: trigger-rebuild
+        client-payload: '{"reason": "auto rebuild after self-fix"}'
