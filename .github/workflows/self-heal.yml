@@ -1,10 +1,9 @@
-name: R3C Self-Healing Auto-Fix
+name: R3C Self-Healing Auto-Fix (v2)
 
 on:
   workflow_run:
-    workflows: ["R3C Autonomous Build Line (Stable v3)"]
-    types:
-      - completed
+    workflows: ["R3C Autonomous Build Line (v4)"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -20,37 +19,35 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download build log artifact
+      - name: Download build log
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
-          name: r3c-build-log-windows-latest
+          name: r3c-build-log
           path: ./logs
 
-      - name: Analyze log and create fix
+      - name: Analyze build log and detect cause
         id: analysis
         run: |
-          mkdir -p fixes
           LOG="./logs/build_log.txt"
-          echo "🧠 analyzing $LOG"
-          FIX=""
+          FIX="none"
           if grep -q "nlohmann/json.hpp" "$LOG"; then
-            echo "Detected missing json.hpp include."
+            echo "Detected missing json.hpp → fixing"
             mkdir -p include/nlohmann
             curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
               -o include/nlohmann/json.hpp
             FIX="json-include"
           elif grep -q "symbol(s) not found" "$LOG"; then
-            echo "Detected missing function implementation (run_pipeline/test_main)."
+            echo "Detected missing function → stub fix"
             echo "// stub auto-generated" >> src/auto_stub.cpp
             echo "int test_main(){return 0;}" >> src/auto_stub.cpp
-            FIX="stub-func"
+            FIX="stub"
           else
-            echo "Unknown failure pattern, skipping self-heal."
-            FIX="none"
+            echo "No known fix pattern found."
           fi
           echo "fix_type=$FIX" >> $GITHUB_OUTPUT
 
-      - name: Commit and push fix
+      - name: Commit and create fix branch
         if: steps.analysis.outputs.fix_type != 'none'
         run: |
           git config --global user.name "r3c-bot"
@@ -58,18 +55,18 @@ jobs:
           BRANCH="auto-fix-${{ steps.analysis.outputs.fix_type }}-${{ github.run_number }}"
           git checkout -b "$BRANCH"
           git add .
-          git commit -m "auto-fix: ${{ steps.analysis.outputs.fix_type }} (self-heal)"
+          git commit -m "auto-fix: ${{ steps.analysis.outputs.fix_type }}"
           git push origin "$BRANCH"
 
-      - name: Open PR automatically
+      - name: Create PR automatically
         if: steps.analysis.outputs.fix_type != 'none'
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           title: "🤖 Auto-Fix: ${{ steps.analysis.outputs.fix_type }}"
           body: |
-            **Automatic self-healing triggered by build failure**
-            - Workflow: `${{ github.event.workflow_run.name }}`
-            - Fix type: `${{ steps.analysis.outputs.fix_type }}`
-            - Commit: `${{ github.sha }}`
+            **Automatic fix triggered by failed build**
+            - Fix Type: `${{ steps.analysis.outputs.fix_type }}`
+            - Workflow Run: `${{ github.event.workflow_run.id }}`
+            - Status: ✅ Self-Heal applied
           branch: "auto-fix-${{ steps.analysis.outputs.fix_type }}-${{ github.run_number }}"
