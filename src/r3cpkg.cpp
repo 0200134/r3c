@@ -1,80 +1,88 @@
-#include "pkgmgr.hpp"
 #include <fstream>
 #include <iostream>
-#include <sstream>
-#include <filesystem>
-#include <nlohmann/json.hpp>  // ✅ JSON 헤더 추가
-#include "r3cpkg.hpp"
-#include <nlohmann/json.hpp>
+#include <string>
+#include <map>
+#include <nlohmann/json.hpp>   // ✅ 반드시 포함
+using json = nlohmann::json;  // ✅ 반드시 선언
 
-using json = nlohmann::json;
-namespace fs = std::filesystem;
+class r3c_pkg {
+public:
+    void load_index(const std::string& path);
+    void save_index(const std::string& path) const;
+    void add_package(const std::string& name, const std::string& version);
+    void remove_package(const std::string& name);
+    void list_packages() const;
+    bool exists(const std::string& name) const;
+    std::string get_version(const std::string& name) const;
 
-static std::string read_file(const std::string& path) {
+private:
+    json index;
+};
+
+// ✅ 인덱스 로드
+void r3c_pkg::load_index(const std::string& path) {
     std::ifstream ifs(path);
     if (!ifs.is_open()) {
-        throw std::runtime_error("Cannot open file: " + path);
-    }
-    std::stringstream buffer;
-    buffer << ifs.rdbuf();
-    return buffer.str();
-}
-
-void r3c_pkg::load_index(const std::string& path) {
-    std::string data = read_file(path);
-    try {
-        json j = json::parse(data);
-        index.clear();
-        for (auto& [k, v] : j.items()) {
-            index[k] = v.get<std::string>();
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[r3c-pkg] Failed to parse index: " << e.what() << std::endl;
-    }
-}
-
-void r3c_pkg::save_index(const std::string& path) const {
-    json j;
-    for (const auto& [k, v] : index) {
-        j[k] = v;
-    }
-    std::ofstream ofs(path);
-    if (!ofs.is_open()) {
-        throw std::runtime_error("Cannot write file: " + path);
-    }
-    ofs << j.dump(2);
-}
-
-void r3c_pkg::add_package(const std::string& name, const std::string& version) {
-    index[name] = version;
-}
-
-void r3c_pkg::remove_package(const std::string& name) {
-    auto it = index.find(name);
-    if (it != index.end()) {
-        index.erase(it);
-    } else {
-        std::cerr << "[r3c-pkg] Package not found: " << name << std::endl;
-    }
-}
-
-void r3c_pkg::list_packages() const {
-    if (index.empty()) {
-        std::cout << "[r3c-pkg] No packages registered.\n";
+        std::cerr << "⚠️  Failed to open package index: " << path << std::endl;
+        index = json::object();
         return;
     }
-    std::cout << "📦 Installed packages:\n";
-    for (const auto& [k, v] : index) {
-        std::cout << " - " << k << "@" << v << "\n";
+
+    try {
+        index = json::parse(ifs);
+    } catch (...) {
+        std::cerr << "⚠️  Invalid JSON format in index file." << std::endl;
+        index = json::object();
     }
 }
 
-bool r3c_pkg::exists(const std::string& name) const {
-    return index.find(name) != index.end();
+// ✅ 인덱스 저장
+void r3c_pkg::save_index(const std::string& path) const {
+    std::ofstream ofs(path);
+    if (!ofs.is_open()) {
+        std::cerr << "⚠️  Failed to save package index: " << path << std::endl;
+        return;
+    }
+
+    ofs << index.dump(2);
 }
 
+// ✅ 패키지 추가
+void r3c_pkg::add_package(const std::string& name, const std::string& version) {
+    index[name] = version;
+    std::cout << "📦 Added package: " << name << "@" << version << std::endl;
+}
+
+// ✅ 패키지 제거
+void r3c_pkg::remove_package(const std::string& name) {
+    if (index.contains(name)) {
+        index.erase(name);
+        std::cout << "🗑️  Removed package: " << name << std::endl;
+    } else {
+        std::cout << "⚠️  Package not found: " << name << std::endl;
+    }
+}
+
+// ✅ 패키지 목록 표시
+void r3c_pkg::list_packages() const {
+    if (index.empty()) {
+        std::cout << "(no packages installed)" << std::endl;
+        return;
+    }
+
+    for (auto& [k, v] : index.items()) {
+        std::cout << k << "@" << v << std::endl;
+    }
+}
+
+// ✅ 존재 여부 확인
+bool r3c_pkg::exists(const std::string& name) const {
+    return index.contains(name);
+}
+
+// ✅ 버전 조회
 std::string r3c_pkg::get_version(const std::string& name) const {
-    auto it = index.find(name);
-    if (it != index.end()) return it->second;
+    if (index.contains(name))
+        return index[name];
     return "";
 }
