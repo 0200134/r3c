@@ -1,3 +1,43 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/0200134/r3c/main/docs/r3c_logo.png" width="100" alt="R3C Logo">
+</p>
+
+<h1 align="center">🦋 R3C — Rust Independence Compiler</h1>
+<p align="center">
+  <strong>Rewrite the base. Build compilers that heal themselves.</strong><br>
+  <em>Cross-platform C++ · NASM · Rust transpiler pipeline</em>
+</p>
+
+<p align="center">
+  <a href="https://github.com/0200134/r3c/stargazers"><img src="https://img.shields.io/github/stars/0200134/r3c?style=for-the-badge&color=yellow" alt="stars"></a>
+  <a href="https://github.com/0200134/r3c/releases"><img src="https://img.shields.io/badge/version-v0.1.0-blue?style=for-the-badge" alt="version"></a>
+  <img src="https://img.shields.io/badge/clones-1.2k%2F14d-brightgreen?style=for-the-badge" alt="clones">
+  <img src="https://img.shields.io/badge/visitors-96%2F14d-blue?style=for-the-badge" alt="visitors">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" alt="license"></a>
+</p>
+
+---
+
+## 💬 Join the Movement
+
+> 🧠 **R3C** is a *Rust-independence experiment* — proving that a compiler can **self-build, self-repair, and self-deploy** across any platform, without relying on LLVM or Cargo.
+
+We’re looking for contributors who love:
+- 🧩 C++ systems engineering  
+- ⚙️ Compiler pipelines & NASM  
+- 🦀 Rust transpilation  
+- 🤖 Self-healing automation  
+
+> 👉 Whether you fix one header or design a full pipeline — your contribution matters.
+
+<p align="center">
+  <a href="https://github.com/0200134/r3c/issues/new?template=feature.yml"><b>🚀 Contribute Now</b></a> |
+  <a href="https://github.com/0200134/r3c/discussions"><b>💬 Join Discussion</b></a>
+</p>
+
+---
+
+
 > 🧠 R3C — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
 
 
