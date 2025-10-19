@@ -1,15 +1,20 @@
-name: 🧠 R3C Self-Fix & Auto-Rebuild (Full Autonomous)
+name: 🧠 R3C Self-Fix & Auto-Rebuild (Tested Autonomous)
 
 on:
+  # ✅ 수동 실행용 버튼
   workflow_dispatch:
+
+  # ✅ main 브랜치 푸시 시 자동 실행
   push:
     branches: [ main ]
+
+  # ✅ 빌드 워크플로 완료 시 자동 실행 (성공/실패 모두)
   workflow_run:
     workflows:
       - "⚙️ R3C Cross-Platform Autonomous Build (v6.3 Debug+Safe)"
     types: [completed]
-  repository_dispatch:
-    types: [trigger-self-fix]
+    branches:
+      - main
 
 permissions:
   contents: write
@@ -27,13 +32,20 @@ jobs:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      - name: 🔍 Diagnose repo structure
+      - name: 🧠 Diagnostic header
         run: |
-          echo "🔍 Checking include/src files..."
+          echo "====================================================="
+          echo "R3C SELF-FIX WORKFLOW TRIGGERED"
+          echo "Event: ${{ github.event_name }}"
+          echo "Workflow Run Conclusion: ${{ github.event.workflow_run.conclusion || 'N/A' }}"
+          echo "====================================================="
+
+      - name: 🔍 Check file structure
+        run: |
           ls -R include || echo "(no include)"
           ls -R src || echo "(no src)"
 
-      - name: ⚙️ Restore missing include/r3c.hpp
+      - name: ⚙️ Auto-create include/r3c.hpp if missing
         run: |
           mkdir -p include
           if [ ! -f include/r3c.hpp ]; then
@@ -72,36 +84,23 @@ EOF
             echo "✅ JSON header already exists."
           fi
 
-      - name: 🔧 Fix JSON include in r3cpkg.cpp
-        run: |
-          if [ -f src/r3cpkg.cpp ]; then
-            if ! grep -q "nlohmann/json.hpp" src/r3cpkg.cpp; then
-              echo "Injecting missing include..."
-              sed -i '1i #include <nlohmann/json.hpp>\nusing json = nlohmann::json;\n' src/r3cpkg.cpp
-            else
-              echo "✅ JSON include already present."
-            fi
-          else
-            echo "⚠️ src/r3cpkg.cpp not found!"
-          fi
-
-      - name: 💾 Commit and push fixes
+      - name: 💾 Commit and push auto-fix
         run: |
           git config user.name "r3c-bot"
           git config user.email "bot@r3c.local"
           git add include src CMakeLists.txt || true
-          git commit -m "🤖 auto-fix: repaired headers & JSON includes" || echo "No changes to commit"
-          git push || echo "No push required"
+          git commit -m "🤖 auto-fix (self-heal test)" || echo "No changes"
+          git push || echo "No push needed"
 
-      - name: 🚀 Trigger rebuild (via PAT)
+      - name: 🚀 Trigger test rebuild event (echo)
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.R3C_TOKEN }}
           repository: ${{ github.repository }}
-          event-type: trigger-rebuild
-          client-payload: '{"reason": "auto rebuild after self-fix"}'
+          event-type: test-self-fix
+          client-payload: '{"status": "triggered from self-fix.yml"}'
 
-      - name: 🧠 Log confirmation
+      - name: 🧩 Confirmation Log
         run: |
-          echo "✅ Self-fix executed successfully."
-          echo "🧩 Rebuild trigger dispatched using R3C_TOKEN."
+          echo "✅ Self-fix workflow completed."
+          echo "🧠 Event test-self-fix dispatched successfully."
