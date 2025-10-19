@@ -1,0 +1,32 @@
+name: 🤝 Welcome New Contributor
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🤖 Post welcome comment
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            👋 **Welcome to the R3C Project!**
+
+            Thanks for opening your first Pull Request, @${{ github.actor }} 🎉  
+            R3C is an autonomous build & self-healing compiler system — and every contribution helps it grow stronger.
+
+            **Next Steps**
+            - ✅ Make sure your PR passes the [CI build](https://github.com/${{ github.repository }}/actions)
+            - 🧠 Check out the [Contributor Guide](https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md)
+            - 🧾 View the [Roadmap v6](https://github.com/${{ github.repository }}/blob/main/docs/roadmap_v6.md)
+            - 🪲 Read about R3C’s philosophy: [`docs/philosophy.md`](https://github.com/${{ github.repository }}/blob/main/docs/philosophy.md)
+
+            Once merged, your name will appear in the **Top Contributors** section automatically 🏅  
+            Thanks again for joining the R3C ecosystem 🚀
