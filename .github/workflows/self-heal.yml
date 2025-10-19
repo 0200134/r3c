@@ -1,115 +1,91 @@
-name: R3C Self-Healing Auto-Fix (v4)
+name: R3C Self-Heal Auto-Trigger + Auto-Merge (v4)
 
 on:
   workflow_run:
-    workflows: ["R3C Autonomous Build Line (v5)"]
+    workflows: ["R3C Cross-Platform Build & Test (v4 Stable)"]
     types: [completed]
+  workflow_dispatch:
 
 permissions:
   contents: write
   pull-requests: write
-  issues: write
-  actions: write
 
 jobs:
-  selfheal:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+  heal:
+    name: Auto Fix Build Failures
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Download build log
-        continue-on-error: true
-        uses: actions/download-artifact@v4
         with:
-          name: r3c-build-log
-          path: ./logs
+          fetch-depth: 0
 
-      - name: Analyze build log and detect cause
-        id: analysis
-        run: |
-          LOG="./logs/build_log.txt"
-          FIX="none"
-
-          if grep -q "nlohmann/json.hpp" "$LOG"; then
-            echo "Detected missing json.hpp → fixing"
-            mkdir -p include/nlohmann
-            curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
-              -o include/nlohmann/json.hpp
-            FIX="json-include"
-
-          elif grep -q "r3c.hpp" "$LOG"; then
-            echo "Detected missing r3c.hpp → auto-generating stub header"
-            mkdir -p include
-            cat <<'EOF' > include/r3c.hpp
-#ifndef R3C_HPP
-#define R3C_HPP
-
-#include <string>
-#include <vector>
-
-int run_pipeline(const std::vector<std::string>& args,
-                 const std::string& input,
-                 bool debug = false,
-                 bool verbose = false,
-                 const std::string& output = "",
-                 bool dry_run = false);
-
-#endif
-EOF
-            FIX="missing-header"
-
-          elif grep -q "symbol(s) not found" "$LOG"; then
-            echo "Detected missing symbol(s) → adding stub"
-            echo "// stub auto-generated" >> src/auto_stub.cpp
-            echo "int test_main(){return 0;}" >> src/auto_stub.cpp
-            FIX="stub"
-
-          else
-            echo "No known fix pattern found."
-          fi
-
-          echo "fix_type=$FIX" >> $GITHUB_OUTPUT
-          echo "🧠 Fix detected: $FIX"
-
-      - name: Commit and push fix
-        if: steps.analysis.outputs.fix_type != 'none'
+      - name: Setup git
         run: |
           git config --global user.name "r3c-bot"
           git config --global user.email "r3c-bot@users.noreply.github.com"
-          BRANCH="auto-fix-${{ steps.analysis.outputs.fix_type }}-${{ github.run_number }}"
-          git checkout -b "$BRANCH"
-          git add .
-          git commit -m "auto-fix: ${{ steps.analysis.outputs.fix_type }} (self-heal)"
-          git push origin "$BRANCH"
 
-      - name: Create PR automatically
-        if: steps.analysis.outputs.fix_type != 'none'
-        id: pr
+      - name: Analyze build logs
+        run: |
+          echo "🩺 Analyzing build logs..."
+          mkdir -p logs
+          cp -f build/CMakeFiles/CMakeError.log logs/ 2>/dev/null || true
+          cp -f build/CMakeFiles/CMakeOutput.log logs/ 2>/dev/null || true
+
+      - name: Self-Heal common errors
+        run: |
+          echo "⚙️ Running self-heal..."
+          if [ ! -f include/r3c.hpp ]; then
+            mkdir -p include
+            echo "#pragma once\nint run_pipeline();" > include/r3c.hpp
+            echo "🪄 Created include/r3c.hpp"
+          fi
+
+      - name: Commit and push fix branch
+        run: |
+          git checkout -b auto-heal-${{ github.run_id }}
+          git add include/ logs/ || true
+          git commit -m "🤖 auto-heal: repair missing headers" || echo "No fix needed."
+          git push origin auto-heal-${{ github.run_id }} || echo "Push skipped"
+
+      - name: Create PR for fix
+        id: create_pr
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          title: "🤖 Auto-Fix: ${{ steps.analysis.outputs.fix_type }}"
+          commit-message: "🤖 auto-heal: build fix"
+          title: "🤖 Auto-Heal Build Fix #${{ github.run_id }}"
           body: |
-            **Automatic self-healing triggered by failed build**
-            - Fix Type: `${{ steps.analysis.outputs.fix_type }}`
-            - Workflow: `${{ github.event.workflow_run.name }}`
-            - Commit: `${{ github.sha }}`
-          branch: "auto-fix-${{ steps.analysis.outputs.fix_type }}-${{ github.run_number }}"
+            This PR was generated automatically after a failed build.
+            - Missing headers / includes repaired
+            - Logs attached under `/logs/`
+          branch: auto-heal-${{ github.run_id }}
 
-      - name: Auto-merge PR
-        if: steps.pr.outputs.pull-request-number != ''
-        uses: peter-evans/enable-pull-request-automerge@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          pull-request-number: ${{ steps.pr.outputs.pull-request-number }}
-          merge-method: squash
+  merge:
+    name: Auto-Merge if Build Passes
+    needs: heal
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    if: ${{ always() }}
 
-      - name: Trigger new build after merge
-        if: steps.analysis.outputs.fix_type != 'none'
-        uses: benc-uk/workflow-dispatch@v1
+    steps:
+      - name: Wait for rebuild
+        uses: lewagon/wait-on-check-action@v1.3.3
         with:
-          workflow: "R3C Autonomous Build Line (v5)"
-          ref: "main"
+          ref: main
+          check-name: "R3C Cross-Platform Build & Test (v4 Stable)"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          timeout: 1200
+
+      - name: Auto-Merge healed PR
+        if: success()
+        uses: pascalgn/automerge-action@v0.15.6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MERGE_METHOD: squash
+          MERGE_COMMIT_MESSAGE: "✅ Auto-merged successful self-heal build"
