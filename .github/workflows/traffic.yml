@@ -1,0 +1,63 @@
+name: 📊 R3C Traffic Analytics
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # 매일 00:00 UTC에 실행
+  workflow_dispatch:
+
+jobs:
+  generate-traffic-chart:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y python3 python3-pip
+          pip install matplotlib requests pandas
+
+      - name: Generate traffic chart
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 <<'EOF'
+import requests, matplotlib.pyplot as plt, pandas as pd
+import datetime, os
+
+repo = "${{ github.repository }}"
+headers = {"Authorization": f"token {os.environ['GITHUB_TOKEN']}"}
+
+views = requests.get(f"https://api.github.com/repos/{repo}/traffic/views", headers=headers).json()
+clones = requests.get(f"https://api.github.com/repos/{repo}/traffic/clones", headers=headers).json()
+
+view_data = pd.DataFrame(views.get("views", []))
+clone_data = pd.DataFrame(clones.get("clones", []))
+
+if not view_data.empty and not clone_data.empty:
+    plt.figure(figsize=(8,4))
+    plt.plot(view_data["timestamp"], view_data["count"], label="Views", marker='o')
+    plt.plot(clone_data["timestamp"], clone_data["count"], label="Clones", marker='s')
+    plt.title("R3C GitHub Traffic")
+    plt.xlabel("Date")
+    plt.ylabel("Count")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig("traffic_chart.png")
+    print("✅ traffic_chart.png generated successfully.")
+else:
+    print("⚠️ No traffic data yet. Try again tomorrow.")
+EOF
+
+      - name: Commit and push chart
+        run: |
+          git config user.name "r3c-bot"
+          git config user.email "bot@r3c.local"
+          git add traffic_chart.png || true
+          git commit -m "📈 auto: update traffic chart" || echo "No new chart"
+          git push || echo "No push required"
