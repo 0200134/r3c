@@ -1,178 +1,154 @@
 
-<!-- DASHBOARD_START -->
-## ⚙️ R3C Activity Dashboard
-
-| 항목 | 값 |
-|------|----|
-| 🧩 최근 릴리스 | N/A |
-| 👀 총 조회수 | null |
-| 📦 총 클론 수 | null |
-
-### 🧠 최근 빌드 로그 (최근 5회)
-```
-No build logs
-```
-
-_자동 갱신: 2025-10-19 04:27 UTC_
-<!-- DASHBOARD_END -->
-
-# 🦀 r3c — Rust LTS Transpiler + NASM Bootstrap
-
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/0200134/r3c/actions)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/0200134/r3c/blob/main/LICENSE)
-[![Language](https://img.shields.io/badge/language-Rust%20%2B%20NASM-orange)](#)
-[![Project Board](https://img.shields.io/badge/board-R3C%20Compiler%20Dev-blueviolet)](https://github.com/0200134/r3c/projects)
-[![No C Allowed](https://img.shields.io/badge/C%20code-forbidden-red)](#)
-
-> **No C. No LLVM. Only Rust and Assembly.**  
-> _“C deserves rest — Rust must now walk on its own.”_
 
 ---
 
-## 🧠 Philosophy
+📄 README.md (v5 — Inflow Optimized)
 
-R3C isn’t *“yet another compiler.”*  
-It’s a **Rust independence experiment** —  
-to prove that a modern language can self-host  
-without dragging a monolithic backend.
+<h1 align="center">🦀 R3C — Rust Recompiler & Self-Healing Build System</h1>
 
-C built the world.  
-R3C builds the next one — free from C, free from LLVM.
-
-> “Respect the C.  
-> Replace the dependency.  
-> Rebuild the freedom.”
+<p align="center">
+  <b>Rust → NASM → Executable</b><br>
+  ⚙️ Cross-Platform • 🤖 Self-Healing • 🧠 Autonomous Build Pipeline
+</p>
 
 ---
 
-## ⚙️ Architecture Overview
+### 🧩 Overview
 
+R3C isn’t just another compiler.  
+It’s a **Rust-independence experiment** — a self-healing, self-building system  
+that compiles, repairs, and redeploys itself across Windows, macOS, and Linux.
 
-
-
-Rust Source  ──▶  r3c  ──▶  NASM ASM  ──▶  OBJ  ──▶  EXE
-
-
-
-- **Transpile:** Rust → NASM  
-- **Assemble:** NASM → Object  
-- **Link:** Direct OS API linking (no libc / CRT)  
-- **Goal:** Full self-bootstrap (`r3c` builds `r3c`)
-
-All builds are linear, deterministic, and fully independent.  
-No C, no Clang, no LLVM in the pipeline.
+> **Goal:** Prove that a modern compiler can live without human babysitting.
 
 ---
 
-## 🚫 C Language Policy
-
-C is **forbidden** in this project.
-
-| Forbidden | Reason |
-|------------|--------|
-| `#include <stdio.h>` | libc dependency |
-| `malloc`, `free`, `printf` | CRT linkage |
-| `main()` | legacy entry point |
-| Any `.c` file | breaks independence |
-
-> “We inherit C’s discipline — not its runtime.”
-
----
-
-## 🤖 Automation
-
-| Workflow | Description |
-|-----------|-------------|
-| `project-auto.yml` | Automatically moves Issues/PRs to the Project Board |
-| `weekly-summary.yml` | Updates task-count badge weekly |
-| `test-build.yml` *(planned)* | Continuous Integration build test |
-
-🔗 **Project Board:** [R3C Compiler Development Board](https://github.com/0200134/r3c/projects)
-
----
-
-## 🤝 Contributing
-
-We welcome all contributors — from **bug fixers** to **bootstrap architects.**
-
-### Rules
-1. **No C.** Rust + NASM only.  
-2. Follow the philosophy before writing code.  
-3. Document every architectural decision.
-
-👉 [CONTRIBUTING Guide](https://github.com/0200134/r3c/blob/main/CONTRIBUTING.md)  
-👉 [Issue Templates](https://github.com/0200134/r3c/issues/new/choose)
-
-### Quick Start
+### 🚀 Quick Start
 
 ```bash
 git clone https://github.com/0200134/r3c.git
 cd r3c
-git checkout -b feature/my-feature
 cmake -B build -S .
-cmake --build build
+cmake --build build --config Release
+./build/r3c --emit-asm hello.r3
 
-
-
-When your PR is merged, the automation will mark it as ✅ Done.
-
-
-
-🧾 License
-
-
-Licensed under the MIT License.
-
-You’re free to use, modify, and distribute — just keep the license notice.
-
-
-
-❤️ Contributors
-
-
-
-
-Name
-Role
-
-
-
-
-@0200134
-Creator / Maintainer
-
-
-(you?)
-Join via PR!
-
-
-
-
-
-
-“One NASM line closer to Rust’s independence.”
-
-
-
-
-
-🏁 Summary
-
-
-R3C is not just another transpiler —
-
-it’s the first step toward a self-hosted Rust world.
-
-
-
-
-No C. No LLVM. Only Rust and Assembly.
-
+> 💡 Everything builds automatically.
+If something breaks, the self-heal bot creates a PR within minutes.
 
 
 
 
 ---
-<!-- GEO_START -->
-<!-- 아래는 자동 갱신되는 전세계 활동 데이터입니다 -->
-<!-- GEO_END -->
+
+⚙️ Build Status
+
+OS	Status	Compiler	Notes
+
+🪟 Windows		MSVC 17+	Auto-healing enabled
+🐧 Ubuntu		GCC 13+	NASM pipeline active
+🍎 macOS		Clang 16+	ARM64 verified
+
+
+
+---
+
+🤖 Self-Healing Pipeline
+
+When a build fails, the R3C-bot triggers a full recovery:
+
+1. Detects missing headers / invalid includes
+
+
+2. Generates stubs or replacements
+
+
+3. Pushes a fix branch
+
+
+4. Opens a PR (auto-heal-xxxx)
+
+
+5. Auto-merges once tests pass
+
+
+
+> 🔁 Human merges are optional.
+The system maintains itself.
+
+
+
+
+---
+
+🧠 Philosophy
+
+> “Don’t build compilers that need humans.
+Build compilers that build themselves.”
+
+
+
+R3C embodies that philosophy — autonomous maintenance,
+platform-agnostic builds, and minimal friction.
+
+
+---
+
+📊 Traffic & Growth
+
+
+
+Metric	Current	Trend
+
+Views	778+	📈 Rising
+Clones	564+	📈 Active
+Unique Visitors	80+	🧠 Consistent
+
+
+
+---
+
+🤝 Contributing
+
+Fork and git checkout -b feature/your-feature
+
+Submit PR — the CI & Self-Heal bot takes care of testing.
+
+All contributions welcome: code, doc, or build logic.
+
+
+
+---
+
+🧾 License
+
+MIT License — free to use, modify, and distribute.
+Please retain license notice in derived works.
+
+
+---
+
+❤️ Maintainers
+
+Name	Role	Contact
+
+@0200134	Creator / Maintainer	🪲 Oversees R3C automation
+(You?)	Contributor	Submit PR
+
+
+
+---
+
+<p align="center"><i>
+🧠 Built to evolve.<br>
+Self-healing, self-building, self-sustaining.
+</i></p>
+```
+---
+
+---
+
+
+
+
+---
+
