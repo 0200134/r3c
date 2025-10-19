@@ -1,4 +1,4 @@
-name: R3C Autonomous Build Line (Stable v3)
+name: R3C Autonomous Build Line (v4)
 
 on:
   push:
@@ -16,56 +16,49 @@ permissions:
 
 jobs:
   autobuild:
-    name: Self-Build on ${{ matrix.os }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      # ✅ 1. 코드 체크아웃
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ✅ 2. JSON 라이브러리 확보
-      - name: Prepare JSON
+      - name: Prepare JSON dep
         run: |
           mkdir -p include/nlohmann
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
             -o include/nlohmann/json.hpp
 
-      # ✅ 3. 빌드 툴 설치
       - name: Setup Build Tools
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update
-            sudo apt-get install -y cmake nasm
+            sudo apt-get update && sudo apt-get install -y cmake nasm
           elif [ "$RUNNER_OS" = "macOS" ]; then
             brew install cmake nasm || true
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            choco install cmake --installargs 'ADD_CMAKE_TO_PATH=System' -y
-            choco install nasm -y
+            choco install cmake nasm -y
           fi
-          echo "✅ Build tools ready."
 
-      # ✅ 4. Configure
-      - name: Configure CMake
+      - name: Configure
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
 
-      # ⚙️ 5. Build (자동 재시도 3회)
       - name: Build Project
-        id: build_step
+        id: build
         shell: bash
         run: |
+          echo "⚙️ Building on $RUNNER_OS..."
           attempt=1
           while [ $attempt -le 3 ]; do
-            echo "🔁 Build attempt $attempt..."
+            echo "🔁 Attempt $attempt..."
             if cmake --build build --config Release -- -j4 > build_log.txt 2>&1; then
-              echo "✅ Build succeeded on attempt $attempt"
+              echo "✅ Build success"
               echo "success=true" >> $GITHUB_OUTPUT
               exit 0
             else
-              echo "⚠️ Build failed on attempt $attempt"
+              echo "⚠️ Build failed attempt $attempt"
               ((attempt++))
             fi
           done
@@ -73,61 +66,32 @@ jobs:
           echo "success=false" >> $GITHUB_OUTPUT
           exit 1
 
-      # 📦 6. 빌드 성공 시 자동 릴리스
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-build-log
+          path: build_log.txt
+          retention-days: 90
+
       - name: Auto Release
-        if: steps.build_step.outputs.success == 'true'
+        if: steps.build.outputs.success == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: "auto-${{ github.run_number }}"
           name: "R3C AutoBuild #${{ github.run_number }}"
-          body: |
-            ✅ **R3C automatic build success**
-            OS: ${{ matrix.os }}
-            Triggered by: ${{ github.event_name }}
-            Build number: #${{ github.run_number }}
-            Timestamp: $(date)
           files: build/bin/r3c*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 🚨 7. 실패 시 이슈 자동 생성 (continue-on-error 추가)
-      - name: Auto Report Issue
-        if: steps.build_step.outputs.success != 'true'
-        continue-on-error: true
-        uses: peter-evans/create-issue-from-file@v4
-        with:
-          title: "❌ AutoBuild failed on ${{ matrix.os }}"
-          content-filepath: build_log.txt
-          labels: autobuild, ci, failure
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # 💬 8. 결과 자동 코멘트 (PR/Push 모두 대응)
-      - name: Post Build Comment
-        if: always()
-        continue-on-error: true
-        uses: peter-evans/create-or-update-comment@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          issue-number: ${{ github.event.pull_request.number || 1 }}
-          body: |
-            🧩 **R3C AutoBuild Summary**
-            - OS: `${{ matrix.os }}`
-            - Status: ${{ steps.build_step.outputs.success == 'true' && '✅ Success' || '❌ Failed' }}
-            - Event: `${{ github.event_name }}`
-            - Build #: `${{ github.run_number }}`
-
-            ${{ steps.build_step.outputs.success == 'true' && '🎉 Build completed successfully and released!' || '⚠️ Build failed. Check the generated issue for logs.' }}
-
-      # 🧾 9. 빌드 히스토리 기록
       - name: Append Build History
         run: |
           mkdir -p logs
           DATE=$(date '+%Y-%m-%d %H:%M:%S')
-          STATUS=${{ steps.build_step.outputs.success }}
+          STATUS=${{ steps.build.outputs.success }}
           echo "- ${DATE} | OS: ${{ matrix.os }} | Status: ${STATUS} | Run: #${{ github.run_number }}" >> logs/R3C_Build_History.md
-          git config --global user.email "r3c-bot@users.noreply.github.com"
           git config --global user.name "r3c-bot"
+          git config --global user.email "r3c-bot@users.noreply.github.com"
           git add logs/R3C_Build_History.md
           git commit -m "update: autobuild log #${{ github.run_number }}" || echo "no changes"
           git push
