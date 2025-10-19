@@ -1,8 +1,6 @@
-
+🚀 1000+ views milestone — Thank you all for checking out R3C!
 
 ---
-
-📄 README.md (v5 — Inflow Optimized)
 
 <h1 align="center">🦀 R3C — Rust Recompiler & Self-Healing Build System</h1>
 
