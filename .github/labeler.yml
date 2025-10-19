@@ -1,0 +1,13 @@
+compiler-core:
+  - 'src/**'
+  - 'include/**'
+
+automation:
+  - '.github/workflows/**'
+
+docs:
+  - '*.md'
+  - 'docs/**'
+
+test:
+  - 'tests/**'
