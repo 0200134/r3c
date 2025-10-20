@@ -183,7 +183,22 @@ Name	Role	Contact
 
 
 ---
+---
 
+## ❤️ Credits
+
+Created and maintained by [@0200134](https://github.com/0200134)  
+Part of the ongoing **Rust Independence Philosophy**.
+
+> “If Rust can walk without LLVM,  
+> then the compiler world will never be the same again.” 🌍  
+
+---
+
+### 🌍 The Future Is Ours
+R3C isn’t mine — it’s ours.  
+Every contributor, every experiment, every idea shapes what this project becomes.  
+Join in — build the next compiler generation together. 🚀
 ---
 
 ---
