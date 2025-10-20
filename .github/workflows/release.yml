@@ -1,185 +1,90 @@
-# =========================================================
-# 📦 .github/workflows/release.yml (v3.2)
-# R3C Cross-Platform Auto Build & Release (Full Autonomous)
-# =========================================================
+# =====================================================
+# 🚀 R3C Cross-Platform Build & Release (v5.0)
+# - Auto-increment version tags (v0.1.X)
+# - Prevents tag collisions (no re-push)
+# - Multi-OS build & artifact upload
+# =====================================================
 
-name: 🚀 R3C Cross-Platform Build & Release
+name: R3C Cross-Platform Build & Release
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - 'v*'
-      - 'v*-*'
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  # ===========================================
-  # 🧩 1. 자동 버전 태그 생성
-  # ===========================================
-  tag:
-    name: Auto-tag next release
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/main')
-    outputs:
-      new_tag: ${{ steps.version.outputs.new_tag }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: 🧮 Calculate next tag
-        id: version
-        run: |
-          latest=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          IFS='.' read -r major minor patch <<<"${latest#v}"
-          new_tag="v${major}.$((minor+1)).0"
-          echo "new_tag=$new_tag" >> $GITHUB_OUTPUT
-          echo "🧩 Next tag: $new_tag"
-
-      - name: 🏷️ Push new tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag ${{ steps.version.outputs.new_tag }}
-          git push origin ${{ steps.version.outputs.new_tag }}
-
-  # ===========================================
-  # ⚙️ 2. 교차 플랫폼 빌드
-  # ===========================================
   build:
     name: Build on ${{ matrix.os }}
-    needs: tag
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: 🧰 Cache CMake Build
-        uses: actions/cache@v4
-        with:
-          path: build
-          key: cmake-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
-
-      # -----------------------------
-      # 🩹 자동 복구 스텁 / 헤더
-      # -----------------------------
-      - name: Auto-heal stubs
-        shell: bash
+      - name: ⚙️ Configure
         run: |
-          mkdir -p include/nlohmann src tests
-          if [ ! -f include/nlohmann/json.hpp ]; then
-            echo "// ⚙️ Stub json.hpp" > include/nlohmann/json.hpp
-          fi
-          if grep -q "Stub json.hpp" include/nlohmann/json.hpp; then
-            echo "📥 Fetching real json.hpp..."
-            curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
-              -o include/nlohmann/json.hpp
-          fi
-          echo "int main(){return 0;}" > tests/test_basic.cpp
-          if [ ! -f src/r3c_stub.cpp ]; then
-            echo '#include <string>' > src/r3c_stub.cpp
-            echo '#include <vector>' >> src/r3c_stub.cpp
-            echo 'int run_pipeline(const std::vector<std::string>&, const std::string&, bool, bool, const std::string&, bool){return 0;}' >> src/r3c_stub.cpp
-          fi
+          mkdir -p build
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON
 
-      # -----------------------------
-      # ✅ OS별 의존성 설치
-      # -----------------------------
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        shell: powershell
+      - name: 🔨 Build
         run: |
-          choco install -y cmake nasm
-          RefreshEnv
+          cmake --build build --config Release --parallel 4
 
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew update || true
-          brew install cmake nasm || true
-
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update && sudo apt-get install -y cmake nasm
-
-      # -----------------------------
-      # ⚙️ Configure & Build (safe)
-      # -----------------------------
-      - name: Configure & Build
-        shell: bash
-        run: |
-          rm -rf build && mkdir build
-          cmake -B build -S . -DR3C_BUILD_TESTS=OFF || { echo "❌ CMake failed"; exit 1; }
-          cmake --build build --config Release -j4 || { echo "❌ Build failed"; exit 1; }
-
-      # -----------------------------
-      # ✅ 바이너리 검증
-      # -----------------------------
-      - name: Verify binary
-        shell: bash
-        run: |
-          if [ -f "build/r3c" ] || [ -f "build/r3c.exe" ]; then
-            echo "✅ Binary exists"
-          else
-            echo "❌ Binary missing"
-            exit 1
-          fi
-
-      # -----------------------------
-      # 🧾 로그/아티팩트 업로드
-      # -----------------------------
-      - name: Upload build logs
-        if: always()
+      - name: 📦 Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs-${{ matrix.os }}
-          path: build/**/*.log
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: r3c-${{ matrix.os }}
+          name: r3c-${{ runner.os }}
           path: |
-            build/r3c
-            build/r3c.exe
-            build/*.asm
-            build/*.obj
-            build/*.elf
-            !build/CMakeFiles/**
+            build/r3c*
+            !**/*.pdb
 
-  # ===========================================
-  # 🚀 3. GitHub Release 게시
-  # ===========================================
   release:
-    name: Publish GitHub Release
+    name: GitHub Release (Auto Increment)
+    needs: [build]
     runs-on: ubuntu-latest
-    needs: build
+    permissions:
+      contents: write
+
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
         with:
-          path: artifacts
+          fetch-depth: 0
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+      - name: 🏷️ Determine Next Tag
+        id: tag
+        run: |
+          LATEST=$(git tag --sort=-v:refname | grep -E '^v0\.1\.[0-9]+$' | head -n1 || echo "v0.1.0")
+          NUM=${LATEST##v0.1.}
+          NEXT=$((NUM+1))
+          echo "NEXT=v0.1.${NEXT}" >> $GITHUB_ENV
+          echo "Next tag: v0.1.${NEXT}"
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.tag.outputs.new_tag }}
-          name: "R3C ${{ needs.tag.outputs.new_tag }} Release"
+          tag_name: ${{ env.NEXT }}
+          name: "R3C v0.1.${{ env.NEXT }}"
           body: |
-            🪶 **R3C Cross-Platform Autonomous Release**
-            - ✅ Windows, Linux, macOS builds
-            - 🧩 Auto JSON-header recovery
-            - 🧱 CI: Autonomous v7.2 Pipeline
-            - 🔖 Tag: ${{ needs.tag.outputs.new_tag }}
-          files: artifacts/**
+            ✅ Cross-platform build success
+            🧠 Auto-incremented tag: v0.1.${{ env.NEXT }}
+            🧱 Built on Linux, macOS, and Windows.
+          files: |
+            **/r3c*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🧾 Summary
+        run: |
+          echo "====================================================="
+          echo "✅ Release created: v0.1.${NEXT}"
+          echo "====================================================="
