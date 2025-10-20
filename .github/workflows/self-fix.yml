@@ -1,16 +1,21 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3.1)
+# 🔁 .github/workflows/self-fix.yml (v3.2)
 # R3C Self-Healing Automation — Cross-Platform Stable Edition
 # =========================================================
 
-name: 🔁 R3C Self-Fix Automation (v3.1)
+name: 🔁 R3C Self-Fix Automation (v3.2)
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - '**'                   # ✅ 모든 브랜치에서 트리거
   pull_request:
-    types: [ opened, synchronize ]
-  workflow_dispatch:
+    types: [opened, synchronize]
+  workflow_dispatch:           # ✅ 수동 실행 버튼
+
+permissions:
+  contents: write              # ✅ 자동 커밋/푸시 허용
+  issues: write                # ✅ 실패 로그 이슈 생성 허용
 
 defaults:
   run:
