@@ -1,4 +1,4 @@
-name: R3C Cross-Platform Build & Release (v6 Safe-Stub)
+name: R3C Cross-Platform Build & Release (v7 Auto-Clean Safe-Stub)
 
 on:
   push:
@@ -17,31 +17,37 @@ jobs:
       - name: 🧱 Checkout repository
         uses: actions/checkout@v4
 
+      - name: 🧹 Clean build & cache (force rebuild)
+        run: |
+          echo "🧹 Removing stale CMake cache and build folders..."
+          rm -rf build CMakeCache.txt CMakeFiles
+          find . -type f -name "*.o" -delete || true
+          find . -type f -name "*.obj" -delete || true
+
       - name: ⚙️ Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: '3.30.2'
 
       - name: 🔧 Configure build
-        run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE=ON
 
-      - name: 🏗 Build (auto-heal)
+      - name: 🏗 Build (auto-heal up to 3 attempts)
         run: |
           attempt=1
           until cmake --build build --config Release --parallel 4 || [ $attempt -gt 3 ]; do
-            echo "⚠️ Build failed attempt $attempt"
+            echo "⚠️ Build failed attempt $attempt, retrying..."
             rm -rf build
             cmake -B build -S .
             attempt=$((attempt+1))
           done
 
-      - name: 🧪 Verify binary
+      - name: 🧪 Verify build outputs
         run: |
-          echo "Built files:"
-          ls -l build || true
+          echo "Listing built files:"
+          ls -R build || true
 
-      - name: 📦 Upload artifacts
+      - name: 📦 Upload build artifacts
         if: success()
         uses: actions/upload-artifact@v4
         with:
