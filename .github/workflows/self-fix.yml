@@ -1,4 +1,4 @@
-name: 🧠 R3C Self-Fix Auto-Heal System (v6 Stable)
+name: 🧠 R3C Self-Fix Auto-Heal System (v7.3 Safe Stub)
 
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ on:
 jobs:
   self-fix:
     runs-on: ubuntu-latest
+
     steps:
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
@@ -57,22 +58,24 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 file(GLOB R3C_SRC CONFIGURE_DEPENDS "src/*.cpp")
-file(GLOB R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
+file(GLOB_RECURSE R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
 
 add_executable(r3c ${R3C_SRC} ${R3C_HDR})
 target_include_directories(r3c PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include ${nlohmann_json_SOURCE_DIR}/include)
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
 
+# ⚙️ Safe Stub Generator
 foreach(f ${R3C_SRC})
     if (NOT EXISTS ${f})
-        get_filename_component(name ${f} NAME_WE)
-        message(WARNING "⚠️ Missing source file: ${f}, generating stub -> r3c_stub_${name}()")
-        file(WRITE ${f} "// Auto-generated stub\nvoid r3c_stub_${name}() {}\n")
+        get_filename_component(fname ${f} NAME_WE)
+        string(REGEX REPLACE "[^A-Za-z0-9_]" "_" fname ${fname})
+        message(WARNING "⚠️ Missing source file: ${fname}, generating stub...")
+        file(WRITE ${f} "// Auto-generated stub\nvoid r3c_stub_${fname}() {}\n")
     endif()
 endforeach()
 
 message(STATUS "=====================================================")
-message(STATUS "[r3c] Cross-Platform Build (v6 Stable, Self-Healed)")
+message(STATUS "[r3c] Cross-Platform Build (Auto-Healed v7.3 Safe Stub)")
 message(STATUS "C++ Compiler : ${CMAKE_CXX_COMPILER}")
 message(STATUS "Build Type   : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Source Dir   : ${CMAKE_SOURCE_DIR}")
@@ -92,5 +95,5 @@ EOF
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add CMakeLists.txt
-          git commit -m "🤖 Auto-healed CMakeLists.txt (v6)"
+          git commit -m "🤖 Auto-healed CMakeLists.txt (v7.3 Safe Stub)"
           git push origin HEAD:main || echo "ℹ️ Tag or branch push skipped"
