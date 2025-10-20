@@ -1,4 +1,3 @@
-
 # ⚙️ R3C Architecture Detail
 
 > “The closer to metal, the closer to truth.”
@@ -7,22 +6,22 @@
 
 ## 🧩 1. Core Components Overview
 
-| 파일 | 주요 역할 |
-|------|------------|
-| `transpiler.cpp` | Rust 문법을 분석하고 NASM 어셈블리 코드로 변환 |
-| `r3c.cpp` | 메인 엔트리. 파이프라인 초기화, 옵션 파싱, 전체 빌드 실행 |
-| `pkgmgr.cpp` | 패키지/의존성 관리기. `r3cpkg` CLI와 연동 |
-| `manifest.cpp` | `r3c.toml` 또는 `manifest.r3` 등 프로젝트 메타데이터 파서 |
-| `formatter.cpp` | 출력 정리, 문자열 트리밍, 토큰 구조 시각화 |
-| `docgen.cpp` | (선택적) 자동 문서 생성 및 CLI 요약 출력기 |
-| `r3cpkg.cpp` | 독립 CLI 명령어 도구. 패키지 설치, 빌드, 경로 동기화 담당 |
+| File | Description |
+|------|--------------|
+| `transpiler.cpp` | Analyzes Rust syntax and converts it into NASM assembly code. |
+| `r3c.cpp` | Main entry point. Initializes the pipeline, parses CLI options, and executes the full build process. |
+| `pkgmgr.cpp` | Package and dependency manager. Integrated with the `r3cpkg` CLI. |
+| `manifest.cpp` | Parses project metadata from `r3c.toml` or `manifest.r3`. |
+| `formatter.cpp` | Handles output formatting, string trimming, and token visualization. |
+| `docgen.cpp` | *(Optional)* Auto-generates documentation and CLI summaries. |
+| `r3cpkg.cpp` | Independent CLI tool for package installation, building, and path synchronization. |
 
 ---
 
 ## 🔩 2. Transpilation Pipeline (Rust → NASM)
 
-R3C의 핵심은 `transpiler.cpp` 에 있다.  
-Rust 코드를 받아 다음 단계를 거쳐 NASM 어셈블리 코드로 변환한다:
+The heart of R3C lies in `transpiler.cpp`.  
+It receives Rust source code and processes it through several distinct phases to produce NASM assembly.
 
 
 
@@ -39,12 +38,13 @@ Rust 코드를 받아 다음 단계를 거쳐 NASM 어셈블리 코드로 변환
 
 
 
-- **Lexer** : 토큰을 분리 (fn, let, while, if, else 등)
-- **Parser** : 구문 트리 구성 (`AST`)
-- **Emitter** : 각 구문을 NASM 명령어로 매핑  
-  예:  
-  ```rust
-  let x = 5;
+- **Lexer** – Splits tokens (e.g., `fn`, `let`, `while`, `if`, `else`).
+- **Parser** – Constructs the Abstract Syntax Tree (`AST`).
+- **Emitter** – Maps AST nodes to NASM instructions.
+
+Example:
+```rust
+let x = 5;
 
 
 
@@ -58,7 +58,7 @@ mov [x], rax
 
 
 
-Optimizer (실험적) : 불필요한 MOV 제거, 레지스터 재활용
+Optimizer (experimental) – Removes redundant MOV instructions and reuses registers when possible.
 
 
 
@@ -79,15 +79,23 @@ Executable (EXE / ELF)
 
 
 
+Goal: achieve a fully independent build chain with zero LLVM involvement.
 
 
-목표: LLVM을 전혀 거치지 않고 완전 독립적인 빌드 체인
 
 
-Windows → nasm -f win64, ld
+Platform
+Command Example
 
 
-Linux → nasm -f elf64, ld -dynamic-linker /lib64/ld-linux-x86-64.so.2
+
+
+Windows
+nasm -f win64 source.asm → link with ld
+
+
+Linux
+nasm -f elf64 source.asm → ld -dynamic-linker /lib64/ld-linux-x86-64.so.2
 
 
 
@@ -96,41 +104,41 @@ Linux → nasm -f elf64, ld -dynamic-linker /lib64/ld-linux-x86-64.so.2
 🧠 4. Token System
 
 
-R3C는 단순 문자열 치환이 아니라 토큰 트리 기반 변환기이다.
+R3C is not a text-based translator — it uses a structured token tree model.
 
 
 
 
-Token 종류
-예시
-설명
+Token Type
+Example
+Description
 
 
 
 
 FN
 fn main()
-함수 정의 시작
+Function definition start
 
 
 LET
 let a = 10
-지역 변수 선언
+Local variable declaration
 
 
-IF/ELSE
-조건 분기
-Jump 및 비교 명령으로 변환
+IF / ELSE
+—
+Conditional branching (mapped to jumps and comparisons)
 
 
 WHILE
-반복문
-루프 레이블 + 조건 분기로 변환
+—
+Loop construction (with labels and conditional jumps)
 
 
 RETURN
-ret 명령어로 변환
-
+—
+Translated to ret instruction
 
 
 
@@ -141,34 +149,34 @@ ret 명령어로 변환
 
 
 
-명령어
-설명
+Command
+Description
 
 
 
 
 --emit-asm
-NASM 어셈블리 파일 생성
+Generate NASM assembly files.
 
 
 --emit-asm-from-rust
-Rust 코드에서 직접 변환 수행
+Directly transpile from Rust source to ASM.
 
 
 --asm-out <path>
-ASM 출력 경로 지정
+Specify output directory for generated ASM.
 
 
 --transpile-all
-전체 소스 파일 트랜스파일
+Transpile all source files within the project.
 
 
 --run-pipeline
-ASM → 오브젝트 → 실행파일 자동 빌드
+Run full pipeline (ASM → Object → Executable).
 
 
 --verbose
-세부 로그 출력
+Enable detailed logging output.
 
 
 
@@ -177,7 +185,10 @@ ASM → 오브젝트 → 실행파일 자동 빌드
 🔧 6. Package System (r3cpkg)
 
 
-r3cpkg.cpp 는 Rust의 Cargo와 유사한 패키지 관리기다.
+r3cpkg.cpp implements a Cargo-like package manager.
+
+
+Example usage:
 
 
 r3cpkg init
@@ -188,13 +199,13 @@ r3cpkg build
 
 
 
-manifest.r3 또는 r3c.toml 에 메타데이터 저장
+Stores metadata in manifest.r3 or r3c.toml.
 
 
-빌드 시 자동 종속성 다운로드 및 경로 설정
+Automatically fetches dependencies and configures include paths.
 
 
-향후 버전에서는 r3cpkg publish 로 패키지 등록 예정
+Planned feature: r3cpkg publish for registry uploads.
 
 
 
@@ -222,7 +233,7 @@ std = "r3c/std"
 🚦 8. Error Handling System
 
 
-R3C는 가능한 한 C의 errno 스타일 대신 Rust식 결과 처리 모델을 채택했다.
+R3C replaces C-style errno with a Rust-like Result model.
 
 
 Result<R3CUnit, R3CError> transpile(const std::string& path);
@@ -231,15 +242,15 @@ Result<R3CUnit, R3CError> transpile(const std::string& path);
 
 
 
-성공 → R3CUnit (AST + ASM 출력 정보)
+Success: returns R3CUnit (contains AST and ASM output info).
 
 
-실패 → R3CError (라인, 토큰, 오류 원인 포함)
+Failure: returns R3CError (includes line, token, and error cause).
 
 
 
 
-예시 출력:
+Example output:
 
 
 [ERROR] unexpected token at line 12: "fn"
@@ -252,36 +263,36 @@ Result<R3CUnit, R3CError> transpile(const std::string& path);
 
 
 
-항목
-목표
-상태
+Feature
+Goal
+Status
 
 
 
 
 Struct / Union
-Rust 구조체 → ASM 메모리 블록 매핑
-🧩 설계 중
+Map Rust structures to ASM memory blocks
+🧩 Designing
 
 
 Type System
-기본형 (i32, f64, bool) 완전 지원
-✅ 완료
+Support for primitives (i32, f64, bool)
+✅ Completed
 
 
 Pattern Match
-Rust match 문 → Jump Table 변환
-🚧 진행 중
+Convert match into jump tables
+🚧 In progress
 
 
 Function Pointer
-레지스터 간접 호출
-✅ 지원
+Indirect register-based calls
+✅ Supported
 
 
 Bootstrap
-R3C 자체 컴파일
-⏳ 준비 중
+Self-compile R3C with its own output
+⏳ Preparing
 
 
 
@@ -299,11 +310,12 @@ R3C 자체 컴파일
 
 
 
-R3C는 단순한 Rust 트랜스파일러가 아니다.
+R3C is not just a Rust transpiler.
 
-Rust의 독립성과 컴파일러 구조 자체를 C/LLVM 없이 직접 증명하려는 실험 플랫폼이다.
+It is an experimental platform designed to prove that the structure and safety of Rust can exist without C or LLVM.
 
-C 언어의 정신은 유지하되, Rust의 안전성과 현대 문법을 이어받는다.
+
+It preserves the minimalist spirit of C while inheriting Rust’s safety and expressiveness.
 
 
 
@@ -316,7 +328,3 @@ Version: 0.1.0 LTS (2025-10)
 
 
 ---
-
-
-
-
