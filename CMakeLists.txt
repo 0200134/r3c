@@ -2,11 +2,10 @@ cmake_minimum_required(VERSION 3.5...3.30)
 project(r3c LANGUAGES CXX)
 
 # =========================================================
-# 🧩 R3C Cross-Platform Build System (v6 Stable)
+# 🧩 R3C Cross-Platform Build System (v6.1 Stable)
 # - Fix: UTF-8 on Windows (/utf-8)
-# - Fix: Missing-source stub generation (.cpp safe)
+# - Fix: Stub generator (removed .cpp suffix)
 # - Fix: CMake policy compatibility (>= 3.5)
-# - Fix: nlohmann_json FetchContent for all OS
 # =========================================================
 
 set(CMAKE_CXX_STANDARD 17)
@@ -24,7 +23,6 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.5")
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 endif()
 
-# ✅ Fix MSVC UTF-8 issue
 if (MSVC)
     add_compile_options(/utf-8 /EHsc /permissive- /W3)
 else()
@@ -36,7 +34,6 @@ endif()
 # =========================================================
 include(FetchContent)
 
-# --- JSON Library (nlohmann_json)
 FetchContent_Declare(
   nlohmann_json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -45,7 +42,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 # =========================================================
-# 🧱 Source & Include structure
+# 🧱 Sources
 # =========================================================
 file(GLOB R3C_SRC CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
@@ -60,23 +57,24 @@ target_include_directories(r3c PRIVATE
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
 
 # =========================================================
-# ⚙️ Stub Generator (Auto-Heal for CI)
+# ⚙️ Stub Generator (Auto-Heal for Missing Sources)
 # =========================================================
 foreach(f ${R3C_SRC})
     if (NOT EXISTS ${f})
-        get_filename_component(name ${f} NAME_WE)   # ✅ 확장자 제거 (.cpp 안 붙음)
-        message(WARNING "⚠️  Missing source file: ${f}, generating stub -> r3c_stub_${name}()")
-        file(WRITE ${f} "// Auto-generated stub\nvoid r3c_stub_${name}() {}\n")
+        get_filename_component(name ${f} NAME_WE)  # ✅ .cpp 확장자 제거
+        set(stub_path "${CMAKE_CURRENT_SOURCE_DIR}/src/${name}.cpp")
+        message(WARNING "⚠️ Missing source file: ${f}, generating stub -> r3c_stub_${name}()")
+        file(WRITE ${stub_path} "// Auto-generated stub\nvoid r3c_stub_${name}() {}\n")
     endif()
 endforeach()
 
 # =========================================================
-# 🧪 Post-build Summary
+# 🧪 Build Summary
 # =========================================================
 message(STATUS "=====================================================")
-message(STATUS "[r3c] Cross-Platform Build (v6 Stable)")
+message(STATUS "[r3c] Cross-Platform Build (v6.1 Stable)")
 message(STATUS "C++ Compiler : ${CMAKE_CXX_COMPILER}")
 message(STATUS "Build Type   : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Source Dir   : ${CMAKE_SOURCE_DIR}")
 message(STATUS "=====================================================")
-message(STATUS "✅ CMake configured successfully (UTF-8 + Stub Safe)")
+message(STATUS "✅ Stub-safe build active (no .cpp suffix in symbol names)")
