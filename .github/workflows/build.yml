@@ -1,8 +1,10 @@
-name: ⚙️ R3C Cross-Platform Autonomous Build (v7.1 JSON-Fix)
+name: ⚙️ R3C Cross-Platform Autonomous Build (v7.2 Community)
 
 on:
   push:
+    branches: [main, dev, feature/**, sandbox/**]
   pull_request:
+    branches: [main, dev]
 
 jobs:
   build:
@@ -14,55 +16,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Linux
       - name: 🧱 Install dependencies (Linux)
         if: runner.os == 'Linux'
         run: sudo apt update && sudo apt install -y cmake g++ nasm
 
+      # macOS
       - name: 🧱 Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: brew install cmake nasm || true
 
+      # Windows
       - name: 🧱 Setup Windows build tools
         if: runner.os == 'Windows'
         shell: bash
-        run: |
-          choco install nasm cmake --yes || true
+        run: choco install nasm cmake --yes || true
 
+      # Preparation
       - name: ⚙️ Prepare include/test/stub
         shell: bash
         run: |
-          mkdir -p include/nlohmann
-          mkdir -p tests src
-
-          # 🧠 JSON 헤더 처리
+          mkdir -p include/nlohmann tests src
           if [ ! -f include/nlohmann/json.hpp ]; then
             echo "📥 Downloading nlohmann/json.hpp..."
             curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
               -o include/nlohmann/json.hpp
-          else
-            if grep -q "auto-generated json.hpp" include/nlohmann/json.hpp; then
-              echo "⚠️ Detected stub JSON header — replacing with full version..."
-              curl -L https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
-                -o include/nlohmann/json.hpp
-            else
-              echo "✅ Valid nlohmann/json.hpp detected."
-            fi
           fi
 
-          # 🧩 테스트 파일 보장
           echo "int main(){return 0;}" > tests/test_basic.cpp
-
-          # 🪄 Stub 보장
           if [ ! -f src/r3c_stub.cpp ]; then
             echo '#include <string>' > src/r3c_stub.cpp
             echo '#include <vector>' >> src/r3c_stub.cpp
             echo 'int run_pipeline(const std::vector<std::string>&, const std::string&, bool, bool, const std::string&, bool){return 0;}' >> src/r3c_stub.cpp
           fi
 
+      # Configure
       - name: 🧩 Configure project
         shell: bash
         run: cmake -B build -S . -DCMAKE_VERBOSE_MAKEFILE=ON
 
+      # Build with retry logic
       - name: 🏗️ Build with retries
         shell: bash
         run: |
@@ -79,6 +72,7 @@ jobs:
           echo "❌ Build failed after 3 attempts"
           exit 1
 
+      # Auto-comment on PR builds
       - name: 💬 Comment build result (only PR)
         if: ${{ github.event_name == 'pull_request' }}
         uses: peter-evans/create-or-update-comment@v3
@@ -88,5 +82,6 @@ jobs:
           body: |
             🧱 **R3C build report for ${{ matrix.os }}**
             - Status: ${{ job.status }}
-            - Date: ${{ github.run_id }}
-            ✅ Automatic JSON header fix applied if needed.
+            - Workflow: ${{ github.workflow }}
+            - Run ID: ${{ github.run_id }}
+            ✅ JSON header check + stub ensured.
