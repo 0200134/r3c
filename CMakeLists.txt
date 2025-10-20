@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.5...3.30)
 project(r3c LANGUAGES CXX)
 
 # =========================================================
-# 🧩 R3C Cross-Platform Build System (v6 Safe Stub)
+# 🧩 R3C Cross-Platform Build System (v7 Safe Stub + Auto Heal)
 # =========================================================
 
 set(CMAKE_CXX_STANDARD 17)
@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# Modern policy
+# Modern policy setup
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
     cmake_policy(SET CMP0077 NEW)
 endif()
@@ -18,13 +18,16 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.5")
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 endif()
 
-# Encoding / warnings
+# Encoding / compiler warnings
 if (MSVC)
     add_compile_options(/utf-8 /EHsc /permissive- /W3)
 else()
     add_compile_options(-Wall -Wextra -Wno-unused-parameter)
 endif()
 
+# =========================================================
+# 📦 Dependencies
+# =========================================================
 include(FetchContent)
 FetchContent_Declare(
   nlohmann_json
@@ -33,6 +36,9 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
+# =========================================================
+# 🧱 Source & include structure
+# =========================================================
 file(GLOB R3C_SRC CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
 
@@ -44,7 +50,9 @@ target_include_directories(r3c PRIVATE
 )
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
 
-# ⚙️ Safe Stub Generator
+# =========================================================
+# ⚙️ Safe Stub Generator (fixed version)
+# =========================================================
 foreach(f ${R3C_SRC})
     if (NOT EXISTS ${f})
         get_filename_component(fname ${f} NAME_WE)
@@ -54,8 +62,11 @@ foreach(f ${R3C_SRC})
     endif()
 endforeach()
 
+# =========================================================
+# 🧾 Build summary
+# =========================================================
 message(STATUS "=====================================================")
-message(STATUS "[r3c] Cross-Platform Build (v6 Safe Stub)")
+message(STATUS "[r3c] Cross-Platform Build (v7 Safe Stub + Auto Heal)")
 message(STATUS "C++ Compiler : ${CMAKE_CXX_COMPILER}")
 message(STATUS "Build Type   : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Source Dir   : ${CMAKE_SOURCE_DIR}")
