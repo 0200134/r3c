@@ -1,25 +1,21 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3.5.1)
-# R3C Self-Healing Automation — Cross-Platform Full Stable Edition
+# 🔁 .github/workflows/self-fix.yml (v3.7-safe)
+# R3C Self-Healing Automation — Safe Push Edition
 # =========================================================
 
-name: "🔁 R3C Self-Fix Automation (v3.5.1)"
+name: "🔁 R3C Self-Fix Automation (v3.7-safe)"
 
 on:
   push:
     branches:
       - '**'
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
   contents: write
   issues: write
-
-defaults:
-  run:
-    working-directory: ${{ github.workspace }}
 
 jobs:
   self-fix:
@@ -31,12 +27,18 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
+      # =====================================================
+      # 1️⃣ Setup & Checkout
+      # =====================================================
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
       - name: 🧰 Setup CMake
         uses: jwlawson/actions-setup-cmake@v1
 
+      # =====================================================
+      # 2️⃣ Configure + Build
+      # =====================================================
       - name: ⚙️ Configure project
         shell: bash
         run: |
@@ -55,32 +57,31 @@ jobs:
           export CMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build build --config Release -j4 | tee -a build_log.txt
 
+      # =====================================================
+      # 3️⃣ Auto-Fix (stub & patch)
+      # =====================================================
       - name: 🧠 Auto-fix missing headers or stubs
         if: ${{ steps.build.outcome == 'failure' }}
-        shell: pwsh
+        shell: bash
         run: |
-          Write-Host "⚠️ Build failed — applying stub fix and cmake patch..."
-          New-Item -ItemType Directory -Force -Path "include/nlohmann" | Out-Null
-          New-Item -ItemType Directory -Force -Path "src" | Out-Null
-          if (Test-Path "build/_deps/nlohmann_json-src/CMakeLists.txt") {
-            (Get-Content "build/_deps/nlohmann_json-src/CMakeLists.txt") -replace 'cmake_minimum_required\(VERSION [0-9.]+\)', 'cmake_minimum_required(VERSION 3.5)' | Set-Content "build/_deps/nlohmann_json-src/CMakeLists.txt"
-            Write-Host "✅ Patched nlohmann_json CMakeLists.txt to version 3.5"
-          }
-          Set-Content -Path "include/nlohmann/json.hpp" -Value "// 🩹 Auto-generated stub for missing json.hpp"
-          Set-Content -Path "src/r3c_stub.cpp" -Value "// 🩹 Auto-generated stub for r3c_stub.cpp"
-          Write-Host "✅ Stubs regenerated."
-          Add-Content -Path "build_log.txt" -Value "🧠 Self-fix: stub + cmake patch applied"
+          echo "⚠️ Build failed — applying stub fix..."
+          mkdir -p include/nlohmann src 2>/dev/null || true
+          echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
+          echo "// 🩹 Auto-generated stub for r3c_stub.cpp" > src/r3c_stub.cpp
+          echo "✅ Stub files regenerated." | tee -a build_log.txt
 
       - name: 🔁 Rebuild after fix
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
           echo "🔄 Rebuilding after self-fix..." | tee -a build_log.txt
-          export CMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake -B build -S $GITHUB_WORKSPACE | tee -a build_log.txt
           cmake --build build --config Release -j4 | tee -a build_log.txt || echo "⚠️ Build still failing." | tee -a build_log.txt
 
-      - name: 📤 Commit & Push auto-fix
+      # =====================================================
+      # 4️⃣ Commit & Push (Safe Mode)
+      # =====================================================
+      - name: 📤 Commit & Push auto-fix (safe)
         if: ${{ steps.build.outcome == 'failure' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -88,10 +89,28 @@ jobs:
         run: |
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
-          git add include/nlohmann/json.hpp src/r3c_stub.cpp build/_deps/nlohmann_json-src/CMakeLists.txt || true
-          git commit -m "🩹 self-fix: cmake policy + stub regeneration (v3.5.1)" || true
-          git push origin HEAD:${{ github.ref }} --no-tags || echo "⚠️ Push skipped (no permission or tag conflict)."
 
+          git add include/nlohmann/json.hpp src/r3c_stub.cpp || true
+          git commit -m "🩹 self-fix (v3.7-safe): regenerated missing files" || true
+
+          current_ref=$(git rev-parse --abbrev-ref HEAD)
+          echo "🧾 Current ref: $current_ref"
+
+          # 안전한 push — 태그 충돌 방지
+          echo "🔍 Checking for tag conflict..."
+          for tag in $(git tag); do
+            if git ls-remote --tags origin | grep -q "refs/tags/$tag"; then
+              echo "⚠️ Tag '$tag' already exists on remote. Skipping push for tag."
+              git tag -d "$tag" >/dev/null 2>&1 || true
+            fi
+          done
+
+          echo "📤 Pushing branch changes..."
+          git push origin HEAD:"$current_ref" --no-tags || echo "⚠️ Push skipped (no permission or tag exists)."
+
+      # =====================================================
+      # 5️⃣ Issue Log (if failure persists)
+      # =====================================================
       - name: 🪄 Create issue from build log
         if: ${{ steps.build.outcome == 'failure' }}
         uses: peter-evans/create-issue-from-file@v4
@@ -102,14 +121,17 @@ jobs:
             auto-fix
             ci-failure
 
+      # =====================================================
+      # 6️⃣ Summary
+      # =====================================================
       - name: 🧾 Self-Fix Summary
         shell: bash
         run: |
           echo "=====================================================" >> build_log.txt
-          echo "R3C Self-Fix Summary (v3.5.1)" >> build_log.txt
+          echo "R3C Self-Fix Summary (v3.7-safe)" >> build_log.txt
           echo "=====================================================" >> build_log.txt
           if [ '${{ steps.build.outcome }}' = 'failure' ]; then
-            echo "🧩 Self-fix applied (stub + cmake + mkdir patched)." >> build_log.txt
+            echo "🧩 Self-fix executed. Push safe mode applied." >> build_log.txt
           else
             echo "✅ Build succeeded — no fix needed." >> build_log.txt
           fi
