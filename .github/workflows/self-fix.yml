@@ -1,21 +1,22 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3.3)
+# 🔁 .github/workflows/self-fix.yml (v3.4)
 # R3C Self-Healing Automation — Cross-Platform Stable Edition
+# (Includes nlohmann_json / CMake policy fix)
 # =========================================================
 
-name: 🔁 R3C Self-Fix Automation (v3.3)
+name: 🔁 R3C Self-Fix Automation (v3.4)
 
 on:
   push:
     branches:
-      - '**'                   # ✅ 모든 브랜치에서 트리거
+      - '**'
   pull_request:
     types: [opened, synchronize]
-  workflow_dispatch:           # ✅ 수동 실행 버튼
+  workflow_dispatch:
 
 permissions:
-  contents: write              # ✅ 자동 커밋/푸시 허용
-  issues: write                # ✅ 실패 로그 이슈 생성 허용
+  contents: write
+  issues: write
 
 defaults:
   run:
@@ -49,6 +50,7 @@ jobs:
           echo "🧹 Cleaning build directory..."
           rm -rf build
           echo "🛠️ Running CMake configure..."
+          export CMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake -B build -S $GITHUB_WORKSPACE | tee build_log.txt
 
       - name: 🧩 Build project
@@ -57,18 +59,26 @@ jobs:
         continue-on-error: true
         run: |
           echo "🔨 Building..."
+          export CMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake --build build --config Release -j4 | tee -a build_log.txt
 
       # =====================================================
-      # 3️⃣ Auto-Fix (stub regeneration)
+      # 3️⃣ Auto-Fix (stub regeneration + cmake patch)
       # =====================================================
-      - name: 🧠 Auto-fix missing headers or stubs
+      - name: 🧠 Auto-fix missing headers or outdated cmake
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
-          echo "⚠️ Build failed — applying stub fix..."
+          echo "⚠️ Build failed — applying stub & cmake fix..."
           mkdir -p include/nlohmann 2>/dev/null || true
           mkdir -p src 2>/dev/null || true
+
+          # nlohmann_json compatibility fix
+          if [ -f build/_deps/nlohmann_json-src/CMakeLists.txt ]; then
+            sed -i.bak 's/cmake_minimum_required(VERSION [0-9.]\+)/cmake_minimum_required(VERSION 3.5)/' build/_deps/nlohmann_json-src/CMakeLists.txt || true
+            echo "✅ nlohmann_json CMakeLists.txt patched to 3.5+"
+          fi
+
           echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
           echo "// 🩹 Auto-generated stub for r3c_stub.cpp" > src/r3c_stub.cpp
           echo "✅ Stubs regenerated." | tee -a build_log.txt
@@ -78,6 +88,7 @@ jobs:
         shell: bash
         run: |
           echo "🔄 Rebuilding after self-fix..." | tee -a build_log.txt
+          export CMAKE_POLICY_VERSION_MINIMUM=3.5
           cmake -B build -S $GITHUB_WORKSPACE | tee -a build_log.txt
           cmake --build build --config Release -j4 | tee -a build_log.txt || echo "⚠️ Build still failing." | tee -a build_log.txt
 
@@ -92,8 +103,8 @@ jobs:
         run: |
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
-          git add include/nlohmann/json.hpp src/r3c_stub.cpp || true
-          git commit -m "🩹 self-fix: regenerated missing files" || true
+          git add include/nlohmann/json.hpp src/r3c_stub.cpp build/_deps/nlohmann_json-src/CMakeLists.txt || true
+          git commit -m "🩹 self-fix: cmake policy + missing stubs" || true
           git push origin HEAD:${{ github.ref }} --no-tags || echo "⚠️ Push skipped (no permission or tag conflict)."
 
       # =====================================================
@@ -119,7 +130,7 @@ jobs:
           echo "R3C Self-Fix Summary" >> build_log.txt
           echo "=====================================================" >> build_log.txt
           if [ '${{ steps.build.outcome }}' = 'failure' ]; then
-            echo "🧩 Self-fix applied (stub regenerated)." >> build_log.txt
+            echo "🧩 Self-fix applied (stub regenerated + cmake patched)." >> build_log.txt
           else
             echo "✅ Build succeeded — no fix needed." >> build_log.txt
           fi
