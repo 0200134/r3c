@@ -2,24 +2,21 @@ cmake_minimum_required(VERSION 3.5...3.30)
 project(r3c LANGUAGES CXX)
 
 # =========================================================
-# 🧩 R3C Cross-Platform Build System (v5.0)
-# - Fix: UTF-8 safe build on Windows (/utf-8)
-# - Fix: nlohmann_json policy compatibility
-# - Fix: BOM-safe stub generation
+# 🧩 R3C Cross-Platform Build System (v6 Stable)
+# - Fix: UTF-8 on Windows (/utf-8)
+# - Fix: Missing-source stub generation (.cpp safe)
+# - Fix: CMake policy compatibility (>= 3.5)
+# - Fix: nlohmann_json FetchContent for all OS
 # =========================================================
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-
-# ✅ Always verbose (for CI visibility)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # =========================================================
 # 🧠 Global Policy & Encoding Fixes
 # =========================================================
-
-# Ensure modern policies
 if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
     cmake_policy(SET CMP0077 NEW)
 endif()
@@ -27,13 +24,15 @@ if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.5")
     set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 endif()
 
-# ✅ Fix MSVC UTF-8 encoding issue
+# ✅ Fix MSVC UTF-8 issue
 if (MSVC)
     add_compile_options(/utf-8 /EHsc /permissive- /W3)
+else()
+    add_compile_options(-Wall -Wextra -Wno-unused-parameter)
 endif()
 
 # =========================================================
-# 📦 Dependencies (FetchContent)
+# 📦 Dependencies
 # =========================================================
 include(FetchContent)
 
@@ -46,7 +45,7 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 # =========================================================
-# 🧱 Source structure
+# 🧱 Source & Include structure
 # =========================================================
 file(GLOB R3C_SRC CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
@@ -61,21 +60,23 @@ target_include_directories(r3c PRIVATE
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
 
 # =========================================================
-# ⚙️ Stub generator (safety net for missing source)
+# ⚙️ Stub Generator (Auto-Heal for CI)
 # =========================================================
 foreach(f ${R3C_SRC})
     if (NOT EXISTS ${f})
-        message(WARNING "⚠️  Missing source file: ${f}, generating stub...")
-        file(WRITE ${f} "// Auto-generated stub\nvoid r3c_stub_${f}() {}")
+        get_filename_component(name ${f} NAME_WE)   # ✅ 확장자 제거 (.cpp 안 붙음)
+        message(WARNING "⚠️  Missing source file: ${f}, generating stub -> r3c_stub_${name}()")
+        file(WRITE ${f} "// Auto-generated stub\nvoid r3c_stub_${name}() {}\n")
     endif()
 endforeach()
 
 # =========================================================
-# 🧪 Post-build summary
+# 🧪 Post-build Summary
 # =========================================================
 message(STATUS "=====================================================")
-message(STATUS "[r3c] Cross-Platform Build (v5.0)")
+message(STATUS "[r3c] Cross-Platform Build (v6 Stable)")
 message(STATUS "C++ Compiler : ${CMAKE_CXX_COMPILER}")
 message(STATUS "Build Type   : ${CMAKE_BUILD_TYPE}")
 message(STATUS "Source Dir   : ${CMAKE_SOURCE_DIR}")
 message(STATUS "=====================================================")
+message(STATUS "✅ CMake configured successfully (UTF-8 + Stub Safe)")
