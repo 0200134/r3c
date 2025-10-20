@@ -1,10 +1,10 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3.4)
-# R3C Self-Healing Automation — Cross-Platform Stable Edition
-# (Includes nlohmann_json / CMake policy fix)
+# 🔁 .github/workflows/self-fix.yml (v3.5)
+# R3C Self-Healing Automation — Cross-Platform Full Stable Edition
+# (Windows mkdir fix + cmake policy patch)
 # =========================================================
 
-name: 🔁 R3C Self-Fix Automation (v3.4)
+name: 🔁 R3C Self-Fix Automation (v3.5)
 
 on:
   push:
@@ -63,25 +63,30 @@ jobs:
           cmake --build build --config Release -j4 | tee -a build_log.txt
 
       # =====================================================
-      # 3️⃣ Auto-Fix (stub regeneration + cmake patch)
+      # 3️⃣ Auto-Fix (stub + cmake + Windows mkdir fix)
       # =====================================================
-      - name: 🧠 Auto-fix missing headers or outdated cmake
+      - name: 🧠 Auto-fix missing headers or stubs
         if: ${{ steps.build.outcome == 'failure' }}
-        shell: bash
+        shell: pwsh
         run: |
-          echo "⚠️ Build failed — applying stub & cmake fix..."
-          mkdir -p include/nlohmann 2>/dev/null || true
-          mkdir -p src 2>/dev/null || true
+          Write-Host "⚠️ Build failed — applying stub fix and cmake patch..."
 
-          # nlohmann_json compatibility fix
-          if [ -f build/_deps/nlohmann_json-src/CMakeLists.txt ]; then
-            sed -i.bak 's/cmake_minimum_required(VERSION [0-9.]\+)/cmake_minimum_required(VERSION 3.5)/' build/_deps/nlohmann_json-src/CMakeLists.txt || true
-            echo "✅ nlohmann_json CMakeLists.txt patched to 3.5+"
-          fi
+          # mkdir cross-platform safe (Windows compatible)
+          New-Item -ItemType Directory -Force -Path "include/nlohmann" | Out-Null
+          New-Item -ItemType Directory -Force -Path "src" | Out-Null
 
-          echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
-          echo "// 🩹 Auto-generated stub for r3c_stub.cpp" > src/r3c_stub.cpp
-          echo "✅ Stubs regenerated." | tee -a build_log.txt
+          # nlohmann_json cmake compatibility patch
+          if (Test-Path "build/_deps/nlohmann_json-src/CMakeLists.txt") {
+            (Get-Content "build/_deps/nlohmann_json-src/CMakeLists.txt") -replace 'cmake_minimum_required\(VERSION [0-9.]+\)', 'cmake_minimum_required(VERSION 3.5)' | Set-Content "build/_deps/nlohmann_json-src/CMakeLists.txt"
+            Write-Host "✅ Patched nlohmann_json CMakeLists.txt to version 3.5"
+          }
+
+          # Generate stubs
+          Set-Content -Path "include/nlohmann/json.hpp" -Value "// 🩹 Auto-generated stub for missing json.hpp"
+          Set-Content -Path "src/r3c_stub.cpp" -Value "// 🩹 Auto-generated stub for r3c_stub.cpp"
+
+          Write-Host "✅ Stubs regenerated."
+          Add-Content -Path "build_log.txt" -Value "🧠 Self-fix: stub + cmake patch applied"
 
       - name: 🔁 Rebuild after fix
         if: ${{ steps.build.outcome == 'failure' }}
@@ -104,7 +109,7 @@ jobs:
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
           git add include/nlohmann/json.hpp src/r3c_stub.cpp build/_deps/nlohmann_json-src/CMakeLists.txt || true
-          git commit -m "🩹 self-fix: cmake policy + missing stubs" || true
+          git commit -m "🩹 self-fix: cmake policy + stub regeneration (v3.5)" || true
           git push origin HEAD:${{ github.ref }} --no-tags || echo "⚠️ Push skipped (no permission or tag conflict)."
 
       # =====================================================
@@ -127,10 +132,10 @@ jobs:
         shell: bash
         run: |
           echo "=====================================================" >> build_log.txt
-          echo "R3C Self-Fix Summary" >> build_log.txt
+          echo "R3C Self-Fix Summary (v3.5)" >> build_log.txt
           echo "=====================================================" >> build_log.txt
           if [ '${{ steps.build.outcome }}' = 'failure' ]; then
-            echo "🧩 Self-fix applied (stub regenerated + cmake patched)." >> build_log.txt
+            echo "🧩 Self-fix applied (stub + cmake + mkdir patched)." >> build_log.txt
           else
             echo "✅ Build succeeded — no fix needed." >> build_log.txt
           fi
