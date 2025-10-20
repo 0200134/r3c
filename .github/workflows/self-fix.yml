@@ -1,9 +1,9 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3.7-safe)
-# R3C Self-Healing Automation — Safe Push Edition
+# 🔁 .github/workflows/self-fix.yml (v3.8-final)
+# R3C Self-Healing Automation — Full Stable Cross-Platform Edition
 # =========================================================
 
-name: "🔁 R3C Self-Fix Automation (v3.7-safe)"
+name: "🔁 R3C Self-Fix Automation (v3.8-final)"
 
 on:
   push:
@@ -37,7 +37,7 @@ jobs:
         uses: jwlawson/actions-setup-cmake@v1
 
       # =====================================================
-      # 2️⃣ Configure + Build
+      # 2️⃣ Configure + Build (CMake Policy Fix)
       # =====================================================
       - name: ⚙️ Configure project
         shell: bash
@@ -46,7 +46,7 @@ jobs:
           rm -rf build
           echo "🛠️ Running CMake configure..."
           export CMAKE_POLICY_VERSION_MINIMUM=3.5
-          cmake -B build -S $GITHUB_WORKSPACE | tee build_log.txt
+          cmake -B build -S $GITHUB_WORKSPACE -DCMAKE_POLICY_VERSION_MINIMUM=3.5 | tee build_log.txt
 
       - name: 🧩 Build project
         id: build
@@ -58,24 +58,28 @@ jobs:
           cmake --build build --config Release -j4 | tee -a build_log.txt
 
       # =====================================================
-      # 3️⃣ Auto-Fix (stub & patch)
+      # 3️⃣ Auto-Fix (stub + CMakeLists patch)
       # =====================================================
       - name: 🧠 Auto-fix missing headers or stubs
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
-          echo "⚠️ Build failed — applying stub fix..."
+          echo "⚠️ Build failed — applying stub and CMake patch..."
           mkdir -p include/nlohmann src 2>/dev/null || true
+          if [ -f build/_deps/nlohmann_json-src/CMakeLists.txt ]; then
+            sed -i.bak 's/cmake_minimum_required(VERSION [0-9.]\+)/cmake_minimum_required(VERSION 3.5)/' build/_deps/nlohmann_json-src/CMakeLists.txt
+            echo "✅ Patched nlohmann_json CMakeLists.txt (3.5)"
+          fi
           echo "// 🩹 Auto-generated stub for missing json.hpp" > include/nlohmann/json.hpp
           echo "// 🩹 Auto-generated stub for r3c_stub.cpp" > src/r3c_stub.cpp
-          echo "✅ Stub files regenerated." | tee -a build_log.txt
+          echo "✅ Stubs regenerated." | tee -a build_log.txt
 
       - name: 🔁 Rebuild after fix
         if: ${{ steps.build.outcome == 'failure' }}
         shell: bash
         run: |
           echo "🔄 Rebuilding after self-fix..." | tee -a build_log.txt
-          cmake -B build -S $GITHUB_WORKSPACE | tee -a build_log.txt
+          cmake -B build -S $GITHUB_WORKSPACE -DCMAKE_POLICY_VERSION_MINIMUM=3.5 | tee -a build_log.txt
           cmake --build build --config Release -j4 | tee -a build_log.txt || echo "⚠️ Build still failing." | tee -a build_log.txt
 
       # =====================================================
@@ -89,27 +93,25 @@ jobs:
         run: |
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
-
-          git add include/nlohmann/json.hpp src/r3c_stub.cpp || true
-          git commit -m "🩹 self-fix (v3.7-safe): regenerated missing files" || true
+          git add include/nlohmann/json.hpp src/r3c_stub.cpp build/_deps/nlohmann_json-src/CMakeLists.txt || true
+          git commit -m "🩹 self-fix (v3.8): stub + cmake patch" || true
 
           current_ref=$(git rev-parse --abbrev-ref HEAD)
-          echo "🧾 Current ref: $current_ref"
+          echo "🧾 Current branch: $current_ref"
 
-          # 안전한 push — 태그 충돌 방지
-          echo "🔍 Checking for tag conflict..."
+          echo "🔍 Checking for tag conflicts..."
           for tag in $(git tag); do
             if git ls-remote --tags origin | grep -q "refs/tags/$tag"; then
-              echo "⚠️ Tag '$tag' already exists on remote. Skipping push for tag."
+              echo "⚠️ Tag '$tag' already exists remotely. Skipping tag push."
               git tag -d "$tag" >/dev/null 2>&1 || true
             fi
           done
 
-          echo "📤 Pushing branch changes..."
-          git push origin HEAD:"$current_ref" --no-tags || echo "⚠️ Push skipped (no permission or tag exists)."
+          echo "📤 Pushing branch updates (safe mode)..."
+          git push origin HEAD:"$current_ref" --no-tags || echo "⚠️ Push skipped (no permission or tag conflict)."
 
       # =====================================================
-      # 5️⃣ Issue Log (if failure persists)
+      # 5️⃣ Create Issue (if still failing)
       # =====================================================
       - name: 🪄 Create issue from build log
         if: ${{ steps.build.outcome == 'failure' }}
@@ -128,10 +130,10 @@ jobs:
         shell: bash
         run: |
           echo "=====================================================" >> build_log.txt
-          echo "R3C Self-Fix Summary (v3.7-safe)" >> build_log.txt
+          echo "R3C Self-Fix Summary (v3.8-final)" >> build_log.txt
           echo "=====================================================" >> build_log.txt
           if [ '${{ steps.build.outcome }}' = 'failure' ]; then
-            echo "🧩 Self-fix executed. Push safe mode applied." >> build_log.txt
+            echo "🧩 Self-fix executed and safe push applied." >> build_log.txt
           else
             echo "✅ Build succeeded — no fix needed." >> build_log.txt
           fi
