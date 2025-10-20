@@ -1,9 +1,9 @@
 # =========================================================
-# 🔁 .github/workflows/self-fix.yml (v3.2)
+# 🔁 .github/workflows/self-fix.yml (v3.3)
 # R3C Self-Healing Automation — Cross-Platform Stable Edition
 # =========================================================
 
-name: 🔁 R3C Self-Fix Automation (v3.2)
+name: 🔁 R3C Self-Fix Automation (v3.3)
 
 on:
   push:
@@ -94,7 +94,7 @@ jobs:
           git config user.email "r3c-bot@users.noreply.github.com"
           git add include/nlohmann/json.hpp src/r3c_stub.cpp || true
           git commit -m "🩹 self-fix: regenerated missing files" || true
-          git push origin HEAD:${{ github.ref }} || echo "⚠️ Push skipped (no permission)."
+          git push origin HEAD:${{ github.ref }} --no-tags || echo "⚠️ Push skipped (no permission or tag conflict)."
 
       # =====================================================
       # 5️⃣ Create Issue with Build Log
