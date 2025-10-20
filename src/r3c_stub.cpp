@@ -1,1 +1,2 @@
-// 🩹 Auto-generated stub for r3c_stub.cpp
+// 🩹 Auto-cleaned file
+void r3c_stub_r3c_stub.cpp() {}
