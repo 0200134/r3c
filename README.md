@@ -1,4 +1,7 @@
+# 🪶 R3C: Rust Independence Philosophy
+> “Modern compilers must learn to breathe without LLVM.”
 
+---
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/0200134/r3c/main/docs/r3c_logo.png" width="100" alt="R3C Logo">
