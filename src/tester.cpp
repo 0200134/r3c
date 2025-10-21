@@ -1,2 +1,1 @@
-// 🩹 Auto-cleaned file
-void r3c_stub_tester.cpp() {}
+﻿void r3c_stub_tester() {}

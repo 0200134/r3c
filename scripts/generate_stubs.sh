@@ -2,12 +2,14 @@
 set -e
 
 # ================================================
-# 🧱 R3C Stub Generator (syntax fix)
+# 🧱 R3C Stub Generator (Cross-Platform Safe Version)
+# Works on Linux, macOS, GitHub Actions, Git Bash, and WSL.
 # ================================================
 
 SRC_DIR="src"
 mkdir -p "$SRC_DIR"
 
+# Target stub files
 files=(
   "r3c.cpp"
   "r3c_stub.cpp"
@@ -27,15 +29,7 @@ for f in "${files[@]}"; do
   func="r3c_stub_${base}"
 
   echo "🧩 Generating stub: ${func}() -> $path"
-  echo "void ${func}() {}" > "$path"
-done
-
-echo "✅ Stub generation complete. (${#files[@]} files)"
-
-
-
-  echo "🧩 Generating stub: ${func}() -> $path"
-  echo "void ${func}() {}" > "$path"
+  printf "void %s() {}\n" "$func" > "$path"
 done
 
 echo "✅ Stub generation complete. (${#files[@]} files)"

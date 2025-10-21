@@ -48,7 +48,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 file(GLOB R3C_SRC CONFIGURE_DEPENDS "src/*.cpp")
 file(GLOB R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
 
-add_executable(r3c ${R3C_SRC} ${R3C_HDR})
+add_library(r3c STATIC ${R3C_SRC} ${R3C_HDR})
 
 target_include_directories(r3c PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -56,6 +56,36 @@ target_include_directories(r3c PRIVATE
 )
 
 target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
+
+# =========================================================
+# 🧩 Auto Stub Generator Hook
+# Runs before each build on all platforms.
+# =========================================================
+message(STATUS "[r3c] Adding pre-build stub generation hook...")
+
+if(WIN32)
+    # Detect whether PowerShell Core (pwsh) or legacy powershell.exe is available
+    find_program(POWERSHELL_EXECUTABLE NAMES pwsh powershell)
+
+    if(NOT POWERSHELL_EXECUTABLE)
+        message(FATAL_ERROR "❌ No PowerShell found (install PowerShell Core or enable legacy PowerShell)")
+    endif()
+
+    add_custom_target(generate_stubs ALL
+        COMMAND "${POWERSHELL_EXECUTABLE}" -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/scripts/generate_stubs.ps1"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "🧩 Generating stubs (Windows PowerShell)"
+    )
+
+else()
+    add_custom_target(generate_stubs ALL
+        COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/generate_stubs.sh
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "🧩 Generating stubs (Unix Shell)"
+    )
+endif()
+
+add_dependencies(r3c generate_stubs)
 
 # =========================================================
 # 🩹 Safe Stub Generator (Auto-Heal)

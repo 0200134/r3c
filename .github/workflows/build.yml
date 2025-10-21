@@ -1,0 +1,7 @@
+- name: 🧩 Generate stubs (Cross-Platform)
+  run: |
+    if [ -f scripts/generate_stubs.sh ]; then
+      bash scripts/generate_stubs.sh
+    elif [ -f scripts/generate_stubs.ps1 ]; then
+      pwsh scripts/generate_stubs.ps1
+    fi
