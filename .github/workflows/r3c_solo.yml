@@ -1,7 +1,4 @@
-# =====================================================
-# 🧱 R3C Solo Autonomous Build (v11 Cross-Safe)
-# =====================================================
-name: R3C Solo Autonomous Build (v11-cross-safe)
+name: R3C Solo Autonomous Build (v12-cross-safe)
 
 on:
   push:
@@ -26,6 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Prepare JSON dep
+        shell: bash
         run: |
           mkdir -p include/nlohmann
           if [ ! -f include/nlohmann/json.hpp ]; then
@@ -45,9 +43,6 @@ jobs:
 
       - name: Configure
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
-
-      - name: Debug build dir
-        run: ls -R build || true
 
       - name: Build Project (3 attempts)
         id: build
