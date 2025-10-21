@@ -1,3 +1,9 @@
+📢 **Notice:**  
+This repository is open for **full ownership transfer** to any organization, foundation, or company interested in maintaining and continuing its development.  
+If you're interested, please contact via GitHub Issues.
+
+
+
 # 🪶 R3C: Rust Independence Philosophy
 > “Modern compilers must learn to breathe without LLVM.”
 
