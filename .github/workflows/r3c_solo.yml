@@ -1,8 +1,13 @@
+# =====================================================
+# 🧱 R3C Solo Autonomous Build (v11 Cross-Safe)
+# =====================================================
 name: R3C Solo Autonomous Build (v11-cross-safe)
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "*" ]
   workflow_dispatch:
 
 permissions:
@@ -20,18 +25,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare JSON dependency (Cross-Platform Safe)
-        shell: bash
+      - name: Prepare JSON dep
         run: |
-          if [ ! -d "include/nlohmann" ]; then
-            mkdir -p include/nlohmann
+          mkdir -p include/nlohmann
+          if [ ! -f include/nlohmann/json.hpp ]; then
+            curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
+              -o include/nlohmann/json.hpp
           fi
-          echo "📥 Fetching nlohmann/json..."
-          curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
-            -o include/nlohmann/json.hpp
 
-      - name: Setup build tools
-        shell: bash
+      - name: Setup Build Tools
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt-get update && sudo apt-get install -y cmake nasm
@@ -41,22 +43,13 @@ jobs:
             choco install cmake nasm -y
           fi
 
-      - name: Generate safe stubs
-        shell: bash
-        run: |
-          echo "🪶 Generating stubs..."
-          mkdir -p src
-          for f in src/*.cpp; do
-            [ -e "$f" ] || continue
-            n=$(basename "$f" .cpp)
-            echo "void r3c_stub_${n}() {}" > "$f"
-          done
+      - name: Configure
+        run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
 
-      - name: Configure CMake
-        shell: bash
-        run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -std=c++17 -Wall -Wextra -Wno-unused-parameter"
+      - name: Debug build dir
+        run: ls -R build || true
 
-      - name: Build with retry
+      - name: Build Project (3 attempts)
         id: build
         shell: bash
         run: |
@@ -64,14 +57,13 @@ jobs:
           attempt=1
           while [ $attempt -le 3 ]; do
             echo "🔁 Attempt $attempt..."
-            if cmake --build build --config Release -- -j4 > build_log.txt 2>&1; then
+            if cmake --build build --config Release --parallel 4 > build_log.txt 2>&1; then
               echo "✅ Build success"
               echo "success=true" >> $GITHUB_OUTPUT
               exit 0
             else
               echo "⚠️ Build failed (attempt $attempt)"
               ((attempt++))
-              sleep 3
             fi
           done
           echo "❌ Build failed after 3 attempts"
@@ -79,20 +71,19 @@ jobs:
           exit 1
 
       - name: Upload build log
-        if: always()
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: r3c-build-log
           path: build_log.txt
-          if-no-files-found: ignore
-          retention-days: 60
+          retention-days: 90
 
       - name: Auto Release
         if: steps.build.outputs.success == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "solo-${{ github.run_number }}"
-          name: "R3C Solo Build #${{ github.run_number }}"
-          files: build/**/*
+          tag_name: "auto-${{ github.run_number }}"
+          name: "R3C AutoBuild #${{ github.run_number }}"
+          files: build/bin/r3c*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
