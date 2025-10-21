@@ -21,10 +21,10 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout
+      - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare JSON dep
+      - name: 🧩 Prepare JSON dependency
         shell: bash
         run: |
           mkdir -p include/nlohmann
@@ -33,7 +33,7 @@ jobs:
               -o include/nlohmann/json.hpp
           fi
 
-      - name: Setup Build Tools
+      - name: ⚙️ Setup Build Tools
         shell: bash
         run: |
           case "$RUNNER_OS" in
@@ -48,11 +48,20 @@ jobs:
               ;;
           esac
 
-      - name: Configure
+      # ✅ 새로 추가된 Stub 자동 생성 단계
+      - name: 🪶 Generate Stub Sources
+        shell: bash
+        run: |
+          echo "🧩 Generating stub source files..."
+          chmod +x tools/generate_stubs.sh
+          ./tools/generate_stubs.sh
+          echo "✅ Stub generation completed."
+
+      - name: 🔧 Configure
         shell: bash
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
 
-      - name: Build Project
+      - name: 🏗️ Build Project
         id: build
         shell: bash
         run: |
@@ -73,10 +82,11 @@ jobs:
           echo "success=false" >> $GITHUB_OUTPUT
           exit 1
 
-      - name: Upload build log
+      - name: 📦 Upload build log
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: r3c-build-log
           path: build/**/*.log
           retention-days: 90
+
