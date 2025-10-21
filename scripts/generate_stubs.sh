@@ -2,19 +2,18 @@
 set -e
 
 # ================================================
-# 🧱 R3C Stub Generator (scripts/generate_stubs.sh)
-# Generates minimal safe stub .cpp files to avoid build errors.
+# 🧱 R3C Stub Generator (fixed)
+# Creates valid C++ stub files to prevent link errors.
 # ================================================
 
 SRC_DIR="src"
 mkdir -p "$SRC_DIR"
 
-# Stub 대상 파일 목록
 files=(
-  "r3c.cpp"
-  "r3c_stub.cpp"
-  "pkgmgr.cpp"
-  "pipeline.cpp"
+  "docgen.cpp"
+  "formatter.cpp"
+  "main.cpp"
+  "manifest.cpp"
 )
 
 echo "⚙️ [R3C] Generating stub source files in $SRC_DIR..."
@@ -29,4 +28,3 @@ for f in "${files[@]}"; do
 done
 
 echo "✅ Stub generation complete. (${#files[@]} files)"
-
