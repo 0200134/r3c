@@ -1,4 +1,4 @@
-name: R3C Solo Autonomous Build (v10-solo-resilient)
+name: R3C Solo Autonomous Build (v11-cross-safe)
 
 on:
   push:
@@ -20,13 +20,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare JSON dependency
+      - name: Prepare JSON dependency (Cross-Platform Safe)
+        shell: bash
         run: |
-          mkdir -p include/nlohmann
+          if [ ! -d "include/nlohmann" ]; then
+            mkdir -p include/nlohmann
+          fi
+          echo "📥 Fetching nlohmann/json..."
           curl -fsSL https://raw.githubusercontent.com/nlohmann/json/develop/single_include/nlohmann/json.hpp \
             -o include/nlohmann/json.hpp
 
       - name: Setup build tools
+        shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt-get update && sudo apt-get install -y cmake nasm
@@ -37,6 +42,7 @@ jobs:
           fi
 
       - name: Generate safe stubs
+        shell: bash
         run: |
           echo "🪶 Generating stubs..."
           mkdir -p src
@@ -47,6 +53,7 @@ jobs:
           done
 
       - name: Configure CMake
+        shell: bash
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude -std=c++17 -Wall -Wextra -Wno-unused-parameter"
 
       - name: Build with retry
