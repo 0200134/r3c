@@ -1,4 +1,4 @@
-name: R3C Solo Autonomous Build (v12-cross-safe)
+name: R3C Solo Autonomous Build (v13-cross-safe)
 
 on:
   push:
@@ -32,6 +32,7 @@ jobs:
           fi
 
       - name: Setup Build Tools
+        shell: bash  # ✅ PowerShell이 아닌 bash로 강제 실행
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt-get update && sudo apt-get install -y cmake nasm
@@ -42,6 +43,7 @@ jobs:
           fi
 
       - name: Configure
+        shell: bash
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
 
       - name: Build Project (3 attempts)
