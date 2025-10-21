@@ -9,6 +9,8 @@ on:
 
 permissions:
   contents: write
+  issues: write
+  pull-requests: write
 
 jobs:
   build:
@@ -32,21 +34,25 @@ jobs:
           fi
 
       - name: Setup Build Tools
-        shell: bash  # ✅ PowerShell이 아닌 bash로 강제 실행
+        shell: bash
         run: |
-          if [ "$RUNNER_OS" = "Linux" ]; then
-            sudo apt-get update && sudo apt-get install -y cmake nasm
-          elif [ "$RUNNER_OS" = "macOS" ]; then
-            brew install cmake nasm || true
-          elif [ "$RUNNER_OS" = "Windows" ]; then
-            choco install cmake nasm -y
-          fi
+          case "$RUNNER_OS" in
+            "Linux")
+              sudo apt-get update && sudo apt-get install -y cmake nasm
+              ;;
+            "macOS")
+              brew install cmake nasm || true
+              ;;
+            "Windows")
+              choco install cmake nasm -y
+              ;;
+          esac
 
       - name: Configure
         shell: bash
         run: cmake -B build -S . -DCMAKE_CXX_FLAGS="-Iinclude"
 
-      - name: Build Project (3 attempts)
+      - name: Build Project
         id: build
         shell: bash
         run: |
@@ -54,7 +60,7 @@ jobs:
           attempt=1
           while [ $attempt -le 3 ]; do
             echo "🔁 Attempt $attempt..."
-            if cmake --build build --config Release --parallel 4 > build_log.txt 2>&1; then
+            if cmake --build build --config Release --parallel 4; then
               echo "✅ Build success"
               echo "success=true" >> $GITHUB_OUTPUT
               exit 0
@@ -72,15 +78,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: r3c-build-log
-          path: build_log.txt
+          path: build/**/*.log
           retention-days: 90
-
-      - name: Auto Release
-        if: steps.build.outputs.success == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "auto-${{ github.run_number }}"
-          name: "R3C AutoBuild #${{ github.run_number }}"
-          files: build/bin/r3c*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
