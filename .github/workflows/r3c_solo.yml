@@ -53,8 +53,8 @@ jobs:
         shell: bash
         run: |
           echo "🧩 Generating stub source files..."
-          chmod +x tools/generate_stubs.sh
-          ./tools/generate_stubs.sh
+          chmod +x scripts/generate_stubs.sh
+          ./scripts/generate_stubs.sh
           echo "✅ Stub generation completed."
 
       - name: 🔧 Configure
