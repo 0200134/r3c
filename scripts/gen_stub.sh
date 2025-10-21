@@ -1,16 +1,13 @@
 #!/bin/bash
-# ========================================
-# R3C Stub Auto-Generator (v2.1)
-# ========================================
+# ==========================================
+# R3C Stub Generator (Fixed for macOS / Linux / Windows)
+# ==========================================
 
 set -e
 echo "🪶 [r3c] Generating safe stub sources..."
 
 SRC_DIR="src"
-if [ ! -d "$SRC_DIR" ]; then
-  echo "⚠️ src directory not found"
-  exit 0
-fi
+mkdir -p "$SRC_DIR"
 
 for path in ${SRC_DIR}/*.cpp; do
   [ -e "$path" ] || continue
@@ -19,4 +16,4 @@ for path in ${SRC_DIR}/*.cpp; do
   echo "  ✅ generated stub: $path"
 done
 
-echo "✅ [r3c] Stub generation completed successfully."
+echo "✅ [r3c] Stub generation complete."
