@@ -2,8 +2,7 @@
 set -e
 
 # ================================================
-# 🧱 R3C Stub Generator (final fix)
-# Removes .cpp extension from function names.
+# 🧱 R3C Stub Generator (syntax fix)
 # ================================================
 
 SRC_DIR="src"
@@ -24,14 +23,15 @@ echo "⚙️ [R3C] Generating stub source files in $SRC_DIR..."
 
 for f in "${files[@]}"; do
   path="$SRC_DIR/$f"
-  base=$(basename "$f" .cpp)    # ✅ .cpp 확장자 제거
+  base=$(basename "$f" .cpp)
   func="r3c_stub_${base}"
 
   echo "🧩 Generating stub: ${func}() -> $path"
-  echo "void ${func}() {}" > "$path"    # ✅ 올바른 함수 이름
+  echo "void ${func}() {}" > "$path"
 done
 
 echo "✅ Stub generation complete. (${#files[@]} files)"
+
 
 
   echo "🧩 Generating stub: ${func}() -> $path"
