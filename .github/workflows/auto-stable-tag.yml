@@ -1,0 +1,21 @@
+name: R3C Auto Stable Tag (v1)
+
+on:
+  workflow_run:
+    workflows: ["R3C Solo Autonomous Build (v13-cross-safe)"]
+    types:
+      - completed
+
+jobs:
+  tag:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create auto-stable tag
+        run: |
+          TAG="auto-stable-v1"
+          git tag -f $TAG
+          git push origin $TAG --force
