@@ -1,4 +1,4 @@
-name: R3C Autonomous Build & Release (v15-cross-safe)
+name: R3C Autonomous Build & Release (v16-final)
 
 on:
   push:
@@ -12,14 +12,14 @@ permissions:
   issues: write
 
 jobs:
-  build-and-release:
+  build:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # 1️⃣ Checkout
+      # 1️⃣ Checkout repository
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
@@ -34,7 +34,7 @@ jobs:
           elif [ "$RUNNER_OS" = "macOS" ]; then
             brew install cmake zip || true
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            choco install zip -y || echo "zip already installed"
+            choco install zip -y || echo "zip already available"
           fi
 
       # 3️⃣ Generate stubs
@@ -46,37 +46,38 @@ jobs:
             if [ -f "scripts/generate_stubs.ps1" ]; then
               pwsh scripts/generate_stubs.ps1
             else
-              echo "No PowerShell stub found, skipping."
+              echo "No PowerShell stub found."
             fi
           else
             if [ -f "scripts/generate_stubs.sh" ]; then
               bash scripts/generate_stubs.sh
             else
-              echo "No Bash stub found, skipping."
+              echo "No Bash stub found."
             fi
           fi
 
-      # 4️⃣ Build
+      # 4️⃣ Build project
       - name: 🏗️ Build project
         shell: bash
         run: |
           cmake -B build -S .
           cmake --build build --config Release
 
-      # 5️⃣ Package Artifacts
+      # 5️⃣ Package artifacts (unique filename per run)
       - name: 🗜️ Package Artifacts
         shell: bash
         run: |
           mkdir -p artifacts
+          ZIPNAME="r3c-${{ runner.os }}-${{ github.run_id }}.zip"
           if [ "$RUNNER_OS" = "Windows" ]; then
-            pwsh -Command "Compress-Archive -Path build/* -DestinationPath artifacts/r3c-${{ runner.os }}.zip"
+            pwsh -Command "Compress-Archive -Path build/* -DestinationPath artifacts/$ZIPNAME"
           else
-            zip -r artifacts/r3c-${{ runner.os }}.zip build/
+            zip -r "artifacts/$ZIPNAME" build/
           fi
-          echo "✅ Artifacts created:"
+          echo "✅ Created artifact: $ZIPNAME"
           ls -lh artifacts
 
-      # 6️⃣ Upload Artifacts (for cross-OS merging)
+      # 6️⃣ Upload artifacts
       - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -84,20 +85,21 @@ jobs:
           path: artifacts/*.zip
 
   release:
-    needs: [build-and-release]
+    needs: [build]
     runs-on: ubuntu-latest
 
     steps:
+      # 7️⃣ Checkout
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # 7️⃣ Download all OS artifacts
+      # 8️⃣ Download all OS artifacts
       - name: 📦 Download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts
 
-      # 8️⃣ Generate unique tag
+      # 9️⃣ Generate unique tag
       - name: 🏷️ Generate Tag
         id: tag
         run: |
@@ -105,7 +107,7 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "Generated tag: $TAG"
 
-      # 9️⃣ Create GitHub Release
+      # 🔟 Create release (overwrite safe)
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -114,19 +116,20 @@ jobs:
           body: |
             🪶 **R3C Cross-Platform Autonomous Build**
             - Built automatically for Windows, macOS, and Linux.
-            - Build Timestamp: ${{ env.TAG }}
+            - Unique tag: ${{ env.TAG }}
+            - Run ID: ${{ github.run_id }}
           files: artifacts/**/*.zip
           overwrite: true
 
-      # 🔁 10️⃣ Retry release if failed
+      # ⓫ Retry if failed
       - name: 🩹 Retry Release (if needed)
         if: failure()
         run: |
           echo "⚠️ Release failed previously, retrying once..."
-          gh release upload ${{ env.TAG }} artifacts/**/*.zip --clobber || echo "Retry failed, skipping..."
+          gh release upload ${{ env.TAG }} artifacts/**/*.zip --clobber || echo "Retry failed."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ 11️⃣ Confirm success
+      # ⓬ Confirm success
       - name: ✅ Done
         run: echo "🎉 Release completed successfully for tag: ${{ env.TAG }}"
