@@ -1,4 +1,4 @@
-name: R3C Solo Autonomous Build & Stable Release (v16-final)
+name: R3C Solo Autonomous Build & Stable Release (v17-final)
 
 on:
   push:
@@ -55,7 +55,7 @@ jobs:
           echo "⚙️ Building on $RUNNER_OS..."
           cmake --build build --config Release --parallel 4
 
-      # ✅ ZIP 파일 확실히 생성
+      # ✅ ZIP 생성
       - name: 📦 Package build outputs
         if: success()
         shell: bash
@@ -64,8 +64,8 @@ jobs:
           zip -r artifacts/r3c-${{ matrix.os }}.zip build/
           echo "✅ Created artifacts/r3c-${{ matrix.os }}.zip"
 
-      # ✅ OS별 아티팩트 업로드
-      - name: ⬆️ Upload artifact
+      # ✅ 업로드
+      - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
@@ -82,7 +82,7 @@ jobs:
       - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      # ✅ 모든 플랫폼 아티팩트 다운로드 (이름 패턴 일치)
+      # ✅ 다운로드 (플랫폼 병합)
       - name: 📥 Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -90,13 +90,13 @@ jobs:
           path: release_artifacts
           merge-multiple: true
 
-      - name: 🔍 Verify Artifacts
+      - name: 🔍 Verify artifacts
         run: |
           echo "📂 Listing release_artifacts..."
           ls -R release_artifacts || (echo "❌ No artifacts found!" && exit 1)
 
-      # ✅ 항상 유니크한 태그 생성 (타임스탬프 포함)
-      - name: 🏷️ Create Git Tag
+      # ✅ 중복 태그 방지 + 타임스탬프 포함
+      - name: 🏷️ Create unique tag
         run: |
           TAG="auto-stable-$(date +'%Y%m%d-%H%M%S')"
           echo "🔖 Creating tag: $TAG"
@@ -106,17 +106,20 @@ jobs:
           git push origin "$TAG"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
-      # ✅ 릴리스 생성 (이전 충돌 방지 완전 버전)
+      # ✅ 기존 릴리스 충돌 방지
+      - name: 🧹 Delete old release if exists
+        run: gh release delete ${{ env.TAG }} -y || true
+
+      # ✅ 릴리스 생성
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
           name: "R3C Stable Auto Release (${{ env.TAG }})"
           body: |
-            🧱 R3C Cross-Platform Autonomous Build
+            🧱 **R3C Cross-Platform Autonomous Build**
             ✅ Platforms: Linux, macOS, Windows
-            ⚙️ LLVM-Free Pipeline (C++ → Rust → ASM)
-            🔄 Automated build, stub generation, and packaging
-          files: |
-            release_artifacts/**/*.zip
-            release_artifacts/*.zip
+            ⚙️ LLVM-Free Pipeline: C++ → Rust → ASM
+            🔄 Automated build, stub generation & packaging
+            🕒 Released: ${{ env.TAG }}
+          files: release_artifacts/*.zip
