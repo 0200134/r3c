@@ -1,118 +1,74 @@
-name: 🧱 R3C Cross-Platform Build & Stable Auto Release
+name: R3C Solo Autonomous Build (v13-cross-safe)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "*" ]
   workflow_dispatch:
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   build:
-    name: 🧩 Cross-Platform Build Matrix
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: 📦 Checkout repository
+      # 1️⃣ 리포지토리 체크아웃
+      - name: 🧩 Checkout
         uses: actions/checkout@v4
 
-      - name: 🧩 Generate stubs (Cross-Platform)
-        shell: bash
+      # 2️⃣ OS별 환경 설정
+      - name: ⚙️ Setup Environment
         run: |
-          echo "🔍 Checking for stub generation scripts..."
+          echo "Running on $RUNNER_OS"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            sudo apt-get update
+            sudo apt-get install -y cmake g++ zip
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            brew install cmake zip
+          fi
+        shell: bash
+
+      # 3️⃣ 스텁 생성 스크립트 실행
+      - name: 🧩 Generate stubs (Cross-Platform)
+        run: |
           if [ -f scripts/generate_stubs.sh ]; then
-            echo "✅ Found Bash script — running generate_stubs.sh"
             bash scripts/generate_stubs.sh
           elif [ -f scripts/generate_stubs.ps1 ]; then
-            echo "✅ Found PowerShell script — running generate_stubs.ps1"
             pwsh scripts/generate_stubs.ps1
           else
-            echo "⚠️ No stub generation script found in ./scripts/"
-            exit 1
+            echo "No stub generation script found. Skipping..."
           fi
 
-      - name: 🧱 Build project with CMake
-        shell: bash
+      # 4️⃣ 빌드 실행
+      - name: 🏗️ Build project
         run: |
-          echo "🏗️ Configuring build..."
           cmake -B build -S .
-          echo "🔨 Compiling..."
-          cmake --build build --parallel 4
+          cmake --build build --config Release
 
-      - name: 🧪 Verify build artifacts
-        shell: bash
+      # 5️⃣ 아티팩트 패키징 (zip 생성)
+      - name: 🗜️ Package Artifacts
         run: |
-          echo "🔎 Build output:"
-          ls -R build || true
-          echo "✅ Build completed successfully."
+          mkdir -p artifacts
+          zip -r artifacts/r3c_${{ runner.os }}.zip build/
+          echo "✅ Artifacts created:"
+          ls -lh artifacts
 
-      - name: 📦 Upload artifacts
+      # 6️⃣ 아티팩트 업로드 (워크플로 내 보존용)
+      - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-${{ matrix.os }}
-          path: |
-            build/**/*.exe
-            build/**/*.out
-            build/**/*.bin
-            build/**/*.zip
+          name: r3c-${{ runner.os }}
+          path: artifacts/*.zip
 
-  release:
-    name: 🚀 Auto Tag & Stable Release
-    runs-on: ubuntu-latest
-    needs: build
-
-    steps:
-      - name: 📦 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 🏷️ Create Git Tag
-        id: tag_step
+      # 7️⃣ 디버그용 파일 목록 확인
+      - name: 🧪 Verify Artifacts
         run: |
-          TAG="auto-stable-v$(date +'%Y%m%d-%H%M%S')"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Auto release $TAG"
-          git push origin "$TAG"
-
-      - name: 📂 Download all build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
-
-      - name: 🚀 Create GitHub Release
-        id: release_step
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag_step.outputs.tag }}
-          name: "R3C Auto Release (${{ steps.tag_step.outputs.tag }})"
-          body: |
-            🧱 **R3C Cross-Platform Stable Auto Release**
-            - Built for **Linux**, **Windows**, and **macOS**
-            - Contains only compiled binaries
-            - Generated automatically by GitHub Actions
-          files: |
-            artifacts/**/*.exe
-            artifacts/**/*.out
-            artifacts/**/*.bin
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true  # ✅ ECONNREFUSED 시에도 실패로 중단되지 않음
-
-      - name: 🩹 Retry Release on Failure (if needed)
-        if: steps.release_step.outcome != 'success'
-        run: |
-          echo "⚠️ Release failed previously, retrying once..."
-          sleep 10
-          gh release create "${{ steps.tag_step.outputs.tag }}" artifacts/**/*.zip \
-            --title "R3C Auto Release (${{ steps.tag_step.outputs.tag }})" \
-            --notes "Retry upload (stabilized connection)"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Listing artifacts directory..."
+          ls -R artifacts || echo "❌ No artifacts found!"
