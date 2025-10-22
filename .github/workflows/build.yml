@@ -19,12 +19,13 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # 1️⃣ 리포지토리 체크아웃
-      - name: 🧩 Checkout
+      # 1️⃣ Checkout
+      - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ OS별 환경 설정
-      - name: ⚙️ Setup Environment
+      # 2️⃣ Setup environment
+      - name: ⚙️ Setup environment
+        shell: bash
         run: |
           echo "Running on $RUNNER_OS"
           if [ "$RUNNER_OS" = "Linux" ]; then
@@ -33,42 +34,54 @@ jobs:
           elif [ "$RUNNER_OS" = "macOS" ]; then
             brew install cmake zip
           fi
-        shell: bash
 
-      # 3️⃣ 스텁 생성 스크립트 실행
+      # 3️⃣ Generate stubs (cross-safe)
       - name: 🧩 Generate stubs (Cross-Platform)
+        shell: bash
         run: |
-          if [ -f scripts/generate_stubs.sh ]; then
-            bash scripts/generate_stubs.sh
-          elif [ -f scripts/generate_stubs.ps1 ]; then
-            pwsh scripts/generate_stubs.ps1
+          echo "Detecting stub generator..."
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            if [ -f "scripts/generate_stubs.ps1" ]; then
+              echo "Running PowerShell stub generator..."
+              pwsh scripts/generate_stubs.ps1
+            else
+              echo "No PowerShell stub script found."
+            fi
           else
-            echo "No stub generation script found. Skipping..."
+            if [ -f "scripts/generate_stubs.sh" ]; then
+              echo "Running Bash stub generator..."
+              bash scripts/generate_stubs.sh
+            else
+              echo "No Bash stub script found."
+            fi
           fi
 
-      # 4️⃣ 빌드 실행
+      # 4️⃣ Build
       - name: 🏗️ Build project
+        shell: bash
         run: |
           cmake -B build -S .
           cmake --build build --config Release
 
-      # 5️⃣ 아티팩트 패키징 (zip 생성)
+      # 5️⃣ Package artifacts
       - name: 🗜️ Package Artifacts
+        shell: bash
         run: |
           mkdir -p artifacts
           zip -r artifacts/r3c_${{ runner.os }}.zip build/
           echo "✅ Artifacts created:"
           ls -lh artifacts
 
-      # 6️⃣ 아티팩트 업로드 (워크플로 내 보존용)
+      # 6️⃣ Upload artifacts
       - name: 📤 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ runner.os }}
           path: artifacts/*.zip
 
-      # 7️⃣ 디버그용 파일 목록 확인
+      # 7️⃣ Verify artifacts
       - name: 🧪 Verify Artifacts
+        shell: bash
         run: |
           echo "Listing artifacts directory..."
           ls -R artifacts || echo "❌ No artifacts found!"
