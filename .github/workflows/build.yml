@@ -1,7 +1,50 @@
-- name: 🧩 Generate stubs (Cross-Platform)
-  run: |
-    if [ -f scripts/generate_stubs.sh ]; then
-      bash scripts/generate_stubs.sh
-    elif [ -f scripts/generate_stubs.ps1 ]; then
-      pwsh scripts/generate_stubs.ps1
-    fi
+name: 🧱 R3C Cross-Platform Build & Stub Generation
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 수동 실행 버튼 허용
+
+jobs:
+  build:
+    name: 🧩 Cross-Platform Stub Generator
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧩 Generate stubs (Cross-Platform)
+        shell: bash
+        run: |
+          echo "🔍 Checking for stub generation scripts..."
+          if [ -f scripts/generate_stubs.sh ]; then
+            echo "✅ Found Bash script — running generate_stubs.sh"
+            bash scripts/generate_stubs.sh
+          elif [ -f scripts/generate_stubs.ps1 ]; then
+            echo "✅ Found PowerShell script — running generate_stubs.ps1"
+            pwsh scripts/generate_stubs.ps1
+          else
+            echo "⚠️ No stub generation script found in ./scripts/"
+            exit 1
+          fi
+
+      - name: 🧱 Build project (CMake)
+        shell: bash
+        run: |
+          echo "🏗️ Configuring CMake build..."
+          cmake -B build -S .
+          echo "🔨 Building..."
+          cmake --build build --parallel 4
+
+      - name: 🧪 Verify build artifacts
+        shell: bash
+        run: |
+          echo "🔎 Checking build directory..."
+          ls -R build || true
+          echo "✅ Build completed successfully."
