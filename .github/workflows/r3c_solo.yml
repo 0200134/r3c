@@ -1,4 +1,4 @@
-name: R3C Solo Autonomous Build (v13-cross-safe)
+name: R3C Solo Autonomous Build (v14-cross-safe-release)
 
 on:
   push:
@@ -38,17 +38,17 @@ jobs:
         run: |
           case "$RUNNER_OS" in
             "Linux")
-              sudo apt-get update && sudo apt-get install -y cmake nasm
+              sudo apt-get update && sudo apt-get install -y cmake nasm zip
               ;;
             "macOS")
-              brew install cmake nasm || true
+              brew install cmake nasm zip || true
               ;;
             "Windows")
-              choco install cmake nasm -y
+              choco install cmake nasm zip -y
               ;;
           esac
 
-      # ✅ 새로 추가된 Stub 자동 생성 단계
+      # ✅ Stub 생성
       - name: 🪶 Generate Stub Sources
         shell: bash
         run: |
@@ -82,11 +82,51 @@ jobs:
           echo "success=false" >> $GITHUB_OUTPUT
           exit 1
 
-      - name: 📦 Upload build log
-        if: failure()
+      # ✅ ZIP 패키징 (이게 없어서 이전에 에러 발생)
+      - name: 📦 Package artifacts
+        if: success()
+        shell: bash
+        run: |
+          echo "📦 Packaging build outputs..."
+          mkdir -p artifacts
+          zip -r artifacts/r3c-${{ matrix.os }}.zip build/
+          echo "✅ Artifact created: artifacts/r3c-${{ matrix.os }}.zip"
+
+      # ✅ 업로드 (각 OS별 결과)
+      - name: ⬆️ Upload build artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-build-log
-          path: build/**/*.log
-          retention-days: 90
+          name: r3c-${{ matrix.os }}
+          path: artifacts/*.zip
+          retention-days: 30
 
+  # ✅ 릴리스 job (Linux 성공 시만 실행)
+  release:
+    name: Release Artifacts
+    runs-on: ubuntu-latest
+    needs: build
+    if: needs.build.result == 'success'
+
+    steps:
+      - name: 🧰 Checkout
+        uses: actions/checkout@v4
+
+      - name: 📦 Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 🔍 Debug artifacts
+        run: ls -R artifacts
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: auto-stable-v${{ github.run_number }}
+          name: "R3C Auto Release v${{ github.run_number }}"
+          body: |
+            🔧 Automated Cross-Platform Build (v14)
+            ✅ Platforms: Linux, macOS, Windows
+            🧩 Includes stubs and JSON headers
+          files: artifacts/**/*.zip
