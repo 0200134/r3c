@@ -1,29 +1,33 @@
-name: R3C Autonomous Build & Release (v16-final)
+name: R3C Autonomous Build & Release (v17-failsafe)
 
 on:
-  push:
-    branches: [ "main" ]
+  push:                     # 모든 브랜치 트리거
+    branches-ignore: []     # 무시 없음
   pull_request:
-    branches: [ "*" ]
-  workflow_dispatch:
+    branches: [ "*" ]       # 모든 브랜치 PR 허용
+  workflow_dispatch:        # 수동 실행 허용
 
 permissions:
-  contents: write
+  contents: write           # 릴리스용 파일 푸시 가능
+  packages: write
   issues: write
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2️⃣ Setup environment
+      # 2️⃣ Environment setup
       - name: ⚙️ Setup environment
         shell: bash
         run: |
@@ -34,7 +38,7 @@ jobs:
           elif [ "$RUNNER_OS" = "macOS" ]; then
             brew install cmake zip || true
           elif [ "$RUNNER_OS" = "Windows" ]; then
-            choco install zip -y || echo "zip already available"
+            choco install cmake zip -y || echo "already ok"
           fi
 
       # 3️⃣ Generate stubs
@@ -56,15 +60,15 @@ jobs:
             fi
           fi
 
-      # 4️⃣ Build project
+      # 4️⃣ Build
       - name: 🏗️ Build project
         shell: bash
         run: |
           cmake -B build -S .
           cmake --build build --config Release
 
-      # 5️⃣ Package artifacts (unique filename per run)
-      - name: 🗜️ Package Artifacts
+      # 5️⃣ Package
+      - name: 🗜️ Package artifacts
         shell: bash
         run: |
           mkdir -p artifacts
@@ -87,6 +91,7 @@ jobs:
   release:
     needs: [build]
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'  # PR일 때는 skip
 
     steps:
       # 7️⃣ Checkout
@@ -107,29 +112,22 @@ jobs:
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "Generated tag: $TAG"
 
-      # 🔟 Create release (overwrite safe)
+      # 🔟 Create GitHub Release (safe overwrite)
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
           name: "R3C Stable Release - ${{ env.TAG }}"
           body: |
-            🪶 **R3C Cross-Platform Autonomous Build**
-            - Built automatically for Windows, macOS, and Linux.
-            - Unique tag: ${{ env.TAG }}
-            - Run ID: ${{ github.run_id }}
+            🪶 **R3C Autonomous Build & Release (v17-failsafe)**
+            - Built for Windows, macOS, Linux
+            - Auto-triggered from: `${{ github.ref_name }}`
+            - Run ID: `${{ github.run_id }}`
           files: artifacts/**/*.zip
           overwrite: true
-
-      # ⓫ Retry if failed
-      - name: 🩹 Retry Release (if needed)
-        if: failure()
-        run: |
-          echo "⚠️ Release failed previously, retrying once..."
-          gh release upload ${{ env.TAG }} artifacts/**/*.zip --clobber || echo "Retry failed."
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ⓬ Confirm success
-      - name: ✅ Done
-        run: echo "🎉 Release completed successfully for tag: ${{ env.TAG }}"
+      # ✅ Done
+      - name: ✅ Confirm success
+        run: echo "🎉 Release completed successfully: ${{ env.TAG }}"
