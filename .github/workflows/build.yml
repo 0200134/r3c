@@ -1,4 +1,4 @@
-name: 🧱 R3C Cross-Platform Build & Stub Generation
+name: 🧱 R3C Cross-Platform Build & Auto Release
 
 on:
   push:
@@ -7,9 +7,13 @@ on:
     branches: [ main ]
   workflow_dispatch:  # 수동 실행 버튼 허용
 
+# 👇 필수 — github-actions[bot]이 태그/릴리즈에 push 가능하도록 설정
+permissions:
+  contents: write
+
 jobs:
   build:
-    name: 🧩 Cross-Platform Stub Generator
+    name: 🧩 Cross-Platform Build Matrix
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -34,17 +38,59 @@ jobs:
             exit 1
           fi
 
-      - name: 🧱 Build project (CMake)
+      - name: 🧱 Build project with CMake
         shell: bash
         run: |
-          echo "🏗️ Configuring CMake build..."
+          echo "🏗️ Configuring build..."
           cmake -B build -S .
-          echo "🔨 Building..."
+          echo "🔨 Compiling..."
           cmake --build build --parallel 4
 
       - name: 🧪 Verify build artifacts
         shell: bash
         run: |
-          echo "🔎 Checking build directory..."
+          echo "🔎 Build output:"
           ls -R build || true
           echo "✅ Build completed successfully."
+
+      - name: 📦 Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-${{ matrix.os }}
+          path: build/
+
+  release:
+    name: 🚀 Auto Tag & Release
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🏷️ Create Git Tag
+        run: |
+          TAG="auto-stable-v$(date +'%Y%m%d-%H%M%S')"
+          echo "🔖 Creating tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Auto release $TAG"
+          git push origin "$TAG"
+
+      - name: 📂 Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: "R3C Auto Release (${{ github.ref_name }})"
+          body: |
+            🧱 **R3C Cross-Platform Build Auto Release**
+            - Includes builds for **Linux**, **Windows**, and **macOS**
+            - Generated automatically by GitHub Actions
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
