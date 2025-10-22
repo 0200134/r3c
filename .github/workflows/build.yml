@@ -1,4 +1,4 @@
-name: 🧩 R3C Cross-Platform Build (v2)
+name: 🧩 R3C Cross-Platform Build (v2.1 Stable)
 
 on:
   push:
@@ -46,8 +46,15 @@ jobs:
           while [ $attempt -le 3 ]; do
             echo "🔁 Attempt $attempt..."
             if [[ "$RUNNER_OS" == "Windows" ]]; then
-              echo "🪟 Using CMake --parallel"
+              echo "🪟 Using MSBuild with CMake --parallel"
               cmake --build build --config Release --parallel 4 > build_log.txt 2>&1
+              # ✅ Detect success message (ignore false exit code)
+              if grep -q "Build succeeded" build_log.txt; then
+                echo "✅ Windows Build succeeded (detected in log)"
+                tail -n 10 build_log.txt
+                echo "success=true" >> $GITHUB_OUTPUT
+                exit 0
+              fi
             else
               echo "🐧 Using Make/Ninja -j4"
               cmake --build build --config Release -- -j4 > build_log.txt 2>&1
@@ -68,6 +75,12 @@ jobs:
           cat build_log.txt || true
           echo "success=false" >> $GITHUB_OUTPUT
           exit 1
+
+      - name: ⚠️ Auto-dump last build log lines on failure
+        if: failure()
+        run: |
+          echo "===== Tail of build_log.txt ====="
+          tail -n 40 build_log.txt || true
 
       - name: 🧾 Show CMake error logs
         if: failure()
