@@ -103,3 +103,7 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 ---
 
 > 🧠 **R3C** — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
+
+
+
+<!--TRAFFIC_START-->
