@@ -108,7 +108,7 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 >  
 > For research, technical discussion, or non-commercial collaboration, feel free to open an issue.  
 >  
-> 📅 **Available for formal collaboration starting in 2027  later.**
+> 📅 **Available for formal collaboration starting in 2027  later or  after  2028  .**
 ---
 
 > 🧠 **R3C** — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
