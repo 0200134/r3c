@@ -1,4 +1,4 @@
-name: R3C Solo Autonomous Build (v15-hotfix)
+name: R3C Solo Autonomous Build & Stable Release (v16-final)
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
       - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      - name: ⚙️ Setup Tools
+      - name: ⚙️ Setup Build Tools
         shell: bash
         run: |
           case "$RUNNER_OS" in
@@ -36,12 +36,14 @@ jobs:
       - name: 🪶 Generate Stub Sources
         shell: bash
         run: |
+          echo "🧩 Generating stub source files..."
           if [ -f scripts/generate_stubs.sh ]; then
             chmod +x scripts/generate_stubs.sh
             ./scripts/generate_stubs.sh
           else
-            echo "⚠️ No stub generator found."
+            echo "⚠️ No stub generator found, skipping..."
           fi
+          echo "✅ Stub generation completed."
 
       - name: 🔧 Configure
         shell: bash
@@ -50,24 +52,28 @@ jobs:
       - name: 🏗️ Build Project
         shell: bash
         run: |
+          echo "⚙️ Building on $RUNNER_OS..."
           cmake --build build --config Release --parallel 4
 
-      # ✅ zip 확실히 생성
-      - name: 📦 Package Build Outputs
+      # ✅ ZIP 파일 확실히 생성
+      - name: 📦 Package build outputs
+        if: success()
         shell: bash
         run: |
           mkdir -p artifacts
           zip -r artifacts/r3c-${{ matrix.os }}.zip build/
           echo "✅ Created artifacts/r3c-${{ matrix.os }}.zip"
 
-      - name: ⬆️ Upload Artifact
+      # ✅ OS별 아티팩트 업로드
+      - name: ⬆️ Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: artifacts/*.zip
+          retention-days: 30
 
   release:
-    name: 🚀 Auto Stable Release
+    name: 🚀 Auto Tag & Stable Release
     runs-on: ubuntu-latest
     needs: build
     if: needs.build.result == 'success'
@@ -76,8 +82,8 @@ jobs:
       - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      # ✅ 이름 매칭 + 병합
-      - name: 📥 Download All Build Artifacts
+      # ✅ 모든 플랫폼 아티팩트 다운로드 (이름 패턴 일치)
+      - name: 📥 Download all artifacts
         uses: actions/download-artifact@v4
         with:
           pattern: r3c-*
@@ -86,22 +92,31 @@ jobs:
 
       - name: 🔍 Verify Artifacts
         run: |
-          echo "📂 Checking release_artifacts..."
+          echo "📂 Listing release_artifacts..."
           ls -R release_artifacts || (echo "❌ No artifacts found!" && exit 1)
 
+      # ✅ 항상 유니크한 태그 생성 (타임스탬프 포함)
       - name: 🏷️ Create Git Tag
         run: |
-          TAG="auto-stable-v${{ github.run_number }}"
+          TAG="auto-stable-$(date +'%Y%m%d-%H%M%S')"
+          echo "🔖 Creating tag: $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag "$TAG"
           git push origin "$TAG"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
-      - name: 🚀 Publish GitHub Release
+      # ✅ 릴리스 생성 (이전 충돌 방지 완전 버전)
+      - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C Stable Release ${{ env.TAG }}"
+          name: "R3C Stable Auto Release (${{ env.TAG }})"
           body: |
-            🔧 Auto Stable Release
-            ✅ Platforms: Linux / macOS / Windows
-          files: release_artifacts/**/*.zip
+            🧱 R3C Cross-Platform Autonomous Build
+            ✅ Platforms: Linux, macOS, Windows
+            ⚙️ LLVM-Free Pipeline (C++ → Rust → ASM)
+            🔄 Automated build, stub generation, and packaging
+          files: |
+            release_artifacts/**/*.zip
+            release_artifacts/*.zip
