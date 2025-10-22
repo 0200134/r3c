@@ -1,4 +1,4 @@
-name: R3C Solo Autonomous Build (v13-cross-safe)
+name: R3C Solo Autonomous Build (v14-cross-safe-stable)
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      # 1️⃣ Checkout
+      # 1️⃣ Checkout repository
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
 
@@ -27,16 +27,18 @@ jobs:
       - name: ⚙️ Setup environment
         shell: bash
         run: |
-          echo "Running on $RUNNER_OS"
+          echo "Setting up environment for $RUNNER_OS"
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt-get update
             sudo apt-get install -y cmake g++ zip
           elif [ "$RUNNER_OS" = "macOS" ]; then
-            brew install cmake zip
+            brew install cmake zip || true
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            choco install zip -y || echo "zip already available"
           fi
 
-      # 3️⃣ Generate stubs (cross-safe)
-      - name: 🧩 Generate stubs (Cross-Platform)
+      # 3️⃣ Generate stubs (Cross-Platform safe)
+      - name: 🧩 Generate stubs
         shell: bash
         run: |
           echo "Detecting stub generator..."
@@ -45,30 +47,36 @@ jobs:
               echo "Running PowerShell stub generator..."
               pwsh scripts/generate_stubs.ps1
             else
-              echo "No PowerShell stub script found."
+              echo "No PowerShell stub found, skipping."
             fi
           else
             if [ -f "scripts/generate_stubs.sh" ]; then
               echo "Running Bash stub generator..."
               bash scripts/generate_stubs.sh
             else
-              echo "No Bash stub script found."
+              echo "No Bash stub found, skipping."
             fi
           fi
 
-      # 4️⃣ Build
+      # 4️⃣ Build project
       - name: 🏗️ Build project
         shell: bash
         run: |
           cmake -B build -S .
           cmake --build build --config Release
 
-      # 5️⃣ Package artifacts
+      # 5️⃣ Package artifacts (OS-aware ZIP)
       - name: 🗜️ Package Artifacts
         shell: bash
         run: |
           mkdir -p artifacts
-          zip -r artifacts/r3c_${{ runner.os }}.zip build/
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "Compressing with PowerShell Compress-Archive..."
+            pwsh -Command "Compress-Archive -Path build/* -DestinationPath artifacts/r3c_${{ runner.os }}.zip"
+          else
+            echo "Compressing with zip..."
+            zip -r artifacts/r3c_${{ runner.os }}.zip build/
+          fi
           echo "✅ Artifacts created:"
           ls -lh artifacts
 
@@ -79,9 +87,9 @@ jobs:
           name: r3c-${{ runner.os }}
           path: artifacts/*.zip
 
-      # 7️⃣ Verify artifacts
+      # 7️⃣ Verify artifact presence
       - name: 🧪 Verify Artifacts
         shell: bash
         run: |
-          echo "Listing artifacts directory..."
+          echo "Verifying artifact existence..."
           ls -R artifacts || echo "❌ No artifacts found!"
