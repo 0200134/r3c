@@ -100,6 +100,15 @@ but to prove that modern compilers can evolve **beyond** it.
 
 MIT License © 2025 [0200134](https://github.com/0200134)
 
+## 🤝 Collaboration Notice
+
+> **Note:**  
+> The author is currently fulfilling mandatory military service (public service, 4th grade).  
+> Therefore, any **commercial collaboration, consulting, or paid contribution** cannot be accepted at this time.  
+>  
+> For research, technical discussion, or non-commercial collaboration, feel free to open an issue.  
+>  
+> 📅 **Available for formal collaboration starting in 2027  later.**
 ---
 
 > 🧠 **R3C** — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
