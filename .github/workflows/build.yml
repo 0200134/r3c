@@ -25,7 +25,11 @@ jobs:
       - name: 🔧 Configure (Generate build files)
         run: |
           echo "⚙️ Configuring for $RUNNER_OS..."
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+          else
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          fi
 
       - name: 🧩 Pre-Build permission fix (macOS/Linux)
         if: runner.os != 'Windows'
@@ -42,10 +46,10 @@ jobs:
             echo "🔁 Attempt $attempt..."
 
             if [[ "$RUNNER_OS" == "Windows" ]]; then
-              # 🪟 Windows(MSBuild) → '/m' 병렬 빌드, '-j4' 금지
-              cmake --build build --config Release -- /m > build_log.txt 2>&1
+              echo "🪟 Using MSBuild with /m (parallel build)"
+              cmake --build "build" --config Release -- /m > build_log.txt 2>&1
             else
-              # 🐧 macOS/Linux → Make/Ninja 병렬 빌드
+              echo "🐧 Using Make/Ninja with -j4"
               cmake --build build --config Release -- -j4 > build_log.txt 2>&1
             fi
 
