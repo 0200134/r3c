@@ -1,8 +1,15 @@
-📢 **Notice:**  
-This repository is open for **full ownership transfer** to any organization, foundation, or company interested in maintaining and continuing its development.  
-If you're interested, please contact via GitHub Issues.
+📢 **Notice — Ownership Transfer Invitation**
 
+This project is now open for **complete ownership transfer or long-term stewardship**  
+to any **organization, foundation, or company** interested in maintaining and evolving it.
 
+The goal is not abandonment, but **continuity** — ensuring that R3C’s vision of  
+*LLVM-free, self-sustaining compiler design* continues under professional guidance.
+
+> 💼 Interested parties may contact via [GitHub Issues](https://github.com/0200134/r3c/issues)
+> or propose collaboration under a new foundation name.
+
+---
 
 # 🪶 R3C: Rust Independence Philosophy
 > “Modern compilers must learn to breathe without LLVM.”
@@ -29,6 +36,34 @@ If you're interested, please contact via GitHub Issues.
 
 ---
 
+## 🧭 Overview
+
+**R3C** is an experimental **Rust independence compiler** —  
+a cross-platform transpiler that bridges **C++ → Rust → NASM**,  
+proving that modern toolchains can evolve *without LLVM or Cargo*.
+
+> 🧠 It’s not about rejecting LLVM —  
+> it’s about proving that compilers can **breathe on their own.**
+
+Key principles:
+- 🧩 **Zero external dependency:** Self-contained transpilation.
+- ⚙️ **Cross-language pipeline:** C++ front, Rust middle, NASM back.
+- 🦋 **Self-healing:** Auto-stub generation and build repair logic.
+- 🔁 **Self-hosting goal:** Future versions to compile themselves.
+
+---
+
+## ⚙️ Architecture
+
+| Stage | Language | Role | Description |
+|--------|-----------|------|-------------|
+| 🧱 Core Parser | C++ | Frontend | Lexical/AST parsing for Rust |
+| 🦀 Transpiler | Rust | Mid-layer | Translates C++ IR to Rust syntax trees |
+| ⚙️ Assembler | NASM | Backend | Produces cross-platform x86/x64 assembly |
+| 🧩 Bootstrap Tooling | Bash/Powershell | Automation | Self-repair + multi-OS build system |
+
+---
+
 ## 💬 Join the Movement
 
 > 🧠 **R3C** is a *Rust-independence experiment* — proving that a compiler can **self-build, self-repair, and self-deploy** across any platform, without relying on LLVM or Cargo.
@@ -39,7 +74,10 @@ We’re looking for contributors who love:
 - 🦀 Rust transpilation  
 - 🤖 Self-healing automation  
 
-> 👉 Whether you fix one header or design a full pipeline — your contribution matters.
+---
+
+🔧 **Maintainer applications and ownership transfer discussions are open.**  
+🌍 Organizations aligned with *open compiler autonomy* are welcome to discuss stewardship, licensing models, or foundation-level transitions.
 
 <p align="center">
   <a href="https://github.com/0200134/r3c/issues/new?template=feature.yml"><b>🚀 Contribute Now</b></a> |
@@ -48,169 +86,20 @@ We’re looking for contributors who love:
 
 ---
 
+## 🪶 Vision
 
-> 🧠 R3C — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
+R3C redefines compiler autonomy — not to reject LLVM,  
+but to prove that modern compilers can evolve **beyond** it.
 
-
-🚀 1000+ views milestone — Thank you all for checking out R3C!
-
----
-
-<h1 align="center">🦀 R3C — Rust Recompiler & Self-Healing Build System</h1>
-
-<p align="center">
-  <b>Rust → NASM → Executable</b><br>
-  ⚙️ Cross-Platform • 🤖 Self-Healing • 🧠 Autonomous Build Pipeline
-</p>
+> ⚙️ From legacy to safety, from safety to metal.  
+> 🧠 From dependency to sovereignty.
 
 ---
 
-### 🧩 Overview
+## 📜 License
 
-R3C isn’t just another compiler.  
-It’s a **Rust-independence experiment** — a self-healing, self-building system  
-that compiles, repairs, and redeploys itself across Windows, macOS, and Linux.
-
-> **Goal:** Prove that a modern compiler can live without human babysitting.
+MIT License © 2025 [0200134](https://github.com/0200134)
 
 ---
 
-### 🚀 Quick Start
-
-```bash
-git clone https://github.com/0200134/r3c.git
-cd r3c
-cmake -B build -S .
-cmake --build build --config Release
-./build/r3c --emit-asm hello.r3
-
-> 💡 Everything builds automatically.
-If something breaks, the self-heal bot creates a PR within minutes.
-
-
-
-
----
-
-⚙️ Build Status
-
-OS	Status	Compiler	Notes
-
-🪟 Windows		MSVC 17+	Auto-healing enabled
-🐧 Ubuntu		GCC 13+	NASM pipeline active
-🍎 macOS		Clang 16+	ARM64 verified
-
-
-
----
-
-🤖 Self-Healing Pipeline
-
-When a build fails, the R3C-bot triggers a full recovery:
-
-1. Detects missing headers / invalid includes
-
-
-2. Generates stubs or replacements
-
-
-3. Pushes a fix branch
-
-
-4. Opens a PR (auto-heal-xxxx)
-
-
-5. Auto-merges once tests pass
-
-
-
-> 🔁 Human merges are optional.
-The system maintains itself.
-
-
-
-
----
-
-🧠 Philosophy
-
-> “Don’t build compilers that need humans.
-Build compilers that build themselves.”
-
-
-
-R3C embodies that philosophy — autonomous maintenance,
-platform-agnostic builds, and minimal friction.
-
-
----
-
-📊 Traffic & Growth
-
-
-
-Metric	Current	Trend
-
-Views	778+	📈 Rising
-Clones	564+	📈 Active
-Unique Visitors	80+	🧠 Consistent
-
-
-
----
-
-🤝 Contributing
-
-Fork and git checkout -b feature/your-feature
-
-Submit PR — the CI & Self-Heal bot takes care of testing.
-
-All contributions welcome: code, doc, or build logic.
-
-
-
----
-
-🧾 License
-
-MIT License — free to use, modify, and distribute.
-Please retain license notice in derived works.
-
-
----
-
-❤️ Maintainers
-
-Name	Role	Contact
-
-@0200134	Creator / Maintainer	🪲 Oversees R3C automation
-(You?)	Contributor	Submit PR
-
-
-
----
----
-
-## ❤️ Credits
-
-Created and maintained by [@0200134](https://github.com/0200134)  
-Part of the ongoing **Rust Independence Philosophy**.
-
-> “If Rust can walk without LLVM,  
-> then the compiler world will never be the same again.” 🌍  
-
----
-
-### 🌍 The Future Is Ours
-R3C isn’t mine — it’s ours.  
-Every contributor, every experiment, every idea shapes what this project becomes.  
-Join in — build the next compiler generation together. 🚀
----
-
----
-
-
-⭐️ And, fork  freely and  join  the  build
-
----
-
+> 🧠 **R3C** — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
