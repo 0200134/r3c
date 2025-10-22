@@ -1,4 +1,4 @@
-name: 🧩 R3C Cross-Platform Build
+name: 🧩 R3C Cross-Platform Build (v2)
 
 on:
   push:
@@ -13,7 +13,6 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
-    # 🟢 모든 run 명령을 bash로 실행
     defaults:
       run:
         shell: bash
@@ -27,7 +26,7 @@ jobs:
         with:
           cmake-version: "3.28.3"
 
-      - name: 🔧 Configure (Generate build files)
+      - name: 🧩 Configure build
         run: |
           echo "⚙️ Configuring for $RUNNER_OS..."
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -36,11 +35,9 @@ jobs:
             cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           fi
 
-      - name: 🧩 Pre-Build permission fix (macOS/Linux)
+      - name: 🔧 Fix permissions (macOS/Linux)
         if: runner.os != 'Windows'
-        run: |
-          echo "🔧 Fixing permission for stub scripts..."
-          chmod +x scripts/generate_stubs.sh || true
+        run: chmod +x scripts/generate_stubs.sh || true
 
       - name: 🚀 Build (Auto Retry up to 3 times)
         run: |
@@ -49,21 +46,21 @@ jobs:
           while [ $attempt -le 3 ]; do
             echo "🔁 Attempt $attempt..."
             if [[ "$RUNNER_OS" == "Windows" ]]; then
-              echo "🪟 Using MSBuild with /m (parallel build)"
-              cmake --build "build" --config Release -- /m > build_log.txt 2>&1
+              echo "🪟 Using CMake --parallel"
+              cmake --build build --config Release --parallel 4 > build_log.txt 2>&1
             else
-              echo "🐧 Using Make/Ninja with -j4"
+              echo "🐧 Using Make/Ninja -j4"
               cmake --build build --config Release -- -j4 > build_log.txt 2>&1
             fi
 
             if [ $? -eq 0 ]; then
               echo "✅ Build success"
-              cat build_log.txt | tail -n 10
+              tail -n 10 build_log.txt
               echo "success=true" >> $GITHUB_OUTPUT
               exit 0
             else
               echo "⚠️ Build failed attempt $attempt"
-              cat build_log.txt | tail -n 20
+              tail -n 20 build_log.txt
               ((attempt++))
             fi
           done
@@ -72,9 +69,20 @@ jobs:
           echo "success=false" >> $GITHUB_OUTPUT
           exit 1
 
+      - name: 🧾 Show CMake error logs
+        if: failure()
+        run: |
+          echo "===== CMake Error Log ====="
+          cat build/CMakeFiles/CMakeError.log || true
+          echo "===== CMake Output Log ====="
+          cat build/CMakeFiles/CMakeOutput.log || true
+
       - name: 📦 Upload build logs on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: build_logs_${{ matrix.os }}
-          path: build_log.txt
+          path: |
+            build_log.txt
+            build/CMakeFiles/CMakeError.log
+            build/CMakeFiles/CMakeOutput.log
