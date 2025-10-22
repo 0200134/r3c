@@ -6,6 +6,7 @@ on:
 
 jobs:
   build:
+    name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -39,7 +40,16 @@ jobs:
           attempt=1
           while [ $attempt -le 3 ]; do
             echo "🔁 Attempt $attempt..."
-            if cmake --build build --config Release -- -j4 > build_log.txt 2>&1; then
+
+            if [[ "$RUNNER_OS" == "Windows" ]]; then
+              # 🪟 Windows(MSBuild) → '/m' 병렬 빌드, '-j4' 금지
+              cmake --build build --config Release -- /m > build_log.txt 2>&1
+            else
+              # 🐧 macOS/Linux → Make/Ninja 병렬 빌드
+              cmake --build build --config Release -- -j4 > build_log.txt 2>&1
+            fi
+
+            if [ $? -eq 0 ]; then
               echo "✅ Build success"
               cat build_log.txt | tail -n 10
               echo "success=true" >> $GITHUB_OUTPUT
@@ -50,6 +60,7 @@ jobs:
               ((attempt++))
             fi
           done
+
           echo "❌ Build failed after 3 attempts"
           cat build_log.txt || true
           echo "success=false" >> $GITHUB_OUTPUT
