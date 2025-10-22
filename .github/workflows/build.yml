@@ -13,6 +13,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
+    # 🟢 모든 run 명령을 bash로 실행
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
@@ -38,13 +43,11 @@ jobs:
           chmod +x scripts/generate_stubs.sh || true
 
       - name: 🚀 Build (Auto Retry up to 3 times)
-        shell: bash
         run: |
           echo "⚙️ Building on $RUNNER_OS..."
           attempt=1
           while [ $attempt -le 3 ]; do
             echo "🔁 Attempt $attempt..."
-
             if [[ "$RUNNER_OS" == "Windows" ]]; then
               echo "🪟 Using MSBuild with /m (parallel build)"
               cmake --build "build" --config Release -- /m > build_log.txt 2>&1
@@ -64,7 +67,6 @@ jobs:
               ((attempt++))
             fi
           done
-
           echo "❌ Build failed after 3 attempts"
           cat build_log.txt || true
           echo "success=false" >> $GITHUB_OUTPUT
