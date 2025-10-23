@@ -23,38 +23,65 @@ jobs:
         with:
           cmake-version: "3.28.3"
 
-      - name: 🧩 Configure
+      # ============================================
+      # 🪟 Windows (PowerShell)
+      # ============================================
+      - name: 🪟 Configure (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          echo "Configuring for $RUNNER_OS..."
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-          else
-            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          fi
+          echo "🪟 Configuring for Windows..."
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
 
-      - name: 🔨 Build
+      - name: 🪟 Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
-          echo "Building R3C CLI..."
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cmake --build build --config Release --target r3c_cli
-          else
-            cmake --build build --target r3c_cli -j$(nproc || sysctl -n hw.ncpu)
-          fi
+          echo "🪟 Building..."
+          cmake --build build --config Release --target r3c_cli
 
-      - name: 📦 Package Artifacts
+      - name: 🪟 Package (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
         run: |
+          echo "🪟 Packaging..."
+          mkdir dist
+          Copy-Item "build/Release/r3c_cli.exe" -Destination "dist/"
+          Compress-Archive -Path "dist/*" -DestinationPath "r3c-windows-latest.zip"
+
+      # ============================================
+      # 🐧 macOS / Linux (Bash)
+      # ============================================
+      - name: 🧩 Configure (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          echo "⚙️ Configuring for $RUNNER_OS..."
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: 🔨 Build (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          echo "🔨 Building for $RUNNER_OS..."
+          cmake --build build --target r3c_cli -j$(nproc || sysctl -n hw.ncpu)
+
+      - name: 📦 Package (Unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          echo "📦 Packaging..."
           mkdir -p dist
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp build/Release/r3c_cli.exe dist/
-            zip -r r3c-windows-latest.zip dist
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            cp build/r3c_cli dist/
+          cp build/r3c_cli dist/
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
             zip -r r3c-macos-latest.zip dist
           else
-            cp build/r3c_cli dist/
             zip -r r3c-linux-latest.zip dist
           fi
 
+      # ============================================
+      # 🚀 Upload artifacts
+      # ============================================
       - name: 🚀 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -62,6 +89,9 @@ jobs:
           path: |
             r3c-*-latest.zip
 
+  # ============================================
+  # 🧾 Auto Release
+  # ============================================
   release:
     needs: build
     runs-on: ubuntu-latest
