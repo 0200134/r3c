@@ -1,4 +1,4 @@
-name: 🧩 R3C Full Auto Build + Release (v6.2 Self-Cleaning Final)
+name: 🧩 R3C Full Auto Build + Release (v6.3 Final Stable)
 
 on:
   push:
@@ -22,50 +22,44 @@ jobs:
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
 
-      # 🧹 자동 정리 스크립트 생성 및 실행
-      - name: 🧹 Cleanup old CMake files
+      # --------------------------------------------------
+      # 🧹 macOS 전용 딥 클린 — 캐시 및 중복 CMakeLists 제거
+      # --------------------------------------------------
+      - name: 🧹 macOS deep clean
+        if: runner.os == 'macOS'
         run: |
-          echo "🧹 Creating cleanup script..."
-          cat > cleanup_cmake.sh <<'SCRIPT'
-          #!/usr/bin/env bash
-          set -e
-          echo "🧼 Removing build folders and cache..."
-          find . -type d -name "build" -exec rm -rf {} + || true
-          find . -type f -name "CMakeCache.txt" -delete || true
-          find . -type d -name "CMakeFiles" -exec rm -rf {} + || true
-          echo "🔍 Searching for duplicate CMakeLists.txt..."
-          DUP=$(find . -type f -name "CMakeLists.txt" ! -path "./CMakeLists.txt")
-          if [ -n "$DUP" ]; then
-            echo "⚠️ Found duplicates:"
-            echo "$DUP"
-            echo "❌ Removing duplicates..."
-            echo "$DUP" | xargs rm -f
-          else
-            echo "✅ No duplicates found."
-          fi
-          echo "✅ Cleanup done."
-          SCRIPT
-          chmod +x cleanup_cmake.sh
-          bash cleanup_cmake.sh
+          echo "🧼 Removing macOS cache folders..."
+          sudo rm -rf build CMakeFiles CMakeCache.txt || true
+          sudo find /Users/runner/work/ -type d -name "build" -exec rm -rf {} + || true
+          sudo find /Users/runner/work/ -type f -iname "cmakelists.txt" ! -path "$GITHUB_WORKSPACE/CMakeLists.txt" -delete || true
+          echo "✅ macOS deep clean done."
 
-      # 🪟 Windows → NASM만 설치
+      # --------------------------------------------------
+      # 🪟 Windows — NASM만 설치
+      # --------------------------------------------------
       - name: 🧰 Install NASM (Windows only)
         if: runner.os == 'Windows'
         run: |
           choco clean --yes || echo "skip clean"
           choco install nasm -y --no-progress
 
-      # ⚙️ CMake 세팅
+      # --------------------------------------------------
+      # ⚙️ CMake 설정 및 빌드
+      # --------------------------------------------------
       - name: ⚙️ Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
       - name: 🧩 Configure build
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        run: |
+          echo "⚙️ Configuring..."
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: 🧱 Build
-        run: cmake --build build --config Release -j4
+      - name: 🧱 Build project
+        run: |
+          echo "🚧 Building..."
+          cmake --build build --config Release -j4
 
       - name: 🪶 Package artifacts
         run: |
@@ -109,15 +103,18 @@ jobs:
           tag_name: auto-stable-${{ github.run_id }}
           name: "R3C Stable Release (${{ github.run_id }})"
           body: |
-            ✅ Self-Cleaning Build (Cache Cleared)  
-            ✅ LLVM-Free Cross-Platform  
+            ✅ macOS Deep Clean Applied  
+            ✅ Windows Cancel Fixed  
+            ✅ LLVM-Free Cross-Platform Build  
             ✅ SHA256 Verified  
             ✅ Auto README & Graph Update
           files: release_artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 📊 트래픽 그래프 생성
+      # --------------------------------------------------
+      # 📊 Traffic Graph
+      # --------------------------------------------------
       - name: 📈 Generate traffic graph
         run: |
           pip install matplotlib requests pandas
@@ -137,7 +134,9 @@ jobs:
           plt.savefig("docs/traffic.png")
           PY
 
-      # 🧾 README 업데이트
+      # --------------------------------------------------
+      # 🧾 README Update
+      # --------------------------------------------------
       - name: 🧾 Update README
         run: |
           TAG="auto-stable-${{ github.run_id }}"
