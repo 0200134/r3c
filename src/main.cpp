@@ -1,21 +1,16 @@
+// src/main.cpp
 #include <iostream>
 
 int main(int argc, char** argv) {
-    std::cout << "🧩 R3C (LLVM-Free Compiler Framework)" << std::endl;
-    std::cout << "Platform: "
-#ifdef _WIN32
-              << "Windows";
+    std::cout << "🧩 R3C LLVM-Free Universal Build" << std::endl;
+#if defined(_WIN32)
+    std::cout << "Platform: Windows" << std::endl;
 #elif defined(__APPLE__)
-              << "macOS";
+    std::cout << "Platform: macOS" << std::endl;
+#elif defined(__linux__)
+    std::cout << "Platform: Linux" << std::endl;
 #else
-              << "Linux";
+    std::cout << "Platform: Unknown" << std::endl;
 #endif
-    std::cout << std::endl;
-
-    // 간단한 실행 테스트
-    std::cout << "Arguments: " << argc << std::endl;
-    for (int i = 0; i < argc; ++i)
-        std::cout << "  [" << i << "] " << argv[i] << std::endl;
-
     return 0;
 }
