@@ -2,6 +2,6 @@
 #include <iostream>
 
 int main(int argc, char** argv) {
-    std::cout << "🧩 R3C Build Successful (macOS entry test)" << std::endl;
+    std::cout << "🧩 R3C macOS main() linked successfully ✅" << std::endl;
     return 0;
 }
