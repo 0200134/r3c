@@ -1,83 +1,62 @@
-import os, json, datetime, requests, matplotlib.pyplot as plt
+import os, requests, matplotlib.pyplot as plt
+from datetime import datetime
 
-repos = [
-    "0200134/r3c",
-    "0200134/cpppm",
-    "0200134/Rust-ltss"
-]
+# 트래픽을 모니터링할 리포 목록
+REPOS = ["0200134/r3c", "0200134/cpppm", "0200134/Rust-ltss"]
+TOKEN = os.getenv("GITHUB_TOKEN")
+HEADERS = {"Authorization": f"token {TOKEN}"}
 
-token = os.environ["GITHUB_TOKEN"]
-headers = {"Authorization": f"token {token}"}
+def fetch_traffic(repo):
+    url = f"https://api.github.com/repos/{repo}/traffic/views"
+    res = requests.get(url, headers=HEADERS)
+    if res.status_code != 200:
+        print(f"❌ Failed: {repo} ({res.status_code})")
+        return None
+    return res.json()
 
-def get_json(repo, endpoint):
-    r = requests.get(f"https://api.github.com/repos/{repo}/traffic/{endpoint}", headers=headers)
-    if r.status_code == 200:
-        return r.json()
-    else:
-        print(f"⚠️ Failed to fetch {endpoint} for {repo}: {r.status_code}")
-        return {"count":0,"uniques":0,"views":[],"clones":[]}
+def plot_combined(data):
+    plt.figure(figsize=(10, 6))
+    for repo, stats in data.items():
+        if not stats: continue
+        dates = [v["timestamp"][:10] for v in stats["views"]]
+        counts = [v["count"] for v in stats["views"]]
+        plt.plot(dates, counts, marker="o", label=repo)
+    plt.title("📊 Combined GitHub Traffic (Views per Day)")
+    plt.xlabel("Date")
+    plt.ylabel("Views")
+    plt.legend()
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    os.makedirs("traffic", exist_ok=True)
+    plt.savefig("traffic/combined_traffic.png")
+    plt.close()
+    print("✅ Graph saved: traffic/combined_traffic.png")
 
-today = datetime.date.today().isoformat()
-os.makedirs("traffic/data", exist_ok=True)
-summary = {"date": today, "repos": {}}
+def update_readme():
+    with open("README.md", "r", encoding="utf-8") as f:
+        lines = f.readlines()
+    marker = "## 📊 Combined GitHub Traffic"
+    new_block = (
+        f"{marker}\n"
+        f"![Traffic](./traffic/combined_traffic.png)\n\n"
+        f"> *Last updated: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}*"
+    )
+    with open("README.md", "w", encoding="utf-8") as f:
+        found = False
+        for line in lines:
+            if line.strip().startswith(marker):
+                f.write(new_block + "\n")
+                found = True
+                break
+            f.write(line)
+        if not found:
+            f.write("\n" + new_block + "\n")
+    print("✅ README updated with traffic graph")
 
-total_views = total_uniques = total_clones = total_cloners = 0
-
-for repo in repos:
-    views = get_json(repo, "views")
-    clones = get_json(repo, "clones")
-    referrers = requests.get(f"https://api.github.com/repos/{repo}/traffic/popular/referrers", headers=headers).json()
-    summary["repos"][repo] = {"views": views, "clones": clones, "referrers": referrers}
-
-    total_views += views.get("count", 0)
-    total_uniques += views.get("uniques", 0)
-    total_clones += clones.get("count", 0)
-    total_cloners += clones.get("uniques", 0)
-
-with open(f"traffic/data/{today}.json", "w") as f:
-    json.dump(summary, f, indent=2)
-
-# --- 그래프 생성 ---
-plt.figure(figsize=(8,4))
-for repo in repos:
-    v = summary["repos"][repo]["views"].get("views", [])
-    if not v:
-        continue
-    days = [d["timestamp"][:10] for d in v]
-    counts = [d["count"] for d in v]
-    plt.plot(days, counts, marker='o', label=repo.split('/')[-1])
-
-plt.title("Combined GitHub Views (Last 14 Days)")
-plt.xticks(rotation=45)
-plt.legend()
-plt.tight_layout()
-plt.savefig("traffic/summary.png")
-
-# --- README 업데이트 ---
-section = f"""
-<!--TRAFFIC_START-->
-## 📊 Combined GitHub Traffic (last 14 days)
-
-![Traffic Chart](traffic/summary.png)
-
-| Metric | Total | Unique |
-|--------|--------|--------|
-| **Views** | {total_views} | {total_uniques} |
-| **Clones** | {total_clones} | {total_cloners} |
-
-**Repositories Monitored:**  
-- r3c  
-- cpppm  
-- Rust-ltss
-"""
-
-with open("README.md", "r", encoding="utf-8") as f:
-    content = f.read()
-
-if "<!--TRAFFIC_START-->" in content:
-    content = content.split("<!--TRAFFIC_START-->")[0] + section
-else:
-    content += "\n" + section
-
-with open("README.md", "w", encoding="utf-8") as f:
-    f.write(content)
+if __name__ == "__main__":
+    results = {}
+    for repo in REPOS:
+        print(f"📡 Fetching traffic for {repo}...")
+        results[repo] = fetch_traffic(repo)
+    plot_combined(results)
+    update_readme()
