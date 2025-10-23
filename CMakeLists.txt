@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 💡 Default to Release build
+# 💡 Default: Release build
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -24,7 +24,8 @@ if(WIN32)
 elseif(APPLE)
   message(STATUS "🍎 macOS build → LLVM libc++, safe flags")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
-  add_link_options(-Wl,-dead_strip -Wl,-s)
+  # ld의 '-s' 플래그 제거 (심볼 유지, obsolete 경고 방지)
+  add_link_options(-Wl,-dead_strip)
 
 elseif(UNIX)
   message(STATUS "🐧 Linux build → static link, stripped binary")
@@ -50,6 +51,7 @@ file(GLOB_RECURSE R3C_SOURCES
 # 🧱 Target Definition
 # ==========================================================
 add_executable(r3c ${R3C_SOURCES})
+set_target_properties(r3c PROPERTIES LINKER_LANGUAGE CXX)
 
 # ==========================================================
 # 🚀 Linking (Unix/macOS)
@@ -75,7 +77,7 @@ endif()
 install(TARGETS r3c DESTINATION bin)
 
 # ==========================================================
-# 🧪 Debug Info
+# 📜 Build Summary
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
