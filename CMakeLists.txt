@@ -23,8 +23,11 @@ if(WIN32)
 elseif(APPLE)
   message(STATUS "🍎 macOS build → safe flags (keep symbols)")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
-  # ⚠️ 주의: -dead_strip 은 main() 심볼까지 제거할 수 있어서 제외
-  add_link_options()
+
+  # ✅ macOS 전용 링크 옵션
+  # -dead_strip : 사용되지 않는 심볼 제거
+  # -no_pie      : main() 심볼 유지 (macOS의 기본 PIE 방지)
+  add_link_options(-Wl,-dead_strip -Wl,-no_pie)
 
 elseif(UNIX)
   message(STATUS "🐧 Linux build → static link & stripped binary")
