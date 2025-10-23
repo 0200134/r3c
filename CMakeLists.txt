@@ -23,10 +23,7 @@ if(WIN32)
 elseif(APPLE)
   message(STATUS "🍎 macOS build → safe flags (keep symbols)")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
-
-  # ✅ macOS 전용 링크 옵션
-  # -dead_strip : 사용되지 않는 심볼 제거
-  # -no_pie      : main() 심볼 유지 (macOS의 기본 PIE 방지)
+  # ✅ main 심볼 보존 + 불필요한 섹션 제거
   add_link_options(-Wl,-dead_strip -Wl,-no_pie)
 
 elseif(UNIX)
@@ -45,7 +42,6 @@ include_directories(${INCLUDE_DIR})
 # ==========================================================
 # 📁 Source Collection
 # ==========================================================
-# main.cpp 제외 (라이브러리 빌드 시 충돌 방지)
 file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.cpp"
   "${SRC_DIR}/*.c"
