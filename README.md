@@ -119,20 +119,20 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 
 
 
-### 🔖 Latest Auto Release: [auto-stable-18755485363](https://github.com/0200134/r3c/releases/tag/auto-stable-18755485363)
+### 🔖 Latest Auto Release: [auto-stable-18755595485](https://github.com/0200134/r3c/releases/tag/auto-stable-18755595485)
 
 ```
-641251c6903364a43ed34d09285127b956c3665c71418e7ce39154cf39de6cbd  r3c-linux-latest.zip
+a75c200cceeee2b3dc6d9fb248d7b1c70b7f820cd81877bdcd3d1e5ae5880e8a  r3c-linux-latest.zip
 ```
 
 ```
 SHA256 hash of r3c-windows-latest.zip:
-98496785732cd5f5d760ee3e494be6d62c24f2d06b7285ad47185e7403877b41
+fb4659520c44d7fb7d66b65a4916d0d634b3e4218f4d1e0e7ca5bf777b8946c7
 CertUtil: -hashfile command completed successfully.
 ```
 
 ```
-494498663a8f9ca1538a5e1d874a5801179cea1ea9fd46f08a65cabe9de898e2  r3c-macos-latest.zip
+588ea22fcf5d643e84c6457cf44c248e4c2c5a675c9d94c3af644ea603687342  r3c-macos-latest.zip
 ```
 
 ![Traffic Graph](docs/traffic.png)
