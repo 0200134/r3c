@@ -48,8 +48,11 @@ file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.asm"
 )
 
+# main.cpp는 실행용 타겟(r3c_cli)에서만 사용하므로 제외
+list(FILTER R3C_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
+
 # ==========================================================
-# 🧱 Library Target
+# 🧱 Library Target (Core Engine)
 # ==========================================================
 add_library(r3c STATIC ${R3C_SOURCES})
 set_target_properties(r3c PROPERTIES LINKER_LANGUAGE CXX)
@@ -59,16 +62,21 @@ if(UNIX AND NOT WIN32)
 endif()
 
 # ==========================================================
-# 🚀 Executable (main.cpp)
+# 🚀 Executable (CLI Frontend)
 # ==========================================================
-# main.cpp 만 따로 실행용 타겟으로 빌드
 add_executable(r3c_cli "${SRC_DIR}/main.cpp")
+target_link_libraries(r3c_cli PRIVATE r3c)
 
-# r3c 정적 라이브러리 연결
-target_link_libraries(r3c_cli r3c)
+# macOS: arm64 환경 호환성 보장
+if(APPLE)
+  set_target_properties(r3c_cli PROPERTIES
+    XCODE_ATTRIBUTE_ARCHS "arm64;x86_64"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.r3c.compiler"
+  )
+endif()
 
 # ==========================================================
-# 📦 Install
+# 📦 Install Targets
 # ==========================================================
 install(TARGETS r3c DESTINATION lib)
 install(TARGETS r3c_cli DESTINATION bin)
@@ -78,12 +86,13 @@ install(TARGETS r3c_cli DESTINATION bin)
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
-message(STATUS " R3C LLVM-Free Universal Build Summary (Library + CLI)")
+message(STATUS " 🧩 R3C LLVM-Free Universal Build Summary (v6.5 Ultra Stable)")
 message(STATUS "----------------------------------------------------------")
 message(STATUS " • Build Type     : ${CMAKE_BUILD_TYPE}")
 message(STATUS " • Source Dir     : ${SRC_DIR}")
 message(STATUS " • Include Dir    : ${INCLUDE_DIR}")
 message(STATUS " • Output Library : ${CMAKE_BINARY_DIR}/libr3c.a")
 message(STATUS " • Executable     : ${CMAKE_BINARY_DIR}/r3c_cli")
+message(STATUS " • macOS Arch     : arm64 + x86_64 Universal Binary")
 message(STATUS "==========================================================")
 message(STATUS "")
