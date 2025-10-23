@@ -1,33 +1,33 @@
-name: 🧩 R3C Full Auto Build + Release (v5.1 Stable Hotfix)
+name: 🧩 R3C Full Auto Build + Release (v5.1 Hotfix Final)
 
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 6 * * *" # 매일 6시 트래픽 그래프 갱신
   workflow_dispatch:
 
 jobs:
   build:
     name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25   # ⏱️ 여유 타임 추가
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: 🧰 Checkout repository
+      - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 🪟 Windows 전용 패키지 설치 (안정형)
-      # --------------------------------------------------
+      # ⚙️ Windows only: NASM 설치 (CMake/zip 이미 기본 내장)
       - name: 🧰 Install NASM (Windows only)
         if: runner.os == 'Windows'
-        run: choco install nasm -y --no-progress
+        run: |
+          choco clean --yes || echo "skip clean"
+          choco install nasm -y --no-progress
 
       - name: ⚙️ Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
@@ -37,7 +37,7 @@ jobs:
       - name: 🧩 Configure build
         run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: 🧱 Build project
+      - name: 🧱 Build
         run: cmake --build build --config Release -j4
 
       - name: 🪶 Package artifacts
@@ -46,7 +46,7 @@ jobs:
           zip -r "r3c-${RUNNER_OS,,}-latest.zip" r3c* || 7z a "r3c-${RUNNER_OS,,}-latest.zip" r3c*
           echo "✅ Compression done"
 
-      - name: 🧮 Generate SHA256 checksum
+      - name: 🧮 Generate SHA256
         run: |
           cd build
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -54,7 +54,6 @@ jobs:
           else
             sha256sum "r3c-${RUNNER_OS,,}-latest.zip" > "r3c-${RUNNER_OS,,}-sha256.txt"
           fi
-          echo "✅ SHA256 generated"
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
@@ -63,12 +62,12 @@ jobs:
           path: build/r3c-${{ runner.os,, }}-*
 
   release:
-    name: 🚀 Auto Release + README + Graph
+    name: 🚀 Auto Release + Graph + README
     needs: [build]
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧰 Checkout repository
+      - name: 🧰 Checkout
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -84,67 +83,59 @@ jobs:
           tag_name: auto-stable-${{ github.run_id }}
           name: "R3C Stable Release (${{ github.run_id }})"
           body: |
-            ✅ Cross-Platform LLVM-Free Build  
+            ✅ LLVM-Free Cross-Platform Build  
             ✅ SHA256 Verified  
-            ✅ Optimized for Stability & Size  
-            ✅ Daily Auto Graph Update
+            ✅ Auto Traffic Graph + README Update  
+            ✅ Windows Cancel Bug Patched
           files: release_artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # --------------------------------------------------
       # 📊 트래픽 그래프 생성
-      # --------------------------------------------------
       - name: 📈 Generate traffic graph
         run: |
           pip install matplotlib requests pandas
-          python3 <<'PYCODE'
-          import requests, pandas as pd, matplotlib.pyplot as plt, os
+          python3 <<'PY'
+          import os, requests, pandas as pd, matplotlib.pyplot as plt
           repo = os.getenv("GITHUB_REPOSITORY")
           token = os.getenv("GITHUB_TOKEN")
           headers = {"Authorization": f"token {token}"}
-
-          def get_data(endpoint):
-              r = requests.get(f"https://api.github.com/repos/{repo}/traffic/{endpoint}", headers=headers)
-              return pd.DataFrame(r.json()[endpoint])
-
-          v = get_data("views")
-          c = get_data("clones")
-          v["timestamp"] = pd.to_datetime(v["timestamp"])
-          c["timestamp"] = pd.to_datetime(c["timestamp"])
-
+          def df(endpoint): 
+              data = requests.get(f"https://api.github.com/repos/{repo}/traffic/{endpoint}", headers=headers).json()
+              df = pd.DataFrame(data[endpoint])
+              df['timestamp'] = pd.to_datetime(df['timestamp'])
+              return df
+          v, c = df('views'), df('clones')
           plt.figure(figsize=(8,4))
-          plt.plot(v["timestamp"], v["count"], label="Views", linewidth=2)
-          plt.plot(c["timestamp"], c["count"], label="Clones", linewidth=2)
-          plt.title("R3C Traffic (14 Days)")
-          plt.xlabel("Date"); plt.ylabel("Count")
-          plt.grid(alpha=0.3); plt.legend(); plt.tight_layout()
-          os.makedirs("docs", exist_ok=True)
-          plt.savefig("docs/traffic.png")
-          PYCODE
+          plt.plot(v['timestamp'], v['count'], label='Views', linewidth=2)
+          plt.plot(c['timestamp'], c['count'], label='Clones', linewidth=2)
+          plt.title('R3C Traffic (14 Days)')
+          plt.xlabel('Date'); plt.ylabel('Count')
+          plt.legend(); plt.grid(alpha=0.3); plt.tight_layout()
+          os.makedirs('docs', exist_ok=True)
+          plt.savefig('docs/traffic.png')
+          PY
 
-      # --------------------------------------------------
-      # 🧾 README 갱신
-      # --------------------------------------------------
-      - name: 🧾 Update README with latest info
+      # 🧾 README 자동 업데이트
+      - name: 🧾 Update README
         run: |
           TAG="auto-stable-${{ github.run_id }}"
           URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
           HASH_FILES=$(find release_artifacts -type f -name "*sha256.txt" | sort)
-
-          echo "### 🔖 Latest Auto Release: [${TAG}](${URL})" > tmp_readme.md
-          echo "" >> tmp_readme.md
+          echo "### 🔖 Latest Auto Release: [${TAG}](${URL})" > tmp.md
+          echo "" >> tmp.md
           for f in $HASH_FILES; do
-            echo "\`\`\`" >> tmp_readme.md
-            cat $f >> tmp_readme.md
-            echo "\`\`\`" >> tmp_readme.md
-            echo "" >> tmp_readme.md
+            echo "\`\`\`" >> tmp.md
+            cat $f >> tmp.md
+            echo "\`\`\`" >> tmp.md
+            echo "" >> tmp.md
           done
-          echo "![Traffic Graph](docs/traffic.png)" >> tmp_readme.md
+          echo "![Traffic Graph](docs/traffic.png)" >> tmp.md
           sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
-          cat tmp_readme.md >> README.md
+          cat tmp.md >> README.md
+          rm tmp.md
 
-      - name: 💾 Commit & Push updates
+      - name: 💾 Commit & Push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
