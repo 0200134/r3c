@@ -4,7 +4,7 @@
 #include <string>
 
 int main(int argc, char** argv) {
-    std::cout << "🧩 R3C CLI bootstrap (v6.6 LTS)" << std::endl;
+    std::cout << "🧩 R3C CLI (v6.6 LTS)" << std::endl;
 
     std::vector<std::string> files = { "example.cpp" };
     std::string version = "v6.6-lts";
@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
     int result = run_pipeline(files, version, self_recompile, emit_asm, asm_out, skip_bootstrap);
 
     if (result == 0)
-        std::cout << "✅ Pipeline finished successfully." << std::endl;
+        std::cout << "✅ Build completed successfully." << std::endl;
     else
-        std::cerr << "❌ Pipeline failed." << std::endl;
+        std::cerr << "❌ Pipeline failed with code " << result << std::endl;
 
     return result;
 }
