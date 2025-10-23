@@ -142,6 +142,7 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 SHA256 hash of r3c-windows-latest.zip:
 e7351fcf12d043b074c0725a9fbfebf880eeb989008d71ac9fb819ea4259fe23
 CertUtil: -hashfile command completed successfully.
+
 ```
 
 ```
@@ -149,3 +150,5 @@ CertUtil: -hashfile command completed successfully.
 ```
 
 ![Traffic Graph](docs/traffic.png)
+
+> 🔄 Weekly digest: [docs/community_feedback.md](docs/community_feedback.md)
