@@ -1,6 +1,6 @@
 why  I  build  these:  I  want use more  stable, reliable rust.  And  i  want  to  use rust  more  consistently.
 
-📢 **Notice — Ownership Transfer Invitation**
+📢 **Notice — Ownershi6p Transfer Invitation**
 
 This project is now open for **complete ownership transfer or long-term stewardship**  
 to any **organization, foundation, or company** interested in maintaining and evolving it.
@@ -116,7 +116,27 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 > 🧠 **R3C** — A Rust-independent C++ compiler experiment proving that modern toolchains can self-host without LLVM.
 
 
+## 🌿 Collaborative Branch Access
 
+R3C allows **automatic and contributor-friendly branch creation**.
+
+Anyone with contributor permission can open a new branch directly —  
+no manual approval is needed.
+
+To create a new branch automatically:
+- Comment `/branch your-feature-name` on any issue or PR.
+- The R3C automation bot will create and push the branch for you.
+
+This system enables Rust and C++ contributors to:
+- Prototype new modules
+- Extend the compiler pipeline
+- Experiment with IR, parser, or backend logic independently
+
+> 💡 Example  
+> `/branch rust-ffi` → creates branch `rust-ffi` automatically via GitHub Actions.
+
+All generated branches are linked to the auto-stable CI/CD system,  
+so once merged, they’re automatically included in the next **Auto Stable Release**.
 
 
 ### 🔖 Latest Auto Release: [auto-stable-18761761747](https://github.com/0200134/r3c/releases/tag/auto-stable-18761761747)
@@ -129,6 +149,7 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 SHA256 hash of r3c-windows-latest.zip:
 6b6a2cc8b0964aa19600bb7194729f8f9915be7992f8dfc45fc0e780e10e83e9
 CertUtil: -hashfile command completed successfully.
+
 ```
 
 ```
@@ -136,3 +157,13 @@ CertUtil: -hashfile command completed successfully.
 ```
 
 ![Traffic Graph](docs/traffic.png)
+
+
+⚙️ Automation Summary
+
+- `/branch <name>` → creates a new branch automatically.
+- `/module <name>` → *(coming soon)* will generate a new Rust module scaffold.
+- All branches are fully integrated with the auto-stable CI/CD release flow.
+
+🔐 Branch creation is handled securely by the official R3C GitHub Actions bot.
+No manual approval or maintainer intervention is required.
