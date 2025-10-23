@@ -21,7 +21,7 @@ if(WIN32)
   add_link_options(/OPT:REF /OPT:ICF)
 
 elseif(APPLE)
-  message(STATUS "🍎 macOS build → safe flags (no -s, keep symbols)")
+  message(STATUS "🍎 macOS build → safe flags (keep symbols)")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
   add_link_options(-Wl,-dead_strip)
 
@@ -41,7 +41,7 @@ include_directories(${INCLUDE_DIR})
 # ==========================================================
 # 📁 Source Collection
 # ==========================================================
-# 모든 cpp 수집 후 main.cpp 제거
+# 모든 cpp/c/asm 파일을 자동 수집
 file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.cpp"
   "${SRC_DIR}/*.c"
@@ -49,6 +49,7 @@ file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.asm"
 )
 
+# main.cpp는 실행 타겟에서만 사용하므로 제외
 list(FILTER R3C_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
 
 # ==========================================================
@@ -62,11 +63,10 @@ if(UNIX AND NOT WIN32)
 endif()
 
 # ==========================================================
-# 🚀 Executable Target
+# 🚀 Executable Target (CLI)
 # ==========================================================
 set(MAIN_SRC "${SRC_DIR}/main.cpp")
 
-# main.cpp가 실제 존재하는지 확인 (없으면 에러 방지)
 if(EXISTS ${MAIN_SRC})
   add_executable(r3c_cli ${MAIN_SRC})
   target_link_libraries(r3c_cli PRIVATE r3c)
@@ -74,8 +74,15 @@ else()
   message(FATAL_ERROR "❌ main.cpp not found in ${SRC_DIR}")
 endif()
 
+if(APPLE)
+  set_target_properties(r3c_cli PROPERTIES
+    XCODE_ATTRIBUTE_ARCHS "arm64;x86_64"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.r3c.compiler"
+  )
+endif()
+
 # ==========================================================
-# 📦 Install
+# 📦 Install Targets
 # ==========================================================
 install(TARGETS r3c DESTINATION lib)
 install(TARGETS r3c_cli DESTINATION bin)
@@ -85,7 +92,7 @@ install(TARGETS r3c_cli DESTINATION bin)
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
-message(STATUS " R3C LLVM-Free Universal Build Summary (v6.5 Ultra Stable)")
+message(STATUS " 🧩 R3C LLVM-Free Build Summary (v6.6 LTS Stable)")
 message(STATUS "----------------------------------------------------------")
 message(STATUS " • Build Type     : ${CMAKE_BUILD_TYPE}")
 message(STATUS " • Source Dir     : ${SRC_DIR}")
