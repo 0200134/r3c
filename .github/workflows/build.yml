@@ -1,4 +1,4 @@
-name: 🧩 R3C Full Auto Build + Release (v6.4 Ultra Stable)
+name: 🧩 R3C Full Auto Build + Release (v6.5 Ultra Stable)
 
 on:
   push:
@@ -19,14 +19,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      # --------------------------------------------------
-      # 🧰 Checkout
-      # --------------------------------------------------
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
 
       # --------------------------------------------------
-      # 🧹 macOS 전용 딥 클린 — 캐시 및 중복 CMakeLists 제거
+      # 🧹 macOS 전용 딥 클린
       # --------------------------------------------------
       - name: 🧹 macOS deep clean
         if: runner.os == 'macOS'
@@ -69,7 +66,7 @@ jobs:
           cmake --build build --config Release -j4
 
       # --------------------------------------------------
-      # 🪶 패키징 (zip or 7z)
+      # 🪶 패키징
       # --------------------------------------------------
       - name: 🪶 Package artifacts
         shell: bash
@@ -79,7 +76,7 @@ jobs:
           zip -r "r3c-${os_lower}-latest.zip" r3c* || 7z a "r3c-${os_lower}-latest.zip" r3c*
 
       # --------------------------------------------------
-      # 🧮 SHA256 해시 생성
+      # 🧮 SHA256 생성
       # --------------------------------------------------
       - name: 🧮 Generate SHA256
         shell: bash
@@ -136,7 +133,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --------------------------------------------------
-      # 📊 트래픽 그래프 자동 생성
+      # 📊 트래픽 그래프 생성 (안정판)
       # --------------------------------------------------
       - name: 📈 Generate traffic graph
         shell: bash
@@ -144,22 +141,37 @@ jobs:
           pip install matplotlib requests pandas
           python3 <<'PY'
           import os, requests, pandas as pd, matplotlib.pyplot as plt
-          repo=os.getenv("GITHUB_REPOSITORY"); token=os.getenv("GITHUB_TOKEN")
+          repo=os.getenv("GITHUB_REPOSITORY")
+          token=os.getenv("GITHUB_TOKEN")
           headers={"Authorization":f"token {token}"}
-          def df(name):
-              r=requests.get(f"https://api.github.com/repos/{repo}/traffic/{name}",headers=headers)
-              j=r.json(); x=pd.DataFrame(j[name]); 
-              x["timestamp"]=pd.to_datetime(x["timestamp"]); 
+
+          def safe_df(name):
+              r=requests.get(f"https://api.github.com/repos/{repo}/traffic/{name}", headers=headers)
+              j=r.json()
+              if name not in j:
+                  print(f"⚠️ No data for {name} (API limit or empty repo). Returning empty DataFrame.")
+                  return pd.DataFrame(columns=["timestamp","count"])
+              x=pd.DataFrame(j[name])
+              if "timestamp" in x:
+                  x["timestamp"]=pd.to_datetime(x["timestamp"])
               return x
-          v, c = df("views"), df("clones")
+
+          v, c = safe_df("views"), safe_df("clones")
+
           plt.figure(figsize=(8,4))
-          plt.plot(v["timestamp"],v["count"],label="Views",lw=2)
-          plt.plot(c["timestamp"],c["count"],label="Clones",lw=2)
+          if not v.empty:
+              plt.plot(v["timestamp"],v["count"],label="Views",lw=2)
+          if not c.empty:
+              plt.plot(c["timestamp"],c["count"],label="Clones",lw=2)
           plt.title("R3C Traffic (14 days)")
-          plt.xlabel("Date"); plt.ylabel("Count")
-          plt.legend(); plt.grid(alpha=0.3); plt.tight_layout()
+          plt.xlabel("Date")
+          plt.ylabel("Count")
+          plt.legend()
+          plt.grid(alpha=0.3)
+          plt.tight_layout()
           os.makedirs("docs",exist_ok=True)
           plt.savefig("docs/traffic.png")
+          print("✅ Traffic graph saved.")
           PY
 
       # --------------------------------------------------
