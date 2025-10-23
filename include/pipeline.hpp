@@ -2,13 +2,12 @@
 #include <string>
 #include <vector>
 
-// 🧩 R3C main pipeline executor
-// Full pipeline entrypoint for CLI and tests
-void run_pipeline(
-    const std::vector<std::string>& inputs,   // Input source files
-    const std::string& output,                // General output directory
-    bool emit_asm,                            // Emit ASM output (Rust → ASM)
-    bool run_shell,                           // Run shell commands (Rustc etc.)
-    const std::string& asm_out,               // ASM output file path
-    bool verbose                              // Verbose logging
+// 🧩 Unified pipeline entrypoint for R3C CLI
+int run_pipeline(
+    const std::vector<std::string>& inputs,   // Input sources
+    const std::string& lts_version,           // Version tag
+    bool self_recompile,                      // Recompile flag
+    bool emit_asm,                            // Generate ASM output
+    const std::string& asm_out,               // ASM output path
+    bool skip_bootstrap                       // Skip bootstrap init
 );
