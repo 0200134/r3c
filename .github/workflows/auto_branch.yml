@@ -1,0 +1,27 @@
+name: 🧩 Auto Branch Creator
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  create-branch:
+    if: startsWith(github.event.comment.body, '/branch ')
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧰 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔧 Extract branch name
+        id: parse
+        run: echo "branch_name=${GITHUB_EVENT_COMMENT_BODY#/branch }" >> $GITHUB_ENV
+
+      - name: 🌿 Create new branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b ${{ env.branch_name }}
+          git push origin ${{ env.branch_name }}
