@@ -1,54 +1,45 @@
-name: Automate Discussion Documentation
+name: 📚 Automate Discussion Documentation (v7.0)
 
 on:
   schedule:
-    # 매주 일요일 00:00 (한국시간) = 토요일 15:00 UTC
-    - cron: '0 15 * * SAT'
+    # 매주 일요일 00:00 KST (토 15:00 UTC)
+    - cron: "0 15 * * SAT"
   workflow_dispatch:
 
 permissions:
-  contents: write   # 커밋/푸시에 필요
-  # discussions 읽기는 토큰 권한이 충분함(GITHUB_TOKEN 기본권한)
+  contents: write   # 커밋/푸시 권한
 
 jobs:
-  build:
+  digest:
+    name: 🧠 Weekly Discussion Digest
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install dependencies
+      - name: 📦 Install deps
         run: pip install requests
 
-      - name: Fetch discussions and update docs
+      - name: ✍️ Build digest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO_OWNER: 0200134
-          REPO_NAME: r3c
-          OUTPUT_PATH: docs/community_feedback.md
-          DISCUSSION_LIMIT: "50"        # 최근 업데이트 순 상위 N (페이지네이션 있음)
-          DAYS_WINDOW: "180"            # 최근 N일만 표시(원하면 조정)
+          REPO_OWNER: "0200134"
+          REPO_NAME: "r3c"
+          OUTPUT_PATH: "docs/community_feedback.md"
+          DISCUSSION_LIMIT: "100"   # 최대 가져올 개수
+          DAYS_WINDOW: "180"        # 최근 N일만 표시
         run: python scripts/fetch_discussions.py
 
-      - name: Commit & Push changes (safe)
+      - name: 💾 Commit & push (safe)
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
           git add docs/community_feedback.md
           git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "chore: Update community feedback log"
+          git commit -m "chore: weekly community feedback digest (auto)"
           git push
-
-      # 브랜치 보호 중이면 PR로 바꿔 쓰기 (주석 해제해서 사용)
-      # - name: Create Pull Request
-      #   uses: peter-evans/create-pull-request@v6
-      #   with:
-      #     commit-message: "chore: Update community feedback log"
-      #     title: "Automated weekly community feedback update"
-      #     branch: "auto/community-feedback"
-      #     base: "main"
