@@ -1,4 +1,5 @@
 name: 📊 Multi-Repo Traffic Monitor
+
 on:
   schedule:
     - cron: '0 0 * * *'  # 매일 00:00 UTC 실행
@@ -8,25 +9,25 @@ jobs:
   traffic:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: 🧰 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: 🐍 Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
 
-      - name: Install dependencies
+      - name: 📦 Install dependencies
         run: pip install requests matplotlib
 
-      - name: Run traffic collector
+      - name: 📡 Run traffic collector
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p traffic/data
           python scripts/traffic_monitor_multi.py
 
-      - name: Commit & Push updates
+      - name: 💾 Commit & Push updates
         run: |
           git config --global user.email "github-actions@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
