@@ -21,17 +21,16 @@ int run_pipeline(
 int main(int argc, char** argv) {
     using namespace std;
 
-    cout << "🧩 R3C LLVM-Free Transpiler Test (CLI)" << endl;
+    cout << "🧩 R3C LLVM-Free Transpiler CLI" << endl;
 
-    vector<string> inputs = { "example.cpp" };
-    string version = "v6.5-ultra";
-
+    vector<string> files = { "example.cpp" };
+    string lts_version = "v6.6-lts";
     bool self_recompile = false;
     bool emit_asm = true;
     string asm_out = "build/output.asm";
     bool skip_bootstrap = false;
 
-    int result = run_pipeline(inputs, version, self_recompile, emit_asm, asm_out, skip_bootstrap);
+    int result = run_pipeline(files, lts_version, self_recompile, emit_asm, asm_out, skip_bootstrap);
 
     if (result == 0)
         cout << "✅ Pipeline finished successfully." << endl;
