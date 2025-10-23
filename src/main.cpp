@@ -1,5 +1,7 @@
 #include "transpiler.hpp"
 #include <iostream>
+#include <vector>
+#include <string>
 
 int run_pipeline(
     const std::vector<std::string>& files,
@@ -17,17 +19,24 @@ int run_pipeline(
 );
 
 int main(int argc, char** argv) {
-    std::cout << "🧩 R3C LLVM-Free Transpiler Test" << std::endl;
+    using namespace std;
 
-    std::vector<std::string> inputs = { "example.cpp" };
-    std::string version = "v6.5-ultra";
+    cout << "🧩 R3C LLVM-Free Transpiler Test (CLI)" << endl;
 
-    int result = run_pipeline(inputs, version, false, true, "build/out.asm", false);
+    vector<string> inputs = { "example.cpp" };
+    string version = "v6.5-ultra";
+
+    bool self_recompile = false;
+    bool emit_asm = true;
+    string asm_out = "build/output.asm";
+    bool skip_bootstrap = false;
+
+    int result = run_pipeline(inputs, version, self_recompile, emit_asm, asm_out, skip_bootstrap);
 
     if (result == 0)
-        std::cout << "✅ Pipeline finished successfully." << std::endl;
+        cout << "✅ Pipeline finished successfully." << endl;
     else
-        std::cerr << "❌ Pipeline failed." << std::endl;
+        cerr << "❌ Pipeline failed." << endl;
 
     return result;
 }
