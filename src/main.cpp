@@ -16,9 +16,9 @@ int main(int argc, char** argv) {
     int result = run_pipeline(files, version, self_recompile, emit_asm, asm_out, skip_bootstrap);
 
     if (result == 0)
-        std::cout << "✅ Build completed successfully." << std::endl;
+        std::cout << "✅ Pipeline finished successfully." << std::endl;
     else
-        std::cerr << "❌ Pipeline failed with code " << result << std::endl;
+        std::cerr << "❌ Pipeline failed." << std::endl;
 
     return result;
 }
