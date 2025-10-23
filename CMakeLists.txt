@@ -1,82 +1,83 @@
-cmake_minimum_required(VERSION 3.5...3.30)
-project(r3c LANGUAGES CXX)
+cmake_minimum_required(VERSION 3.22)
+project(r3c LANGUAGES C CXX ASM)
 
-# =========================================================
-# 🧩 R3C Cross-Platform Autonomous Build System (v7.4)
-# - Fix: invalid '.' in stub function names
-# - Fix: UTF-8 safe build on Windows
-# - Fix: nlohmann_json compatibility
-# =========================================================
-
-set(CMAKE_CXX_STANDARD 17)
+# ==========================================================
+# 🧭 Build Settings (Cross-Platform / LLVM-Free)
+# ==========================================================
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-set(CMAKE_VERBOSE_MAKEFILE ON)
 
-# =========================================================
-# 🧠 Global Policy & Encoding Fixes
-# =========================================================
-if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.13")
-    cmake_policy(SET CMP0077 NEW)
-endif()
-if (CMAKE_VERSION VERSION_GREATER_EQUAL "3.5")
-    set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+# 💡 Default: Release build unless otherwise specified
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
 endif()
 
-# ✅ MSVC UTF-8 fix
-if (MSVC)
-    add_compile_options(/utf-8 /EHsc /permissive- /W3)
-else()
-    add_compile_options(-Wall -Wextra -Wno-unused-parameter)
-endif()
-
-# =========================================================
-# 📦 Dependencies (FetchContent)
-# =========================================================
-include(FetchContent)
-
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG v3.11.3
-)
-FetchContent_MakeAvailable(nlohmann_json)
-
-# =========================================================
-# 🧱 Source structure
-# =========================================================
-file(GLOB R3C_SRC CONFIGURE_DEPENDS "src/*.cpp")
-file(GLOB R3C_HDR CONFIGURE_DEPENDS "include/**/*.h" "include/**/*.hpp")
-
-add_library(r3c STATIC ${R3C_SRC} ${R3C_HDR})
-
-target_include_directories(r3c PRIVATE
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-  ${nlohmann_json_SOURCE_DIR}/include
-)
-
-target_link_libraries(r3c PRIVATE nlohmann_json::nlohmann_json)
-
-# =========================================================
-# 🧩 Auto Stub Generator Hook
-# Runs before each build on all platforms.
-# =========================================================
-message(STATUS "[r3c] Adding pre-build stub generation hook...")
-
+# ==========================================================
+# ⚙️ OS-Specific Optimizations
+# ==========================================================
 if(WIN32)
-    # Detect whether PowerShell Core (pwsh) or legacy powershell.exe is available
-    find_program(POWERSHELL_EXECUTABLE NAMES pwsh powershell)
+  message(STATUS "🪟 Windows build detected → dynamic CRT, small binary")
+  add_compile_options(/O2 /DNDEBUG /EHsc)
+  add_link_options(/OPT:REF /OPT:ICF)
+else()
+  message(STATUS "🐧 Unix-like build detected → static link, stripped binary")
+  add_compile_options(-O2 -pipe -s -DNDEBUG -fno-exceptions -fno-rtti)
+  add_link_options(-s -static-libgcc -static-libstdc++)
+endif()
 
-    if(NOT POWERSHELL_EXECUTABLE)
-        message(FATAL_ERROR "❌ No PowerShell found (install PowerShell Core or enable legacy PowerShell)")
-    endif()
+# ==========================================================
+# 🧩 Paths
+# ==========================================================
+set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
+set(INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include")
+include_directories(${INCLUDE_DIR})
 
-    add_custom_target(generate_stubs ALL
-        COMMAND "${POWERSHELL_EXECUTABLE}" -ExecutionPolicy Bypass -File "${CMAKE_SOURCE_DIR}/scripts/generate_stubs.ps1"
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "🧩 Generating stubs (Windows PowerShell)"
-    )
+file(GLOB_RECURSE R3C_SOURCES
+  "${SRC_DIR}/*.cpp"
+  "${SRC_DIR}/*.c"
+  "${SRC_DIR}/*.S"
+  "${SRC_DIR}/*.asm"
+)
 
+# ==========================================================
+# 🔧 Target
+# ==========================================================
+add_executable(r3c ${R3C_SOURCES})
+
+# ==========================================================
+# 🚀 Link Settings
+# ==========================================================
+if(UNIX)
+  target_link_libraries(r3c pthread dl m)
+endif()
+
+# ==========================================================
+# 🧹 Size Reduction (Post-Build Strip)
+# ==========================================================
+if(UNIX)
+  add_custom_command(TARGET r3c POST_BUILD
+    COMMAND ${CMAKE_STRIP} $<TARGET_FILE:r3c>
+    COMMENT "🪶 Stripping symbols to minimize binary size"
+  )
+endif()
+
+# ==========================================================
+# 🧱 Install Step (optional)
+# ==========================================================
+install(TARGETS r3c DESTINATION bin)
+
+# ==========================================================
+# 🪶 Summary
+# ==========================================================
+message(STATUS "")
+message(STATUS "==========================================================")
+message(STATUS "R3C LLVM-Free Optimized Build Summary:")
+message(STATUS "  • Build Type     : ${CMAKE_BUILD_TYPE}")
+message(STATUS "  • Source Dir     : ${SRC_DIR}")
+message(STATUS "  • Output Binary  : ${CMAKE_BINARY_DIR}/r3c")
+message(STATUS "==========================================================")
+message(STATUS "")
 else()
     add_custom_target(generate_stubs ALL
         COMMAND bash ${CMAKE_SOURCE_DIR}/scripts/generate_stubs.sh
