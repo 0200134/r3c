@@ -1,11 +1,11 @@
-name: 🧩 R3C Full Auto Build + Release (v6 Final Stable)
+name: 🧩 R3C Full Auto Build + Release (v6.1 Cache Reset Final)
 
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 6 * * *" # 매일 오전 6시 트래픽 그래프 자동 갱신
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
@@ -19,26 +19,45 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: 🧰 Checkout repository
+      - name: 🧰 Checkout
         uses: actions/checkout@v4
 
-      # 🪟 Windows only → NASM만 설치 (cmake, zip은 기본 내장됨)
+      # --------------------------------------------------
+      # 🧹 Clean previous CMake cache to avoid stale configs
+      # --------------------------------------------------
+      - name: 🧼 Clean CMake cache and build folder
+        run: |
+          echo "🧹 Removing old CMake cache and build directory..."
+          cmake -E rm -rf build
+          cmake -E rm -f CMakeCache.txt
+          cmake -E rm -f CMakeFiles
+
+      # --------------------------------------------------
+      # 🪟 Windows 전용 nasm 설치 (cmake/zip은 기본 내장)
+      # --------------------------------------------------
       - name: 🧰 Install NASM (Windows only)
         if: runner.os == 'Windows'
         run: |
           choco clean --yes || echo "skip clean"
           choco install nasm -y --no-progress
 
+      # --------------------------------------------------
+      # ⚙️ CMake 세팅 및 빌드
+      # --------------------------------------------------
       - name: ⚙️ Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
       - name: 🧩 Configure build
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        run: |
+          echo "⚙️ Configuring..."
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
       - name: 🧱 Build
-        run: cmake --build build --config Release -j4
+        run: |
+          echo "🚧 Building..."
+          cmake --build build --config Release -j4
 
       - name: 🪶 Package artifacts
         run: |
@@ -46,7 +65,7 @@ jobs:
           zip -r "r3c-${RUNNER_OS,,}-latest.zip" r3c* || 7z a "r3c-${RUNNER_OS,,}-latest.zip" r3c*
           echo "✅ Compression done"
 
-      - name: 🧮 Generate SHA256 checksum
+      - name: 🧮 Generate SHA256
         run: |
           cd build
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -84,66 +103,56 @@ jobs:
           tag_name: auto-stable-${{ github.run_id }}
           name: "R3C Stable Release (${{ github.run_id }})"
           body: |
+            ✅ Clean CMake Cache + Fresh Build  
             ✅ LLVM-Free Cross-Platform Build  
             ✅ SHA256 Verified  
-            ✅ Auto Traffic Graph + README Update  
-            ✅ Windows Cancel Bug Removed
+            ✅ Auto Graph + README Update
           files: release_artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 📊 트래픽 그래프 자동 생성
+      # 📊 Traffic graph
       - name: 📈 Generate traffic graph
         run: |
           pip install matplotlib requests pandas
-          python3 <<'PYCODE'
+          python3 <<'PY'
           import os, requests, pandas as pd, matplotlib.pyplot as plt
-          repo = os.getenv("GITHUB_REPOSITORY")
-          token = os.getenv("GITHUB_TOKEN")
-          headers = {"Authorization": f"token {token}"}
-
-          def get_df(endpoint):
-              data = requests.get(f"https://api.github.com/repos/{repo}/traffic/{endpoint}", headers=headers).json()
-              df = pd.DataFrame(data[endpoint])
-              df["timestamp"] = pd.to_datetime(df["timestamp"])
-              return df
-
-          views = get_df("views")
-          clones = get_df("clones")
-
+          repo=os.getenv("GITHUB_REPOSITORY"); token=os.getenv("GITHUB_TOKEN")
+          headers={"Authorization":f"token {token}"}
+          def df(name): d=requests.get(f"https://api.github.com/repos/{repo}/traffic/{name}",headers=headers).json(); x=pd.DataFrame(d[name]); x["timestamp"]=pd.to_datetime(x["timestamp"]); return x
+          v, c = df("views"), df("clones")
           plt.figure(figsize=(8,4))
-          plt.plot(views["timestamp"], views["count"], label="Views", linewidth=2)
-          plt.plot(clones["timestamp"], clones["count"], label="Clones", linewidth=2)
-          plt.title("R3C Traffic (14 Days)")
+          plt.plot(v["timestamp"],v["count"],label="Views",lw=2)
+          plt.plot(c["timestamp"],c["count"],label="Clones",lw=2)
+          plt.title("R3C Traffic (14 days)")
           plt.xlabel("Date"); plt.ylabel("Count")
-          plt.grid(alpha=0.3); plt.legend(); plt.tight_layout()
-          os.makedirs("docs", exist_ok=True)
+          plt.legend(); plt.grid(alpha=0.3); plt.tight_layout()
+          os.makedirs("docs",exist_ok=True)
           plt.savefig("docs/traffic.png")
-          PYCODE
+          PY
 
-      # 🧾 README 자동 업데이트
+      # 🧾 README Update
       - name: 🧾 Update README
         run: |
           TAG="auto-stable-${{ github.run_id }}"
           URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
           HASH_FILES=$(find release_artifacts -type f -name "*sha256.txt" | sort)
-          echo "### 🔖 Latest Auto Release: [${TAG}](${URL})" > tmp_readme.md
-          echo "" >> tmp_readme.md
+          echo "### 🔖 Latest Auto Release: [${TAG}](${URL})" > tmp.md
+          echo "" >> tmp.md
           for f in $HASH_FILES; do
-            echo "\`\`\`" >> tmp_readme.md
-            cat $f >> tmp_readme.md
-            echo "\`\`\`" >> tmp_readme.md
-            echo "" >> tmp_readme.md
+            echo "\`\`\`" >> tmp.md
+            cat $f >> tmp.md
+            echo "\`\`\`" >> tmp.md
+            echo "" >> tmp.md
           done
-          echo "![Traffic Graph](docs/traffic.png)" >> tmp_readme.md
+          echo "![Traffic Graph](docs/traffic.png)" >> tmp.md
           sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
-          cat tmp_readme.md >> README.md
-          rm tmp_readme.md
+          cat tmp.md >> README.md
 
-      - name: 💾 Commit & Push updates
+      - name: 💾 Commit & Push
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add README.md docs/traffic.png
-          git commit -m "📊 Auto-update README & traffic graph" || echo "No changes"
+          git commit -m "🧹 Clean rebuild + README/Graph auto-update" || echo "No changes"
           git push origin main
