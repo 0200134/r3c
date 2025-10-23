@@ -8,7 +8,6 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 💡 기본 빌드 타입: Release
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -24,7 +23,6 @@ if(WIN32)
 elseif(APPLE)
   message(STATUS "🍎 macOS build → safe flags (no -s, keep symbols)")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
-  # ❗ macOS clang은 '-s' 지원 안 함, dead_strip만 사용
   add_link_options(-Wl,-dead_strip)
 
 elseif(UNIX)
@@ -51,9 +49,9 @@ file(GLOB_RECURSE R3C_SOURCES
 )
 
 # ==========================================================
-# 🧱 Executable Target
+# 🧱 Library Target
 # ==========================================================
-add_executable(r3c ${R3C_SOURCES})
+add_library(r3c STATIC ${R3C_SOURCES})
 set_target_properties(r3c PROPERTIES LINKER_LANGUAGE CXX)
 
 # ==========================================================
@@ -64,30 +62,20 @@ if(UNIX AND NOT WIN32)
 endif()
 
 # ==========================================================
-# 🧹 Post-Build Strip (Safe)
-# ==========================================================
-if(UNIX AND NOT WIN32)
-  add_custom_command(TARGET r3c POST_BUILD
-    COMMAND ${CMAKE_STRIP} $<TARGET_FILE:r3c> || true
-    COMMENT "🪶 Stripping symbols to minimize binary size"
-  )
-endif()
-
-# ==========================================================
 # 📦 Install
 # ==========================================================
-install(TARGETS r3c DESTINATION bin)
+install(TARGETS r3c DESTINATION lib)
 
 # ==========================================================
 # 🧾 Summary
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
-message(STATUS " R3C LLVM-Free Universal Build Summary")
+message(STATUS " R3C LLVM-Free Universal Build Summary (Library Mode)")
 message(STATUS "----------------------------------------------------------")
 message(STATUS " • Build Type     : ${CMAKE_BUILD_TYPE}")
 message(STATUS " • Source Dir     : ${SRC_DIR}")
 message(STATUS " • Include Dir    : ${INCLUDE_DIR}")
-message(STATUS " • Output Binary  : ${CMAKE_BINARY_DIR}/r3c")
+message(STATUS " • Output Library : ${CMAKE_BINARY_DIR}/libr3c.a")
 message(STATUS "==========================================================")
 message(STATUS "")
