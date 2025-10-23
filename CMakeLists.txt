@@ -54,28 +54,36 @@ file(GLOB_RECURSE R3C_SOURCES
 add_library(r3c STATIC ${R3C_SOURCES})
 set_target_properties(r3c PROPERTIES LINKER_LANGUAGE CXX)
 
-# ==========================================================
-# 🔗 Libraries
-# ==========================================================
 if(UNIX AND NOT WIN32)
   target_link_libraries(r3c pthread dl m)
 endif()
 
 # ==========================================================
+# 🚀 Executable (main.cpp)
+# ==========================================================
+# main.cpp 만 따로 실행용 타겟으로 빌드
+add_executable(r3c_cli "${SRC_DIR}/main.cpp")
+
+# r3c 정적 라이브러리 연결
+target_link_libraries(r3c_cli r3c)
+
+# ==========================================================
 # 📦 Install
 # ==========================================================
 install(TARGETS r3c DESTINATION lib)
+install(TARGETS r3c_cli DESTINATION bin)
 
 # ==========================================================
 # 🧾 Summary
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
-message(STATUS " R3C LLVM-Free Universal Build Summary (Library Mode)")
+message(STATUS " R3C LLVM-Free Universal Build Summary (Library + CLI)")
 message(STATUS "----------------------------------------------------------")
 message(STATUS " • Build Type     : ${CMAKE_BUILD_TYPE}")
 message(STATUS " • Source Dir     : ${SRC_DIR}")
 message(STATUS " • Include Dir    : ${INCLUDE_DIR}")
 message(STATUS " • Output Library : ${CMAKE_BINARY_DIR}/libr3c.a")
+message(STATUS " • Executable     : ${CMAKE_BINARY_DIR}/r3c_cli")
 message(STATUS "==========================================================")
 message(STATUS "")
