@@ -23,7 +23,7 @@ if(WIN32)
 elseif(APPLE)
   message(STATUS "🍎 macOS build → safe flags (keep symbols)")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
-  # -dead_strip 은 main 심볼까지 제거할 수 있어서 제외
+  # ⚠️ 주의: -dead_strip 은 main() 심볼까지 제거할 수 있어서 제외
   add_link_options()
 
 elseif(UNIX)
@@ -42,6 +42,7 @@ include_directories(${INCLUDE_DIR})
 # ==========================================================
 # 📁 Source Collection
 # ==========================================================
+# main.cpp 제외 (라이브러리 빌드 시 충돌 방지)
 file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.cpp"
   "${SRC_DIR}/*.c"
@@ -64,15 +65,21 @@ endif()
 # 🚀 Executable Target
 # ==========================================================
 set(MAIN_SRC "${SRC_DIR}/main.cpp")
+set(FALLBACK_SRC "${SRC_DIR}/_fallback_main.cpp")
 
 if(EXISTS ${MAIN_SRC})
+  message(STATUS "🧩 Using main.cpp as entry point")
   add_executable(r3c_cli ${MAIN_SRC})
-  target_link_libraries(r3c_cli PRIVATE r3c)
 else()
-  message(WARNING "⚠️ main.cpp not found, using _fallback_main.cpp instead")
-  add_executable(r3c_cli ${SRC_DIR}/_fallback_main.cpp)
-  target_link_libraries(r3c_cli PRIVATE r3c)
+  message(WARNING "⚠️ main.cpp not found. Using _fallback_main.cpp instead")
+  if(EXISTS ${FALLBACK_SRC})
+    add_executable(r3c_cli ${FALLBACK_SRC})
+  else()
+    message(FATAL_ERROR "❌ Neither main.cpp nor _fallback_main.cpp found!")
+  endif()
 endif()
+
+target_link_libraries(r3c_cli PRIVATE r3c)
 
 # ==========================================================
 # 🧪 Post-Build Messages
