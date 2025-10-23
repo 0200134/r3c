@@ -1,17 +1,18 @@
-name: 🧩 R3C Full Auto Build + Release + Traffic Graph (v5)
+name: 🧩 R3C Full Auto Build + Release (v5.1 Stable Hotfix)
 
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 6 * * *" # 매일 오전 6시 자동 실행 (트래픽 그래프용)
+    - cron: "0 6 * * *"
   workflow_dispatch:
 
 jobs:
   build:
-    name: 🧱 Cross-Platform Optimized Build
+    name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25   # ⏱️ 여유 타임 추가
     strategy:
       fail-fast: false
       matrix:
@@ -21,24 +22,31 @@ jobs:
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
 
+      # --------------------------------------------------
+      # 🪟 Windows 전용 패키지 설치 (안정형)
+      # --------------------------------------------------
+      - name: 🧰 Install NASM (Windows only)
+        if: runner.os == 'Windows'
+        run: choco install nasm -y --no-progress
+
       - name: ⚙️ Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
-      - name: 🧩 Configure
+      - name: 🧩 Configure build
         run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: 🧱 Build
+      - name: 🧱 Build project
         run: cmake --build build --config Release -j4
 
-      - name: 🪶 Package
+      - name: 🪶 Package artifacts
         run: |
           cd build
           zip -r "r3c-${RUNNER_OS,,}-latest.zip" r3c* || 7z a "r3c-${RUNNER_OS,,}-latest.zip" r3c*
           echo "✅ Compression done"
 
-      - name: 🧮 Generate SHA256
+      - name: 🧮 Generate SHA256 checksum
         run: |
           cd build
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -55,12 +63,12 @@ jobs:
           path: build/r3c-${{ runner.os,, }}-*
 
   release:
-    name: 🚀 Auto Release + Graph Update
+    name: 🚀 Auto Release + README + Graph
     needs: [build]
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧰 Checkout
+      - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -74,56 +82,52 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: auto-stable-${{ github.run_id }}
-          name: "R3C Stable Slim Release (${{ github.run_id }})"
+          name: "R3C Stable Release (${{ github.run_id }})"
           body: |
-            ✅ LLVM-Free Auto-built binaries  
-            ✅ SHA256 verified  
-            ✅ Cross-platform optimized  
-            ✅ Traffic graph auto-updated
+            ✅ Cross-Platform LLVM-Free Build  
+            ✅ SHA256 Verified  
+            ✅ Optimized for Stability & Size  
+            ✅ Daily Auto Graph Update
           files: release_artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 📊 Generate traffic graph
+      # --------------------------------------------------
+      # 📊 트래픽 그래프 생성
+      # --------------------------------------------------
+      - name: 📈 Generate traffic graph
         run: |
-          echo "📈 Generating GitHub traffic graph..."
           pip install matplotlib requests pandas
           python3 <<'PYCODE'
-          import requests, pandas as pd, matplotlib.pyplot as plt
-          import os
-
+          import requests, pandas as pd, matplotlib.pyplot as plt, os
           repo = os.getenv("GITHUB_REPOSITORY")
           token = os.getenv("GITHUB_TOKEN")
-
           headers = {"Authorization": f"token {token}"}
-          views = requests.get(f"https://api.github.com/repos/{repo}/traffic/views", headers=headers).json()
-          clones = requests.get(f"https://api.github.com/repos/{repo}/traffic/clones", headers=headers).json()
 
-          def to_df(data):
-              df = pd.DataFrame(data['views' if 'views' in data else 'clones'])
-              df['timestamp'] = pd.to_datetime(df['timestamp'])
-              df.set_index('timestamp', inplace=True)
-              return df
+          def get_data(endpoint):
+              r = requests.get(f"https://api.github.com/repos/{repo}/traffic/{endpoint}", headers=headers)
+              return pd.DataFrame(r.json()[endpoint])
 
-          v = to_df(views)
-          c = to_df(clones)
+          v = get_data("views")
+          c = get_data("clones")
+          v["timestamp"] = pd.to_datetime(v["timestamp"])
+          c["timestamp"] = pd.to_datetime(c["timestamp"])
 
           plt.figure(figsize=(8,4))
-          plt.plot(v.index, v['count'], label='Views', linewidth=2)
-          plt.plot(c.index, c['count'], label='Clones', linewidth=2)
-          plt.title('R3C Traffic (14 days)')
-          plt.xlabel('Date')
-          plt.ylabel('Count')
-          plt.grid(True, alpha=0.3)
-          plt.legend()
-          plt.tight_layout()
-          os.makedirs('docs', exist_ok=True)
-          plt.savefig('docs/traffic.png')
+          plt.plot(v["timestamp"], v["count"], label="Views", linewidth=2)
+          plt.plot(c["timestamp"], c["count"], label="Clones", linewidth=2)
+          plt.title("R3C Traffic (14 Days)")
+          plt.xlabel("Date"); plt.ylabel("Count")
+          plt.grid(alpha=0.3); plt.legend(); plt.tight_layout()
+          os.makedirs("docs", exist_ok=True)
+          plt.savefig("docs/traffic.png")
           PYCODE
 
-      - name: 🧾 Update README
+      # --------------------------------------------------
+      # 🧾 README 갱신
+      # --------------------------------------------------
+      - name: 🧾 Update README with latest info
         run: |
-          echo "🪶 Updating README..."
           TAG="auto-stable-${{ github.run_id }}"
           URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
           HASH_FILES=$(find release_artifacts -type f -name "*sha256.txt" | sort)
@@ -137,12 +141,10 @@ jobs:
             echo "" >> tmp_readme.md
           done
           echo "![Traffic Graph](docs/traffic.png)" >> tmp_readme.md
-
           sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
           cat tmp_readme.md >> README.md
-          rm tmp_readme.md
 
-      - name: 💾 Commit & Push README + Graph
+      - name: 💾 Commit & Push updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
