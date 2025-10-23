@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 💡 Default to Release if not specified
+# 💡 Default to Release build
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
@@ -17,12 +17,17 @@ endif()
 # ⚙️ OS-Specific Optimization Flags
 # ==========================================================
 if(WIN32)
-  message(STATUS "🪟 Windows build detected → dynamic CRT, small binary")
+  message(STATUS "🪟 Windows build → dynamic CRT, small binary")
   add_compile_options(/O2 /DNDEBUG /EHsc)
   add_link_options(/OPT:REF /OPT:ICF)
 
+elseif(APPLE)
+  message(STATUS "🍎 macOS build → LLVM libc++, no static gcc")
+  add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
+  add_link_options(-Wl,-dead_strip -Wl,-s)
+
 elseif(UNIX)
-  message(STATUS "🐧 Unix-like build detected → static link, stripped binary")
+  message(STATUS "🐧 Linux build → static link, stripped binary")
   add_compile_options(-O2 -pipe -s -DNDEBUG -fno-exceptions -fno-rtti)
   add_link_options(-s -static-libgcc -static-libstdc++)
 endif()
@@ -47,18 +52,18 @@ file(GLOB_RECURSE R3C_SOURCES
 add_executable(r3c ${R3C_SOURCES})
 
 # ==========================================================
-# 🚀 Linking (Unix only)
+# 🚀 Linking (Unix/macOS)
 # ==========================================================
-if(UNIX)
+if(UNIX AND NOT WIN32)
   target_link_libraries(r3c pthread dl m)
 endif()
 
 # ==========================================================
-# 🧹 Post-Build Size Reduction
+# 🧹 Post-Build Strip (Unix/macOS only)
 # ==========================================================
-if(UNIX)
+if(UNIX AND NOT WIN32)
   add_custom_command(TARGET r3c POST_BUILD
-    COMMAND ${CMAKE_STRIP} $<TARGET_FILE:r3c>
+    COMMAND ${CMAKE_STRIP} $<TARGET_FILE:r3c> || true
     COMMENT "🪶 Stripping symbols to minimize binary size"
   )
 endif()
@@ -69,7 +74,7 @@ endif()
 install(TARGETS r3c DESTINATION bin)
 
 # ==========================================================
-# 📜 Build Summary
+# 📜 Summary
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
