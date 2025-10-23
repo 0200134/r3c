@@ -1,208 +1,82 @@
-name: 🧩 R3C Full Auto Build + Release (v6.5 Ultra Stable)
+name: 🧩 R3C Cross-Platform Auto Build & Release (v6.6 LTS)
 
 on:
   push:
-    branches: [main]
-  pull_request:
-  schedule:
-    - cron: "0 6 * * *"  # 매일 오전 6시 UTC (한국시간 15시)
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
     name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: 🧰 Checkout repository
+      - name: 🧰 Checkout Repository
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 🧹 macOS 전용 딥 클린
-      # --------------------------------------------------
-      - name: 🧹 macOS deep clean
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          echo "🧼 Removing macOS cache folders..."
-          sudo rm -rf build CMakeFiles CMakeCache.txt || true
-          sudo find /Users/runner/work/ -type d -name "build" -exec rm -rf {} + || true
-          sudo find /Users/runner/work/ -type f -iname "cmakelists.txt" ! -path "$GITHUB_WORKSPACE/CMakeLists.txt" -delete || true
-          echo "✅ macOS deep clean done."
-
-      # --------------------------------------------------
-      # 🪟 Windows — NASM 설치
-      # --------------------------------------------------
-      - name: 🧰 Install NASM (Windows only)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco clean --yes || echo "skip clean"
-          choco install nasm -y --no-progress
-
-      # --------------------------------------------------
-      # ⚙️ CMake 설정 및 빌드
-      # --------------------------------------------------
       - name: ⚙️ Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
-      - name: 🧩 Configure build
-        shell: bash
+      - name: 🧩 Configure
         run: |
-          echo "⚙️ Configuring..."
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-
-      - name: 🧱 Build project
-        shell: bash
-        run: |
-          echo "🚧 Building..."
-          cmake --build build --config Release -j4
-
-      # --------------------------------------------------
-      # 🪶 패키징
-      # --------------------------------------------------
-      - name: 🪶 Package artifacts
-        shell: bash
-        run: |
-          cd build
-          os_lower=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
-          zip -r "r3c-${os_lower}-latest.zip" r3c* || 7z a "r3c-${os_lower}-latest.zip" r3c*
-
-      # --------------------------------------------------
-      # 🧮 SHA256 생성
-      # --------------------------------------------------
-      - name: 🧮 Generate SHA256
-        shell: bash
-        run: |
-          cd build
-          os_lower=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
+          echo "Configuring for $RUNNER_OS..."
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            certutil -hashfile "r3c-${os_lower}-latest.zip" SHA256 > "r3c-${os_lower}-sha256.txt"
+            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
           else
-            sha256sum "r3c-${os_lower}-latest.zip" > "r3c-${os_lower}-sha256.txt"
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           fi
 
-      # --------------------------------------------------
-      # ⬆️ 아티팩트 업로드
-      # --------------------------------------------------
-      - name: ⬆️ Upload artifacts
+      - name: 🔨 Build
+        run: |
+          echo "Building R3C CLI..."
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake --build build --config Release --target r3c_cli
+          else
+            cmake --build build --target r3c_cli -j$(nproc || sysctl -n hw.ncpu)
+          fi
+
+      - name: 📦 Package Artifacts
+        run: |
+          mkdir -p dist
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cp build/Release/r3c_cli.exe dist/
+            zip -r r3c-windows-latest.zip dist
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            cp build/r3c_cli dist/
+            zip -r r3c-macos-latest.zip dist
+          else
+            cp build/r3c_cli dist/
+            zip -r r3c-linux-latest.zip dist
+          fi
+
+      - name: 🚀 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-${{ runner.os }}-latest
-          path: build/r3c-*
+          name: r3c-${{ matrix.os }}
+          path: |
+            r3c-*-latest.zip
 
-  # ==========================================================
-  # 🚀 RELEASE JOB
-  # ==========================================================
   release:
-    name: 🚀 Auto Release + README + Graph
-    needs: [build]
+    needs: build
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🧰 Checkout
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 📦 Download artifacts
+      - name: 🧾 Download All Builds
         uses: actions/download-artifact@v4
         with:
-          path: release_artifacts
+          path: artifacts
 
-      - name: 🏷️ Create GitHub Release
+      - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: auto-stable-${{ github.run_id }}
-          name: "R3C Stable Release (${{ github.run_id }})"
-          body: |
-            ✅ macOS Deep Clean Applied  
-            ✅ Windows Build Fixed  
-            ✅ LLVM-Free Cross-Platform Pipeline  
-            ✅ SHA256 Verified  
-            ✅ Auto README + Graph Update
-          files: release_artifacts/**/*
+          name: R3C Stable Auto Release (${{ github.run_id }})
+          files: |
+            artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # --------------------------------------------------
-      # 📊 트래픽 그래프 생성 (안정판)
-      # --------------------------------------------------
-      - name: 📈 Generate traffic graph
-        shell: bash
-        run: |
-          pip install matplotlib requests pandas
-          python3 <<'PY'
-          import os, requests, pandas as pd, matplotlib.pyplot as plt
-          repo=os.getenv("GITHUB_REPOSITORY")
-          token=os.getenv("GITHUB_TOKEN")
-          headers={"Authorization":f"token {token}"}
-
-          def safe_df(name):
-              r=requests.get(f"https://api.github.com/repos/{repo}/traffic/{name}", headers=headers)
-              j=r.json()
-              if name not in j:
-                  print(f"⚠️ No data for {name} (API limit or empty repo). Returning empty DataFrame.")
-                  return pd.DataFrame(columns=["timestamp","count"])
-              x=pd.DataFrame(j[name])
-              if "timestamp" in x:
-                  x["timestamp"]=pd.to_datetime(x["timestamp"])
-              return x
-
-          v, c = safe_df("views"), safe_df("clones")
-
-          plt.figure(figsize=(8,4))
-          if not v.empty:
-              plt.plot(v["timestamp"],v["count"],label="Views",lw=2)
-          if not c.empty:
-              plt.plot(c["timestamp"],c["count"],label="Clones",lw=2)
-          plt.title("R3C Traffic (14 days)")
-          plt.xlabel("Date")
-          plt.ylabel("Count")
-          plt.legend()
-          plt.grid(alpha=0.3)
-          plt.tight_layout()
-          os.makedirs("docs",exist_ok=True)
-          plt.savefig("docs/traffic.png")
-          print("✅ Traffic graph saved.")
-          PY
-
-      # --------------------------------------------------
-      # 🧾 README 자동 갱신
-      # --------------------------------------------------
-      - name: 🧾 Update README
-        shell: bash
-        run: |
-          TAG="auto-stable-${{ github.run_id }}"
-          URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
-          HASH_FILES=$(find release_artifacts -type f -name "*sha256.txt" | sort)
-          echo "### 🔖 Latest Auto Release: [${TAG}](${URL})" > tmp.md
-          echo "" >> tmp.md
-          for f in $HASH_FILES; do
-            echo "\`\`\`" >> tmp.md
-            cat $f >> tmp.md
-            echo "\`\`\`" >> tmp.md
-            echo "" >> tmp.md
-          done
-          echo "![Traffic Graph](docs/traffic.png)" >> tmp.md
-          sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
-          cat tmp.md >> README.md
-
-      # --------------------------------------------------
-      # 💾 Commit & Push
-      # --------------------------------------------------
-      - name: 💾 Commit & Push updates
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md docs/traffic.png || true
-          git commit -m "🧹 Clean rebuild + README/Graph auto-update" || echo "No changes"
-          git push origin main || true
