@@ -1,4 +1,4 @@
-why  I  build  these:  more  stable, reliable rust
+why  I  build  these:  I  want use more  stable, reliable rust.  And  i  want  to  use rust  more  consistently.
 
 📢 **Notice — Ownership Transfer Invitation**
 
