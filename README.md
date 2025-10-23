@@ -132,3 +132,20 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 - r3c  
 - cpppm  
 - Rust-ltss
+### 🔖 Latest Auto Release: [auto-stable-18746002809](https://github.com/0200134/r3c/releases/tag/auto-stable-18746002809)
+
+```
+8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85  r3c-linux-latest.zip
+```
+
+```
+SHA256 hash of r3c-windows-latest.zip:
+e7351fcf12d043b074c0725a9fbfebf880eeb989008d71ac9fb819ea4259fe23
+CertUtil: -hashfile command completed successfully.
+```
+
+```
+8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85  r3c-macos-latest.zip
+```
+
+![Traffic Graph](docs/traffic.png)
