@@ -42,7 +42,6 @@ include_directories(${INCLUDE_DIR})
 # ==========================================================
 # 📁 Source Collection
 # ==========================================================
-# main.cpp 제외 (라이브러리 빌드 시 충돌 방지)
 file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.cpp"
   "${SRC_DIR}/*.c"
@@ -70,7 +69,9 @@ if(EXISTS ${MAIN_SRC})
   add_executable(r3c_cli ${MAIN_SRC})
   target_link_libraries(r3c_cli PRIVATE r3c)
 else()
-  message(FATAL_ERROR "❌ main.cpp not found in ${SRC_DIR}")
+  message(WARNING "⚠️ main.cpp not found, using _fallback_main.cpp instead")
+  add_executable(r3c_cli ${SRC_DIR}/_fallback_main.cpp)
+  target_link_libraries(r3c_cli PRIVATE r3c)
 endif()
 
 # ==========================================================
