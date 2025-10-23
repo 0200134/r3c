@@ -41,6 +41,7 @@ include_directories(${INCLUDE_DIR})
 # ==========================================================
 # 📁 Source Collection
 # ==========================================================
+# 모든 cpp 수집 후 main.cpp 제거
 file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.cpp"
   "${SRC_DIR}/*.c"
@@ -48,11 +49,10 @@ file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.asm"
 )
 
-# main.cpp는 실행용 타겟(r3c_cli)에서만 사용하므로 제외
 list(FILTER R3C_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
 
 # ==========================================================
-# 🧱 Library Target (Core Engine)
+# 🧱 Library Target
 # ==========================================================
 add_library(r3c STATIC ${R3C_SOURCES})
 set_target_properties(r3c PROPERTIES LINKER_LANGUAGE CXX)
@@ -62,21 +62,20 @@ if(UNIX AND NOT WIN32)
 endif()
 
 # ==========================================================
-# 🚀 Executable (CLI Frontend)
+# 🚀 Executable Target
 # ==========================================================
-add_executable(r3c_cli "${SRC_DIR}/main.cpp")
-target_link_libraries(r3c_cli PRIVATE r3c)
+set(MAIN_SRC "${SRC_DIR}/main.cpp")
 
-# macOS: arm64 환경 호환성 보장
-if(APPLE)
-  set_target_properties(r3c_cli PROPERTIES
-    XCODE_ATTRIBUTE_ARCHS "arm64;x86_64"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "com.r3c.compiler"
-  )
+# main.cpp가 실제 존재하는지 확인 (없으면 에러 방지)
+if(EXISTS ${MAIN_SRC})
+  add_executable(r3c_cli ${MAIN_SRC})
+  target_link_libraries(r3c_cli PRIVATE r3c)
+else()
+  message(FATAL_ERROR "❌ main.cpp not found in ${SRC_DIR}")
 endif()
 
 # ==========================================================
-# 📦 Install Targets
+# 📦 Install
 # ==========================================================
 install(TARGETS r3c DESTINATION lib)
 install(TARGETS r3c_cli DESTINATION bin)
@@ -86,13 +85,12 @@ install(TARGETS r3c_cli DESTINATION bin)
 # ==========================================================
 message(STATUS "")
 message(STATUS "==========================================================")
-message(STATUS " 🧩 R3C LLVM-Free Universal Build Summary (v6.5 Ultra Stable)")
+message(STATUS " R3C LLVM-Free Universal Build Summary (v6.5 Ultra Stable)")
 message(STATUS "----------------------------------------------------------")
 message(STATUS " • Build Type     : ${CMAKE_BUILD_TYPE}")
 message(STATUS " • Source Dir     : ${SRC_DIR}")
 message(STATUS " • Include Dir    : ${INCLUDE_DIR}")
 message(STATUS " • Output Library : ${CMAKE_BINARY_DIR}/libr3c.a")
 message(STATUS " • Executable     : ${CMAKE_BINARY_DIR}/r3c_cli")
-message(STATUS " • macOS Arch     : arm64 + x86_64 Universal Binary")
 message(STATUS "==========================================================")
 message(STATUS "")
