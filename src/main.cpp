@@ -17,35 +17,17 @@ int run_pipeline(
 );
 
 int main(int argc, char** argv) {
-    using namespace std;
-    using namespace r3c;
+    std::cout << "🧩 R3C LLVM-Free Transpiler Test" << std::endl;
 
-    cout << "🧩 R3C LLVM-Free Transpiler Test" << endl;
+    std::vector<std::string> inputs = { "example.cpp" };
+    std::string version = "v6.5-ultra";
 
-    // 샘플 입력 파일
-    std::vector<std::string> sources = { "example.cpp" };
-
-    // LTS 버전 (예시)
-    std::string version = "v6.4-ultra";
-
-    bool self_recompile = false;
-    bool emit_asm = true;
-    std::string asm_out = "build/output.asm";
-    bool skip_bootstrap = false;
-
-    int result = run_pipeline(
-        sources,
-        version,
-        self_recompile,
-        emit_asm,
-        asm_out,
-        skip_bootstrap
-    );
+    int result = run_pipeline(inputs, version, false, true, "build/out.asm", false);
 
     if (result == 0)
-        cout << "✅ Pipeline finished successfully.\n";
+        std::cout << "✅ Pipeline finished successfully." << std::endl;
     else
-        cerr << "❌ Pipeline failed.\n";
+        std::cerr << "❌ Pipeline failed." << std::endl;
 
     return result;
 }
