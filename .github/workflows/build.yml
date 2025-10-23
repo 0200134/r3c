@@ -1,11 +1,11 @@
-name: 🧩 R3C Full Auto Build + Release (v6.3 Final Stable)
+name: 🧩 R3C Full Auto Build + Release (v6.4 Ultra Stable)
 
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    - cron: "0 6 * * *"
+    - cron: "0 6 * * *"  # 매일 오전 6시 UTC (한국시간 15시)
   workflow_dispatch:
 
 jobs:
@@ -19,6 +19,9 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
+      # --------------------------------------------------
+      # 🧰 Checkout
+      # --------------------------------------------------
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
 
@@ -27,6 +30,7 @@ jobs:
       # --------------------------------------------------
       - name: 🧹 macOS deep clean
         if: runner.os == 'macOS'
+        shell: bash
         run: |
           echo "🧼 Removing macOS cache folders..."
           sudo rm -rf build CMakeFiles CMakeCache.txt || true
@@ -35,10 +39,11 @@ jobs:
           echo "✅ macOS deep clean done."
 
       # --------------------------------------------------
-      # 🪟 Windows — NASM만 설치
+      # 🪟 Windows — NASM 설치
       # --------------------------------------------------
       - name: 🧰 Install NASM (Windows only)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           choco clean --yes || echo "skip clean"
           choco install nasm -y --no-progress
@@ -52,35 +57,53 @@ jobs:
           cmake-version: "3.28.3"
 
       - name: 🧩 Configure build
+        shell: bash
         run: |
           echo "⚙️ Configuring..."
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
       - name: 🧱 Build project
+        shell: bash
         run: |
           echo "🚧 Building..."
           cmake --build build --config Release -j4
 
+      # --------------------------------------------------
+      # 🪶 패키징 (zip or 7z)
+      # --------------------------------------------------
       - name: 🪶 Package artifacts
+        shell: bash
         run: |
           cd build
-          zip -r "r3c-${RUNNER_OS,,}-latest.zip" r3c* || 7z a "r3c-${RUNNER_OS,,}-latest.zip" r3c*
+          os_lower=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
+          zip -r "r3c-${os_lower}-latest.zip" r3c* || 7z a "r3c-${os_lower}-latest.zip" r3c*
 
+      # --------------------------------------------------
+      # 🧮 SHA256 해시 생성
+      # --------------------------------------------------
       - name: 🧮 Generate SHA256
+        shell: bash
         run: |
           cd build
+          os_lower=$(echo "$RUNNER_OS" | tr '[:upper:]' '[:lower:]')
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            certutil -hashfile "r3c-${RUNNER_OS,,}-latest.zip" SHA256 > "r3c-${RUNNER_OS,,}-sha256.txt"
+            certutil -hashfile "r3c-${os_lower}-latest.zip" SHA256 > "r3c-${os_lower}-sha256.txt"
           else
-            sha256sum "r3c-${RUNNER_OS,,}-latest.zip" > "r3c-${RUNNER_OS,,}-sha256.txt"
+            sha256sum "r3c-${os_lower}-latest.zip" > "r3c-${os_lower}-sha256.txt"
           fi
 
+      # --------------------------------------------------
+      # ⬆️ 아티팩트 업로드
+      # --------------------------------------------------
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ runner.os }}-latest
-          path: build/r3c-${{ runner.os,, }}-*
+          path: build/r3c-*
 
+  # ==========================================================
+  # 🚀 RELEASE JOB
+  # ==========================================================
   release:
     name: 🚀 Auto Release + README + Graph
     needs: [build]
@@ -104,25 +127,30 @@ jobs:
           name: "R3C Stable Release (${{ github.run_id }})"
           body: |
             ✅ macOS Deep Clean Applied  
-            ✅ Windows Cancel Fixed  
-            ✅ LLVM-Free Cross-Platform Build  
+            ✅ Windows Build Fixed  
+            ✅ LLVM-Free Cross-Platform Pipeline  
             ✅ SHA256 Verified  
-            ✅ Auto README & Graph Update
+            ✅ Auto README + Graph Update
           files: release_artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # --------------------------------------------------
-      # 📊 Traffic Graph
+      # 📊 트래픽 그래프 자동 생성
       # --------------------------------------------------
       - name: 📈 Generate traffic graph
+        shell: bash
         run: |
           pip install matplotlib requests pandas
           python3 <<'PY'
           import os, requests, pandas as pd, matplotlib.pyplot as plt
           repo=os.getenv("GITHUB_REPOSITORY"); token=os.getenv("GITHUB_TOKEN")
           headers={"Authorization":f"token {token}"}
-          def df(name): d=requests.get(f"https://api.github.com/repos/{repo}/traffic/{name}",headers=headers).json(); x=pd.DataFrame(d[name]); x["timestamp"]=pd.to_datetime(x["timestamp"]); return x
+          def df(name):
+              r=requests.get(f"https://api.github.com/repos/{repo}/traffic/{name}",headers=headers)
+              j=r.json(); x=pd.DataFrame(j[name]); 
+              x["timestamp"]=pd.to_datetime(x["timestamp"]); 
+              return x
           v, c = df("views"), df("clones")
           plt.figure(figsize=(8,4))
           plt.plot(v["timestamp"],v["count"],label="Views",lw=2)
@@ -135,9 +163,10 @@ jobs:
           PY
 
       # --------------------------------------------------
-      # 🧾 README Update
+      # 🧾 README 자동 갱신
       # --------------------------------------------------
       - name: 🧾 Update README
+        shell: bash
         run: |
           TAG="auto-stable-${{ github.run_id }}"
           URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
@@ -154,10 +183,14 @@ jobs:
           sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
           cat tmp.md >> README.md
 
+      # --------------------------------------------------
+      # 💾 Commit & Push
+      # --------------------------------------------------
       - name: 💾 Commit & Push updates
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add README.md docs/traffic.png
+          git add README.md docs/traffic.png || true
           git commit -m "🧹 Clean rebuild + README/Graph auto-update" || echo "No changes"
-          git push origin main
+          git push origin main || true
