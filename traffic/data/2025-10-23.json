@@ -1,0 +1,62 @@
+{
+  "date": "2025-10-23",
+  "repos": {
+    "0200134/r3c": {
+      "views": {
+        "count": 0,
+        "uniques": 0,
+        "views": [],
+        "clones": []
+      },
+      "clones": {
+        "count": 0,
+        "uniques": 0,
+        "views": [],
+        "clones": []
+      },
+      "referrers": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest/metrics/traffic#get-top-referral-sources",
+        "status": "403"
+      }
+    },
+    "0200134/cpppm": {
+      "views": {
+        "count": 0,
+        "uniques": 0,
+        "views": [],
+        "clones": []
+      },
+      "clones": {
+        "count": 0,
+        "uniques": 0,
+        "views": [],
+        "clones": []
+      },
+      "referrers": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest/metrics/traffic#get-top-referral-sources",
+        "status": "403"
+      }
+    },
+    "0200134/Rust-ltss": {
+      "views": {
+        "count": 0,
+        "uniques": 0,
+        "views": [],
+        "clones": []
+      },
+      "clones": {
+        "count": 0,
+        "uniques": 0,
+        "views": [],
+        "clones": []
+      },
+      "referrers": {
+        "message": "Resource not accessible by integration",
+        "documentation_url": "https://docs.github.com/rest/metrics/traffic#get-top-referral-sources",
+        "status": "403"
+      }
+    }
+  }
+}
