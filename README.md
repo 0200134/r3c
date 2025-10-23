@@ -118,20 +118,7 @@ MIT License © 2025 [0200134](https://github.com/0200134)
 
 
 
-<!--TRAFFIC_START-->
-## 📊 Combined GitHub Traffic (last 14 days)
 
-![Traffic Chart](traffic/summary.png)
-
-| Metric | Total | Unique |
-|--------|--------|--------|
-| **Views** | 0 | 0 |
-| **Clones** | 0 | 0 |
-
-**Repositories Monitored:**  
-- r3c  
-- cpppm  
-- Rust-ltss
 ### 🔖 Latest Auto Release: [auto-stable-18746002809](https://github.com/0200134/r3c/releases/tag/auto-stable-18746002809)
 
 ```
@@ -152,3 +139,4 @@ CertUtil: -hashfile command completed successfully.
 ![Traffic Graph](docs/traffic.png)
 
 > 🔄 Weekly digest: [docs/community_feedback.md](docs/community_feedback.md)
+
