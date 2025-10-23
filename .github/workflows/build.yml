@@ -1,4 +1,4 @@
-name: 🧩 R3C Full Auto Build + Release (v6.1 Cache Reset Final)
+name: 🧩 R3C Full Auto Build + Release (v6.2 Self-Cleaning Final)
 
 on:
   push:
@@ -19,51 +19,58 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: 🧰 Checkout
+      - name: 🧰 Checkout repository
         uses: actions/checkout@v4
 
-      # --------------------------------------------------
-      # 🧹 Clean previous CMake cache to avoid stale configs
-      # --------------------------------------------------
-      - name: 🧼 Clean CMake cache and build folder
+      # 🧹 자동 정리 스크립트 생성 및 실행
+      - name: 🧹 Cleanup old CMake files
         run: |
-          echo "🧹 Removing old CMake cache and build directory..."
-          cmake -E rm -rf build
-          cmake -E rm -f CMakeCache.txt
-          cmake -E rm -f CMakeFiles
+          echo "🧹 Creating cleanup script..."
+          cat > cleanup_cmake.sh <<'SCRIPT'
+          #!/usr/bin/env bash
+          set -e
+          echo "🧼 Removing build folders and cache..."
+          find . -type d -name "build" -exec rm -rf {} + || true
+          find . -type f -name "CMakeCache.txt" -delete || true
+          find . -type d -name "CMakeFiles" -exec rm -rf {} + || true
+          echo "🔍 Searching for duplicate CMakeLists.txt..."
+          DUP=$(find . -type f -name "CMakeLists.txt" ! -path "./CMakeLists.txt")
+          if [ -n "$DUP" ]; then
+            echo "⚠️ Found duplicates:"
+            echo "$DUP"
+            echo "❌ Removing duplicates..."
+            echo "$DUP" | xargs rm -f
+          else
+            echo "✅ No duplicates found."
+          fi
+          echo "✅ Cleanup done."
+          SCRIPT
+          chmod +x cleanup_cmake.sh
+          bash cleanup_cmake.sh
 
-      # --------------------------------------------------
-      # 🪟 Windows 전용 nasm 설치 (cmake/zip은 기본 내장)
-      # --------------------------------------------------
+      # 🪟 Windows → NASM만 설치
       - name: 🧰 Install NASM (Windows only)
         if: runner.os == 'Windows'
         run: |
           choco clean --yes || echo "skip clean"
           choco install nasm -y --no-progress
 
-      # --------------------------------------------------
-      # ⚙️ CMake 세팅 및 빌드
-      # --------------------------------------------------
+      # ⚙️ CMake 세팅
       - name: ⚙️ Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
       - name: 🧩 Configure build
-        run: |
-          echo "⚙️ Configuring..."
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
       - name: 🧱 Build
-        run: |
-          echo "🚧 Building..."
-          cmake --build build --config Release -j4
+        run: cmake --build build --config Release -j4
 
       - name: 🪶 Package artifacts
         run: |
           cd build
           zip -r "r3c-${RUNNER_OS,,}-latest.zip" r3c* || 7z a "r3c-${RUNNER_OS,,}-latest.zip" r3c*
-          echo "✅ Compression done"
 
       - name: 🧮 Generate SHA256
         run: |
@@ -73,7 +80,6 @@ jobs:
           else
             sha256sum "r3c-${RUNNER_OS,,}-latest.zip" > "r3c-${RUNNER_OS,,}-sha256.txt"
           fi
-          echo "✅ SHA256 generated"
 
       - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
@@ -103,15 +109,15 @@ jobs:
           tag_name: auto-stable-${{ github.run_id }}
           name: "R3C Stable Release (${{ github.run_id }})"
           body: |
-            ✅ Clean CMake Cache + Fresh Build  
-            ✅ LLVM-Free Cross-Platform Build  
+            ✅ Self-Cleaning Build (Cache Cleared)  
+            ✅ LLVM-Free Cross-Platform  
             ✅ SHA256 Verified  
-            ✅ Auto Graph + README Update
+            ✅ Auto README & Graph Update
           files: release_artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 📊 Traffic graph
+      # 📊 트래픽 그래프 생성
       - name: 📈 Generate traffic graph
         run: |
           pip install matplotlib requests pandas
@@ -131,7 +137,7 @@ jobs:
           plt.savefig("docs/traffic.png")
           PY
 
-      # 🧾 README Update
+      # 🧾 README 업데이트
       - name: 🧾 Update README
         run: |
           TAG="auto-stable-${{ github.run_id }}"
@@ -149,7 +155,7 @@ jobs:
           sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
           cat tmp.md >> README.md
 
-      - name: 💾 Commit & Push
+      - name: 💾 Commit & Push updates
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
