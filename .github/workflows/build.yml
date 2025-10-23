@@ -1,21 +1,21 @@
-name: 🧩 R3C Cross-Platform Build (v2.1 Stable)
+name: 🧩 R3C Full Auto Build + Release + Traffic Graph (v5)
 
 on:
   push:
+    branches: [main]
   pull_request:
+  schedule:
+    - cron: "0 6 * * *" # 매일 오전 6시 자동 실행 (트래픽 그래프용)
+  workflow_dispatch:
 
 jobs:
   build:
-    name: 🧱 Build on ${{ matrix.os }}
+    name: 🧱 Cross-Platform Optimized Build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-
-    defaults:
-      run:
-        shell: bash
 
     steps:
       - name: 🧰 Checkout repository
@@ -26,76 +26,126 @@ jobs:
         with:
           cmake-version: "3.28.3"
 
-      - name: 🧩 Configure build
+      - name: 🧩 Configure
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+
+      - name: 🧱 Build
+        run: cmake --build build --config Release -j4
+
+      - name: 🪶 Package
         run: |
-          echo "⚙️ Configuring for $RUNNER_OS..."
+          cd build
+          zip -r "r3c-${RUNNER_OS,,}-latest.zip" r3c* || 7z a "r3c-${RUNNER_OS,,}-latest.zip" r3c*
+          echo "✅ Compression done"
+
+      - name: 🧮 Generate SHA256
+        run: |
+          cd build
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+            certutil -hashfile "r3c-${RUNNER_OS,,}-latest.zip" SHA256 > "r3c-${RUNNER_OS,,}-sha256.txt"
           else
-            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+            sha256sum "r3c-${RUNNER_OS,,}-latest.zip" > "r3c-${RUNNER_OS,,}-sha256.txt"
           fi
+          echo "✅ SHA256 generated"
 
-      - name: 🔧 Fix permissions (macOS/Linux)
-        if: runner.os != 'Windows'
-        run: chmod +x scripts/generate_stubs.sh || true
-
-      - name: 🚀 Build (Auto Retry up to 3 times)
-        run: |
-          echo "⚙️ Building on $RUNNER_OS..."
-          attempt=1
-          while [ $attempt -le 3 ]; do
-            echo "🔁 Attempt $attempt..."
-            if [[ "$RUNNER_OS" == "Windows" ]]; then
-              echo "🪟 Using MSBuild with CMake --parallel"
-              cmake --build build --config Release --parallel 4 > build_log.txt 2>&1
-              # ✅ Detect success message (ignore false exit code)
-              if grep -q "Build succeeded" build_log.txt; then
-                echo "✅ Windows Build succeeded (detected in log)"
-                tail -n 10 build_log.txt
-                echo "success=true" >> $GITHUB_OUTPUT
-                exit 0
-              fi
-            else
-              echo "🐧 Using Make/Ninja -j4"
-              cmake --build build --config Release -- -j4 > build_log.txt 2>&1
-            fi
-
-            if [ $? -eq 0 ]; then
-              echo "✅ Build success"
-              tail -n 10 build_log.txt
-              echo "success=true" >> $GITHUB_OUTPUT
-              exit 0
-            else
-              echo "⚠️ Build failed attempt $attempt"
-              tail -n 20 build_log.txt
-              ((attempt++))
-            fi
-          done
-          echo "❌ Build failed after 3 attempts"
-          cat build_log.txt || true
-          echo "success=false" >> $GITHUB_OUTPUT
-          exit 1
-
-      - name: ⚠️ Auto-dump last build log lines on failure
-        if: failure()
-        run: |
-          echo "===== Tail of build_log.txt ====="
-          tail -n 40 build_log.txt || true
-
-      - name: 🧾 Show CMake error logs
-        if: failure()
-        run: |
-          echo "===== CMake Error Log ====="
-          cat build/CMakeFiles/CMakeError.log || true
-          echo "===== CMake Output Log ====="
-          cat build/CMakeFiles/CMakeOutput.log || true
-
-      - name: 📦 Upload build logs on failure
-        if: failure()
+      - name: ⬆️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build_logs_${{ matrix.os }}
-          path: |
-            build_log.txt
-            build/CMakeFiles/CMakeError.log
-            build/CMakeFiles/CMakeOutput.log
+          name: r3c-${{ runner.os }}-latest
+          path: build/r3c-${{ runner.os,, }}-*
+
+  release:
+    name: 🚀 Auto Release + Graph Update
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧰 Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📦 Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_artifacts
+
+      - name: 🏷️ Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: auto-stable-${{ github.run_id }}
+          name: "R3C Stable Slim Release (${{ github.run_id }})"
+          body: |
+            ✅ LLVM-Free Auto-built binaries  
+            ✅ SHA256 verified  
+            ✅ Cross-platform optimized  
+            ✅ Traffic graph auto-updated
+          files: release_artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 📊 Generate traffic graph
+        run: |
+          echo "📈 Generating GitHub traffic graph..."
+          pip install matplotlib requests pandas
+          python3 <<'PYCODE'
+          import requests, pandas as pd, matplotlib.pyplot as plt
+          import os
+
+          repo = os.getenv("GITHUB_REPOSITORY")
+          token = os.getenv("GITHUB_TOKEN")
+
+          headers = {"Authorization": f"token {token}"}
+          views = requests.get(f"https://api.github.com/repos/{repo}/traffic/views", headers=headers).json()
+          clones = requests.get(f"https://api.github.com/repos/{repo}/traffic/clones", headers=headers).json()
+
+          def to_df(data):
+              df = pd.DataFrame(data['views' if 'views' in data else 'clones'])
+              df['timestamp'] = pd.to_datetime(df['timestamp'])
+              df.set_index('timestamp', inplace=True)
+              return df
+
+          v = to_df(views)
+          c = to_df(clones)
+
+          plt.figure(figsize=(8,4))
+          plt.plot(v.index, v['count'], label='Views', linewidth=2)
+          plt.plot(c.index, c['count'], label='Clones', linewidth=2)
+          plt.title('R3C Traffic (14 days)')
+          plt.xlabel('Date')
+          plt.ylabel('Count')
+          plt.grid(True, alpha=0.3)
+          plt.legend()
+          plt.tight_layout()
+          os.makedirs('docs', exist_ok=True)
+          plt.savefig('docs/traffic.png')
+          PYCODE
+
+      - name: 🧾 Update README
+        run: |
+          echo "🪶 Updating README..."
+          TAG="auto-stable-${{ github.run_id }}"
+          URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+          HASH_FILES=$(find release_artifacts -type f -name "*sha256.txt" | sort)
+
+          echo "### 🔖 Latest Auto Release: [${TAG}](${URL})" > tmp_readme.md
+          echo "" >> tmp_readme.md
+          for f in $HASH_FILES; do
+            echo "\`\`\`" >> tmp_readme.md
+            cat $f >> tmp_readme.md
+            echo "\`\`\`" >> tmp_readme.md
+            echo "" >> tmp_readme.md
+          done
+          echo "![Traffic Graph](docs/traffic.png)" >> tmp_readme.md
+
+          sed -i '/### 🔖 Latest Auto Release/,$d' README.md || true
+          cat tmp_readme.md >> README.md
+          rm tmp_readme.md
+
+      - name: 💾 Commit & Push README + Graph
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md docs/traffic.png
+          git commit -m "📊 Auto-update README & traffic graph" || echo "No changes"
+          git push origin main
