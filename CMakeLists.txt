@@ -23,7 +23,8 @@ if(WIN32)
 elseif(APPLE)
   message(STATUS "🍎 macOS build → safe flags (keep symbols)")
   add_compile_options(-O2 -pipe -DNDEBUG -fno-exceptions -fno-rtti)
-  add_link_options(-Wl,-dead_strip)
+  # -dead_strip 은 main 심볼까지 제거할 수 있어서 제외
+  add_link_options()
 
 elseif(UNIX)
   message(STATUS "🐧 Linux build → static link & stripped binary")
@@ -41,15 +42,13 @@ include_directories(${INCLUDE_DIR})
 # ==========================================================
 # 📁 Source Collection
 # ==========================================================
-# 모든 cpp/c/asm 파일을 자동 수집
+# main.cpp 제외 (라이브러리 빌드 시 충돌 방지)
 file(GLOB_RECURSE R3C_SOURCES
   "${SRC_DIR}/*.cpp"
   "${SRC_DIR}/*.c"
   "${SRC_DIR}/*.S"
   "${SRC_DIR}/*.asm"
 )
-
-# main.cpp는 실행 타겟에서만 사용하므로 제외
 list(FILTER R3C_SOURCES EXCLUDE REGEX ".*/main\\.cpp$")
 
 # ==========================================================
@@ -63,7 +62,7 @@ if(UNIX AND NOT WIN32)
 endif()
 
 # ==========================================================
-# 🚀 Executable Target (CLI)
+# 🚀 Executable Target
 # ==========================================================
 set(MAIN_SRC "${SRC_DIR}/main.cpp")
 
@@ -74,15 +73,19 @@ else()
   message(FATAL_ERROR "❌ main.cpp not found in ${SRC_DIR}")
 endif()
 
-if(APPLE)
-  set_target_properties(r3c_cli PROPERTIES
-    XCODE_ATTRIBUTE_ARCHS "arm64;x86_64"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "com.r3c.compiler"
-  )
-endif()
+# ==========================================================
+# 🧪 Post-Build Messages
+# ==========================================================
+add_custom_command(TARGET r3c_cli POST_BUILD
+  COMMAND ${CMAKE_COMMAND} -E echo ""
+  COMMAND ${CMAKE_COMMAND} -E echo "==============================================="
+  COMMAND ${CMAKE_COMMAND} -E echo "✅ R3C CLI built successfully!"
+  COMMAND ${CMAKE_COMMAND} -E echo "👉 Output: ${CMAKE_BINARY_DIR}/r3c_cli"
+  COMMAND ${CMAKE_COMMAND} -E echo "==============================================="
+)
 
 # ==========================================================
-# 📦 Install Targets
+# 📦 Install
 # ==========================================================
 install(TARGETS r3c DESTINATION lib)
 install(TARGETS r3c_cli DESTINATION bin)
