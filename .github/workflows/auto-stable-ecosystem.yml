@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final Windows-Safe Edition)
+name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final LTS Edition)
 
 on:
   push:
@@ -57,7 +57,7 @@ jobs:
           mkdir -p dist
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             echo "📦 Compressing Windows build..."
-            powershell Compress-Archive -Path build -DestinationPath dist\\r3c-windows.zip
+            pwsh -Command "New-Item -ItemType Directory -Force -Path dist | Out-Null; Compress-Archive -Path 'build' -DestinationPath 'dist\\r3c-windows.zip' -Force; Write-Host '✅ Windows archive created.'"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             tar -czf dist/r3c-macos.tar.gz build
           else
