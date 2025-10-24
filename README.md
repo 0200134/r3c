@@ -45,8 +45,6 @@ Cross-platform C++ · NASM · Rust transpiler pipeline
 |:------|:--------|:-------------|:----------------|:---------|
 | ⭐ $STARS | 🔖 $VERSION | 🧭 $CLONES | 👁 $VISITORS | ⚖️ MIT |
 <!-- AUTO-BANNER:END -->
----
-
 ## 🧭 Overview
 
 **R3C** is an experimental **Rust independence compiler** —  
@@ -173,5 +171,6 @@ CertUtil: -hashfile command completed successfully.
 🚀 Featured on Reddit r/rust — Ignition Phase of R3C has begun.  
 🔥 Over 700+ views in under 30 minutes.  
 🧠 The LLVM-free Rust compiler evolution continues.
+
 
 
