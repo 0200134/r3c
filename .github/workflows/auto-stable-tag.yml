@@ -137,7 +137,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 5. Generate Auto Changelog
+      # 5. Generate Auto Changelog (safe delimiter)
       # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
@@ -145,9 +145,12 @@ jobs:
           echo "🧾 Generating changelog..."
           git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
           echo "✅ Changelog created."
-          echo "log<<EOF" >> $GITHUB_OUTPUT
-          cat CHANGELOG.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+
+          {
+            echo 'log<<CHANGELOG'
+            cat CHANGELOG.md
+            echo 'CHANGELOG'
+          } >> "$GITHUB_OUTPUT"
 
       # ================================================================
       # 6. Publish Release
