@@ -72,7 +72,7 @@ jobs:
           echo "✅ Packaged artifacts for ${{ matrix.os }}"
 
       # ================================================================
-      # 💾 5. Upload Artifacts (for merging later)
+      # 💾 5. Upload Artifacts
       # ================================================================
       - name: 💾 Upload OS Artifacts
         uses: actions/upload-artifact@v4
@@ -116,6 +116,14 @@ jobs:
           cp -r merged_artifacts/* release_assets/
           tar -czf r3c_full_assets_${{ github.run_id }}.tar.gz release_assets
           echo "✅ Assets ready for release."
+
+      # ================================================================
+      # 3.5. ⚙️ Setup Git Identity (fix for Committer unknown)
+      # ================================================================
+      - name: ⚙️ Setup Git Identity
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       # ================================================================
       # 4. Auto Tag
