@@ -1,3 +1,14 @@
+<!--AUTO-BANNER-START-->
+🌸 R3C — Rust Independence Compiler  
+Rewrite the base. Build compilers that heal themselves.  
+Cross-platform C++ · NASM · Rust transpiler pipeline
+
+⭐ Stars: 1 👁 Views(14d): 0 🧭 Clones(14d): 0  
+⚖️ License: MIT 🕒 Updated: 2025-10-24 22:32 UTC
+
+![Traffic Graph](traffic_graph.png)
+<!--AUTO-BANNER-END-->
+
 🌋 Currently featured in global Rust communities
 
 ### ⚙️ R3C — The Rust Compiler that breathes without LLVM
@@ -171,3 +182,6 @@ CertUtil: -hashfile command completed successfully.
 
 
 
+\n\n### 🔐 Latest Checksums\n```\ne47bc6cc3215b809be1ffd760a0f7c4ed2a204941ae99c75f258809b9fb9140f  ./r3c-windows-latest/r3c-windows.zip
+18515b74eeb25a1d4c0898c9384d52d7c57f7c8f7a139cd4a02618f94ebceccc  ./r3c-macos-latest/r3c-macos.tar.gz
+13eb0b2d24e266b52e11b37b6f65eb66a7b8656ac7d16059d26b69bd2ead5185  ./r3c-ubuntu-latest/r3c-linux.tar.gz\n```\n
