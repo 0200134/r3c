@@ -1,143 +1,50 @@
-name: 🔖 Auto Stable Tag & Full Release (PAT-Integrated Immutable)
+name: 🔖 Auto Stable Tag (PAT-Only Fix)
 
 on:
-  workflow_run:
-    workflows: ["🧩 R3C Cross-Platform Build (stable)"]
-    types: [completed]
+  workflow_dispatch:    # ⚠️ 테스트용 수동 실행 먼저 권장
+  # workflow_run:
+  #   workflows: ["🧩 R3C Cross-Platform Build (stable)"]
+  #   types: [completed]
 
 permissions:
-  contents: read  # ✅ 기본 read만. write는 PAT(GH_TOKEN)으로 수행
+  contents: none   # 🚫 기본 GitHub Token 완전 차단
 
 env:
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}       # 🔑 Personal Access Token (Fine-grained, Read/Write)
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
   GH_REPO: r3c-foundation/r3c
   GH_USER: r3c-bot
   GH_EMAIL: r3c-bot@users.noreply.github.com
 
 jobs:
-  release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  tag:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}   # ✅ 체크아웃도 PAT으로 진행
 
-      # -------------------------------------------------------
-      # 🕒 Generate timestamp tag
-      # -------------------------------------------------------
-      - name: 🕒 Generate immutable tag
-        run: |
-          TS=$(date -u +'%Y%m%d-%H%M%S')
-          TAG="auto-stable-${TS}"
-          echo "TAG=${TAG}" >> $GITHUB_ENV
-          echo "✅ Generated tag: ${TAG}"
-
-      # -------------------------------------------------------
-      # ⚙️ Configure Git with PAT (key step!)
-      # -------------------------------------------------------
-      - name: ⚙️ Configure Git (using Personal Access Token)
+      - name: ⚙️ Configure Git (Force PAT)
         run: |
           git config user.name "${GH_USER}"
           git config user.email "${GH_EMAIL}"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git
           git fetch origin
 
-      # -------------------------------------------------------
-      # 🏷️ Create and push tag (authenticated with PAT)
-      # -------------------------------------------------------
-      - name: 🏷️ Create and push tag
+      - name: 🏷️ Create and push tag (Force PAT)
         run: |
+          TS=$(date -u +'%Y%m%d-%H%M%S')
+          TAG="auto-stable-${TS}"
+          echo "Creating tag: ${TAG}"
           git tag "${TAG}"
           git push origin "${TAG}"
 
-      # -------------------------------------------------------
-      # 🧱 Build (Cross Platform)
-      # -------------------------------------------------------
-      - name: 🧰 Set up CMake
-        uses: jwlawson/actions-setup-cmake@v2
-        with:
-          cmake-version: "3.28.3"
-
-      - name: 🧱 Build (Linux)
-        run: |
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -j$(nproc)
-          mkdir -p artifacts/linux
-          cp build/r3c artifacts/linux/r3c-linux
-
-      - name: 🍎 Build (macOS Cross)
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y clang
-          cmake -B build-macos -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-macos --config Release -j$(nproc)
-          mkdir -p artifacts/macos
-          cp build-macos/r3c artifacts/macos/r3c-macos
-
-      - name: 🪟 Build (Windows Cross via MinGW)
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y mingw-w64
-          cmake -B build-win -S . -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw.cmake -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-win --config Release -j$(nproc)
-          mkdir -p artifacts/windows
-          cp build-win/r3c.exe artifacts/windows/r3c-windows.exe
-
-      # -------------------------------------------------------
-      # 🔐 SHA256 Checksum
-      # -------------------------------------------------------
-      - name: 🔐 Generate SHA256 checksums
-        run: |
-          cd artifacts
-          find . -type f ! -name "*.sha256" -exec sha256sum {} \; > checksums.sha256
-          cat checksums.sha256
-
-      # -------------------------------------------------------
-      # 🧾 Build Summary (Compiler + Commit Info)
-      # -------------------------------------------------------
-      - name: 🧾 Generate Build Summary
-        run: |
-          echo "## 🧱 Build Summary" > build_summary.md
-          echo "- UTC Build Time: $(date -u)" >> build_summary.md
-          echo "- Commit: $(git rev-parse HEAD)" >> build_summary.md
-          echo "- Compiler Info:" >> build_summary.md
-          g++ --version | head -n 1 >> build_summary.md || true
-          clang++ --version | head -n 1 >> build_summary.md || true
-          echo "" >> build_summary.md
-          cat build_summary.md
-
-      # -------------------------------------------------------
-      # 🪶 Combine CHANGELOG.md if exists
-      # -------------------------------------------------------
-      - name: 🪶 Prepare release body
-        run: |
-          echo "## 🧩 R3C Immutable Stable Release" > release_body.md
-          echo "- Tag: \`${TAG}\`" >> release_body.md
-          echo "- Source: [r3c-foundation/r3c](https://github.com/r3c-foundation/r3c)" >> release_body.md
-          echo "- Includes: Linux, macOS, Windows binaries" >> release_body.md
-          echo "" >> release_body.md
-          cat build_summary.md >> release_body.md
-          echo "" >> release_body.md
-          if [ -f CHANGELOG.md ]; then
-            echo "## 🪶 CHANGELOG" >> release_body.md
-            cat CHANGELOG.md >> release_body.md
-          fi
-          echo "" >> release_body.md
-
-      # -------------------------------------------------------
-      # 📦 Create GitHub Release (using PAT)
-      # -------------------------------------------------------
-      - name: 📦 Create GitHub Release
+      - name: 📦 Create GitHub Release (PAT)
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GH_TOKEN }}
           tag_name: ${{ env.TAG }}
           name: "R3C Stable — ${{ env.TAG }}"
-          body_path: release_body.md
+          body: |
+            🧩 Auto-generated via Personal Access Token (PAT-only workflow)
           draft: false
           prerelease: false
-          files: |
-            artifacts/linux/r3c-linux
-            artifacts/macos/r3c-macos
-            artifacts/windows/r3c-windows.exe
-            artifacts/checksums.sha256
