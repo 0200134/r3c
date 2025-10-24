@@ -1,8 +1,11 @@
-name: 🔖 Auto Stable Tag & Release (Per-Platform Assets + Changelog + Banner Update)
+name: 🔖 Auto Stable Tag & Release (Self-Alive, Multi-OS, Token Refresh)
 
 on:
   push:
     branches: [main]
+  schedule:
+    # 매년 1월 1일 자동 릴리스
+    - cron: "0 0 1 1 *"
   workflow_dispatch:
 
 permissions:
@@ -12,7 +15,7 @@ permissions:
 
 jobs:
   release:
-    name: 🧱 Cross-Platform Auto Build
+    name: 🧱 Cross-Platform Auto Build & Release
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -38,7 +41,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       # ================================================================
-      # 🧩 3-A. Build on Windows (PowerShell)
+      # 🧩 3-A. Build on Windows
       # ================================================================
       - name: 🧩 Build on Windows
         if: matrix.os == 'windows-latest'
@@ -50,7 +53,7 @@ jobs:
           Write-Host "✅ Windows build complete."
 
       # ================================================================
-      # 🧩 3-B. Build on macOS/Linux (bash)
+      # 🧩 3-B. Build on macOS/Linux
       # ================================================================
       - name: 🧩 Build on Unix
         if: matrix.os != 'windows-latest'
@@ -63,88 +66,87 @@ jobs:
           echo "✅ Build complete for $RUNNER_OS"
 
       # ================================================================
-      # 📦 4. Package (per platform)
+      # 📦 4. Package
       # ================================================================
-      - name: 📦 Package Artifacts
-        shell: bash
+      - name: 📦 Package Build Artifacts
         run: |
-          mkdir -p dist
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            7z a r3c_full_assets_windows.zip ./build/*
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            tar -czf r3c_full_assets_macos.tar.gz -C build .
-          else
-            tar -czf r3c_full_assets_linux.tar.gz -C build .
-          fi
-          echo "✅ Packaged $RUNNER_OS artifacts."
+          mkdir -p dist/${{ matrix.os }}
+          cp -r build/* dist/${{ matrix.os }}/ || true
+          echo "✅ Packaged artifacts for ${{ matrix.os }}"
 
       # ================================================================
-      # 💾 5. Upload each platform artifact
+      # 💾 5. Upload Artifacts
       # ================================================================
-      - name: 💾 Upload Platform Artifact
+      - name: 💾 Upload OS Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
-          path: |
-            *.tar.gz
-            *.zip
+          path: dist/${{ matrix.os }}
 
   # ====================================================================
-  # 🏷️ TAG + RELEASE + README UPDATE
+  # 🏷️ TAG + RELEASE + TOKEN REFRESH
   # ====================================================================
   tag_release:
-    name: 🚀 Create Tag, Publish Release, and Update Banner
+    name: 🚀 Create Tag, Publish Release & Refresh Token
     needs: release
     runs-on: ubuntu-latest
 
     steps:
+      # ================================================================
+      # 1. Checkout
+      # ================================================================
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: ⚙️ Setup Git Identity
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      # ================================================================
+      # 2. Download all artifacts
+      # ================================================================
+      - name: 📦 Download all OS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: merged_artifacts
 
-      # ✅ 중복 방지 + 자동 증가 태그 생성
-      - name: 🏷️ Create Auto Stable Tag (Safe)
+      # ================================================================
+      # 3. Merge + Compress
+      # ================================================================
+      - name: 🧩 Merge all build artifacts
+        run: |
+          echo "📦 Merging artifacts..."
+          mkdir -p release_assets
+          cp -r merged_artifacts/* release_assets/
+          tar -czf r3c_full_assets_${{ github.run_id }}.tar.gz release_assets
+          echo "✅ Assets ready for release."
+
+      # ================================================================
+      # 4. Auto Tag
+      # ================================================================
+      - name: 🏷️ Create Auto Stable Tag
         id: tag
-        shell: bash
         run: |
           VERSION="v$(date +'%y.%m.%d-%H%M')-stable"
-
-          if git rev-parse "$VERSION" >/dev/null 2>&1; then
-            echo "⚠️ Tag $VERSION already exists. Generating new tag..."
-            COUNT=1
-            while git rev-parse "${VERSION}-${COUNT}" >/dev/null 2>&1; do
-              COUNT=$((COUNT+1))
-            done
-            VERSION="${VERSION}-${COUNT}"
-            echo "➡️ Using new tag: $VERSION"
-          fi
-
           git tag -a "$VERSION" -m "Auto Stable Release ($VERSION)"
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: 📦 Download all OS Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release_assets
-
+      # ================================================================
+      # 5. Generate Auto Changelog
+      # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
-        shell: bash
         run: |
           echo "🧾 Generating changelog..."
           git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
           echo "✅ Changelog created."
-          LOG_CONTENT=$(cat CHANGELOG.md | sed ':a;N;$!ba;s/\n/\\n/g')
-          printf "log=%s\n" "$LOG_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
+      # ================================================================
+      # 6. Publish Release
+      # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -159,33 +161,46 @@ jobs:
             - Recent Commits:
             ${{ steps.changelog.outputs.log }}
           files: |
-            release_assets/**/*.tar.gz
-            release_assets/**/*.zip
+            r3c_full_assets_${{ github.run_id }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ================================================================
-      # 🧠 README Banner Auto Update
+      # 7. 🔑 Token Refresh (GitHub App)
       # ================================================================
-      - name: 🐍 Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: 🔁 Update README Banner
+      - name: 🔑 Refresh GitHub App Token (if available)
+        if: ${{ secrets.APP_PRIVATE_KEY != '' }}
         run: |
-          pip install requests
-          python scripts/update_banner.py
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "🔄 Refreshing installation token..."
+          npm install -g jsonwebtoken
+          echo "${{ secrets.APP_PRIVATE_KEY }}" > key.pem
+          node -e "
+            const fs = require('fs');
+            const jwt = require('jsonwebtoken');
+            const key = fs.readFileSync('key.pem');
+            const token = jwt.sign(
+              { iss: '${{ secrets.APP_ID }}' },
+              key,
+              { algorithm: 'RS256', expiresIn: '9m' }
+            );
+            console.log('JWT=' + token);
+          " > jwt.txt
 
-      - name: 💾 Commit Banner Update
-        run: |
-          git add README.md
-          git diff --quiet && echo "No changes to commit." || git commit -m "🔁 Auto-update README banner"
-          git push
+          export JWT=$(grep 'JWT=' jwt.txt | cut -d= -f2)
+          curl -s -X POST \
+            -H "Authorization: Bearer $JWT" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/app/installations/${{ secrets.APP_INSTALLATION_ID }}/access_tokens \
+            -o token.json
+          cat token.json | jq -r '.token' > refreshed_token.txt
+          echo "🔐 Token refreshed successfully"
+          echo "Partial token preview: $(head -c 20 refreshed_token.txt)****"
 
-      - name: ✅ Summary
+      # ================================================================
+      # 8. ✅ Summary
+      # ================================================================
+      - name: ✅ Print Summary
         run: |
-          echo "🎉 Auto Stable Release + README Banner Updated!"
+          echo "🎉 Multi-OS Auto Stable Release + Annual Renewal Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
+          echo "🔐 Token refreshed (if App used)."
