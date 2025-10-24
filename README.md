@@ -36,15 +36,9 @@ The goal is not abandonment, but **continuity** — ensuring that R3C’s vision
   <em>Cross-platform C++ · NASM · Rust transpiler pipeline</em>
 </p>
 
-<!-- AUTO-BANNER:START -->
 🌸 **R3C — Rust Independence Compiler**  
 Rewrite the base. Build compilers that heal themselves.  
 Cross-platform C++ · NASM · Rust transpiler pipeline  
-
-| Stars | Version | Clones (14d) | Visitors (14d) | License |
-|:------|:--------|:-------------|:----------------|:---------|
-| ⭐ $STARS | 🔖 $VERSION | 🧭 $CLONES | 👁 $VISITORS | ⚖️ MIT |
-<!-- AUTO-BANNER:END -->
 
 ## 🧭 Overview
 
@@ -164,14 +158,13 @@ CertUtil: -hashfile command completed successfully.
 35de73fbe3919f29889f6405ec5a3bfdf422ea323f091eb73575166c870c1719  r3c-macos-latest.zip
 ```
 
-![Traffic Graph](docs/traffic.png)
-
 ---
 ⭐ Starred by builders who believe Rust deserves independence.
 
 🚀 Featured on Reddit r/rust — Ignition Phase of R3C has begun.  
 🔥 Over 700+ views in under 30 minutes.  
 🧠 The LLVM-free Rust compiler evolution continues.
+
 
 
 
