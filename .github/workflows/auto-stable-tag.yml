@@ -1,50 +1,147 @@
-name: 🔖 Auto Stable Tag & Release (Tag-Test)
+name: 🔖 Auto Stable Tag & Release (PAT-FORCED FINAL)
 
 on:
-  workflow_dispatch:
+  workflow_run:
+    workflows: ["🧩 R3C Cross-Platform Build (stable)"]
+    types: [completed]
 
 permissions:
-  contents: none   # 기본 GITHUB_TOKEN 차단
+  contents: none   # ❌ 기본 GITHUB_TOKEN 완전 차단
 
 env:
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}   # ✅ Fine-grained PAT (Read/Write)
   GH_REPO: r3c-foundation/r3c
   GH_USER: r3c-bot
   GH_EMAIL: r3c-bot@users.noreply.github.com
 
 jobs:
-  tag_and_release:
+  release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+
     steps:
+      # -------------------------------------------------------
+      # 🔧 Checkout with Personal Access Token
+      # -------------------------------------------------------
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: ⚙️ Configure Git (with PAT)
+      # -------------------------------------------------------
+      # 🕒 Generate Tag
+      # -------------------------------------------------------
+      - name: 🕒 Generate immutable tag
+        run: |
+          TS=$(date -u +'%Y%m%d-%H%M%S')
+          TAG="auto-stable-${TS}"
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+          echo "✅ Generated tag: ${TAG}"
+
+      # -------------------------------------------------------
+      # ⚙️ Configure Git (PAT 인증)
+      # -------------------------------------------------------
+      - name: ⚙️ Configure Git with PAT
         run: |
           git config user.name "${GH_USER}"
           git config user.email "${GH_EMAIL}"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git
           git fetch origin
 
+      # -------------------------------------------------------
+      # 🏷️ Create and Push Tag
+      # -------------------------------------------------------
       - name: 🏷️ Create and push tag
-        id: tag
         run: |
-          TS=$(date -u +'%Y%m%d-%H%M%S')
-          TAG="auto-stable-${TS}"
-          echo "TAG=${TAG}" >> $GITHUB_ENV
-          echo "✅ Creating tag: ${TAG}"
           git tag "${TAG}"
           git push origin "${TAG}"
 
-      - name: 📦 Create GitHub Release (PAT)
+      # -------------------------------------------------------
+      # 🧱 Build (Cross Platform)
+      # -------------------------------------------------------
+      - name: 🧰 Setup CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "3.28.3"
+
+      - name: 🧱 Build (Linux)
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(nproc)
+          mkdir -p artifacts/linux
+          cp build/r3c artifacts/linux/r3c-linux
+
+      - name: 🍎 Build (macOS Cross)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang
+          cmake -B build-macos -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-macos --config Release -j$(nproc)
+          mkdir -p artifacts/macos
+          cp build-macos/r3c artifacts/macos/r3c-macos
+
+      - name: 🪟 Build (Windows Cross via MinGW)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y mingw-w64
+          cmake -B build-win -S . -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-win --config Release -j$(nproc)
+          mkdir -p artifacts/windows
+          cp build-win/r3c.exe artifacts/windows/r3c-windows.exe
+
+      # -------------------------------------------------------
+      # 🔐 SHA256
+      # -------------------------------------------------------
+      - name: 🔐 Generate SHA256 checksums
+        run: |
+          cd artifacts
+          find . -type f ! -name "*.sha256" -exec sha256sum {} \; > checksums.sha256
+          cat checksums.sha256
+
+      # -------------------------------------------------------
+      # 🧾 Build Summary
+      # -------------------------------------------------------
+      - name: 🧾 Generate Build Summary
+        run: |
+          echo "## 🧱 Build Summary" > build_summary.md
+          echo "- UTC Build Time: $(date -u)" >> build_summary.md
+          echo "- Commit: $(git rev-parse HEAD)" >> build_summary.md
+          echo "- Compiler Info:" >> build_summary.md
+          g++ --version | head -n 1 >> build_summary.md || true
+          clang++ --version | head -n 1 >> build_summary.md || true
+          echo "" >> build_summary.md
+
+      # -------------------------------------------------------
+      # 🪶 Prepare Release Body
+      # -------------------------------------------------------
+      - name: 🪶 Combine release info
+        run: |
+          echo "## 🧩 R3C Immutable Stable Release" > release_body.md
+          echo "- Tag: \`${TAG}\`" >> release_body.md
+          echo "- Source: [${GH_REPO}](https://github.com/${GH_REPO})" >> release_body.md
+          echo "- Includes: Linux, macOS, Windows builds" >> release_body.md
+          echo "" >> release_body.md
+          cat build_summary.md >> release_body.md
+          echo "" >> release_body.md
+          if [ -f CHANGELOG.md ]; then
+            echo "## 🪶 CHANGELOG" >> release_body.md
+            cat CHANGELOG.md >> release_body.md
+          fi
+          echo "" >> release_body.md
+
+      # -------------------------------------------------------
+      # 📦 Create GitHub Release (with PAT)
+      # -------------------------------------------------------
+      - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GH_TOKEN }}
           tag_name: ${{ env.TAG }}
           name: "R3C Stable — ${{ env.TAG }}"
-          body: |
-            🧩 Auto release test.
-            - Tag: `${{ env.TAG }}`
+          body_path: release_body.md
           draft: false
           prerelease: false
+          files: |
+            artifacts/linux/r3c-linux
+            artifacts/macos/r3c-macos
+            artifacts/windows/r3c-windows.exe
+            artifacts/checksums.sha256
