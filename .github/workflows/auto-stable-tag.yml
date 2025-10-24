@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Full Release (PAT-Fix Immutable)
+name: 🔖 Auto Stable Tag & Full Release (PAT-Integrated Immutable)
 
 on:
   workflow_run:
@@ -6,10 +6,10 @@ on:
     types: [completed]
 
 permissions:
-  contents: read   # ✅ GH_TOKEN이 대신 write 권한 수행
+  contents: read  # ✅ 기본 read만. write는 PAT(GH_TOKEN)으로 수행
 
 env:
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}       # 🔑 Personal Access Token (Fine-grained, Read/Write)
   GH_REPO: r3c-foundation/r3c
   GH_USER: r3c-bot
   GH_EMAIL: r3c-bot@users.noreply.github.com
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # -------------------------------------------------------
-      # 🕒 Generate tag
+      # 🕒 Generate timestamp tag
       # -------------------------------------------------------
       - name: 🕒 Generate immutable tag
         run: |
@@ -33,9 +33,9 @@ jobs:
           echo "✅ Generated tag: ${TAG}"
 
       # -------------------------------------------------------
-      # ⚙️ Git config with PAT
+      # ⚙️ Configure Git with PAT (key step!)
       # -------------------------------------------------------
-      - name: ⚙️ Configure Git (using PAT)
+      - name: ⚙️ Configure Git (using Personal Access Token)
         run: |
           git config user.name "${GH_USER}"
           git config user.email "${GH_EMAIL}"
@@ -43,9 +43,9 @@ jobs:
           git fetch origin
 
       # -------------------------------------------------------
-      # 🏷️ Create and push tag
+      # 🏷️ Create and push tag (authenticated with PAT)
       # -------------------------------------------------------
-      - name: 🏷️ Create and push tag (using PAT)
+      - name: 🏷️ Create and push tag
         run: |
           git tag "${TAG}"
           git push origin "${TAG}"
@@ -84,7 +84,7 @@ jobs:
           cp build-win/r3c.exe artifacts/windows/r3c-windows.exe
 
       # -------------------------------------------------------
-      # 🔐 SHA256 checksum
+      # 🔐 SHA256 Checksum
       # -------------------------------------------------------
       - name: 🔐 Generate SHA256 checksums
         run: |
@@ -93,24 +93,23 @@ jobs:
           cat checksums.sha256
 
       # -------------------------------------------------------
-      # 🧾 Build Summary (compiler, commit)
+      # 🧾 Build Summary (Compiler + Commit Info)
       # -------------------------------------------------------
       - name: 🧾 Generate Build Summary
         run: |
           echo "## 🧱 Build Summary" > build_summary.md
           echo "- UTC Build Time: $(date -u)" >> build_summary.md
           echo "- Commit: $(git rev-parse HEAD)" >> build_summary.md
-          echo "- Compiler:" >> build_summary.md
+          echo "- Compiler Info:" >> build_summary.md
           g++ --version | head -n 1 >> build_summary.md || true
           clang++ --version | head -n 1 >> build_summary.md || true
           echo "" >> build_summary.md
           cat build_summary.md
 
       # -------------------------------------------------------
-      # 🪶 Merge CHANGELOG if exists
+      # 🪶 Combine CHANGELOG.md if exists
       # -------------------------------------------------------
       - name: 🪶 Prepare release body
-        id: body
         run: |
           echo "## 🧩 R3C Immutable Stable Release" > release_body.md
           echo "- Tag: \`${TAG}\`" >> release_body.md
@@ -123,9 +122,10 @@ jobs:
             echo "## 🪶 CHANGELOG" >> release_body.md
             cat CHANGELOG.md >> release_body.md
           fi
+          echo "" >> release_body.md
 
       # -------------------------------------------------------
-      # 📦 Create GitHub Release (with PAT)
+      # 📦 Create GitHub Release (using PAT)
       # -------------------------------------------------------
       - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
