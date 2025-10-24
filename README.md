@@ -39,13 +39,7 @@ The goal is not abandonment, but **continuity** — ensuring that R3C’s vision
 🌸 **R3C — Rust Independence Compiler**  
 Rewrite the base. Build compilers that heal themselves.  
 Cross-platform C++ · NASM · Rust transpiler pipeline  
-<!--AUTO-BANNER-START-->
 
-⭐ Stars: $STARS 👁 Views(14d): $VIEWS 🧭 Clones(14d): $CLONES  
-⚖️ License: MIT 🕒 Updated: YYYY-MM-DD HH:MM UTC  
-
-![Traffic Graph](traffic_graph.png)
-<!--AUTO-BANNER-END-->
 ## 🧭 Overview
 
 **R3C** is an experimental **Rust independence compiler** —  
@@ -170,6 +164,7 @@ CertUtil: -hashfile command completed successfully.
 🚀 Featured on Reddit r/rust — Ignition Phase of R3C has begun.  
 🔥 Over 700+ views in under 30 minutes.  
 🧠 The LLVM-free Rust compiler evolution continues.
+
 
 
 
