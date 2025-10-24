@@ -1,65 +1,162 @@
-name: 🔖 Auto Stable Tag & Release (Full Assets)
+name: 🔖 Auto Stable Tag & Release (Full Assets + Multi-OS + Changelog)
 
 on:
-  workflow_run:
-    workflows: ["🧩 R3C Cross-Platform Build (stable)"]
-    types: [completed]
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: write
+  packages: write
+  actions: read
 
 jobs:
   release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    env:
-      REPO: r3c-foundation/r3c
-      BOT_NAME: r3c-bot
-      BOT_EMAIL: r3c-bot@users.noreply.github.com
+    name: 🧱 Cross-Platform Auto Build & Release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      # ✅ 1. PAT으로 전체 리포 가져오기
-      - name: 🧰 Checkout with PAT
+      # ================================================================
+      # 🧰 1. Checkout
+      # ================================================================
+      - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
-          token: ${{ secrets.GH_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # ✅ 2. 최근 빌드 아티팩트 다운로드
-      - name: 📦 Download Build Artifacts
+      # ================================================================
+      # ⚙️ 2. Configure Git
+      # ================================================================
+      - name: ⚙️ Setup Git Environment
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      # ================================================================
+      # 🧩 3. Build
+      # ================================================================
+      - name: 🧩 Build on ${{ matrix.os }}
+        run: |
+          echo "🏗️ Building project on $RUNNER_OS..."
+          mkdir -p build
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+            cmake --build build --config Release
+          else
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+            cmake --build build --config Release -j$(nproc)
+          fi
+          echo "✅ Build complete for $RUNNER_OS"
+
+      # ================================================================
+      # 📦 4. Package
+      # ================================================================
+      - name: 📦 Package Build Artifacts
+        run: |
+          mkdir -p dist/${{ matrix.os }}
+          cp -r build/* dist/${{ matrix.os }}/ || true
+          echo "✅ Packaged artifacts for ${{ matrix.os }}"
+
+      # ================================================================
+      # 💾 5. Upload Artifacts (for merging later)
+      # ================================================================
+      - name: 💾 Upload OS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: r3c-${{ matrix.os }}
+          path: dist/${{ matrix.os }}
+
+  # ====================================================================
+  # 🏷️ TAG + RELEASE
+  # ====================================================================
+  tag_release:
+    name: 🚀 Create Tag & Publish Release
+    needs: release
+    runs-on: ubuntu-latest
+
+    steps:
+      # ================================================================
+      # 1. Checkout
+      # ================================================================
+      - name: 🧰 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      # ================================================================
+      # 2. Download all artifacts
+      # ================================================================
+      - name: 📦 Download all OS Artifacts
         uses: actions/download-artifact@v4
         with:
-          path: ./artifacts
+          path: merged_artifacts
 
-      # ✅ 3. Git 설정 및 태그 생성
-      - name: ⚙️ Configure Git and Create Tag
+      # ================================================================
+      # 3. Merge + Compress
+      # ================================================================
+      - name: 🧩 Merge all build artifacts
         run: |
-          git config --global user.name "${BOT_NAME}"
-          git config --global user.email "${BOT_EMAIL}"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ env.REPO }}.git
-          TS=$(date -u +'%Y%m%d-%H%M%S')
-          TAG="auto-stable-${TS}"
-          echo "TAG=${TAG}" >> $GITHUB_ENV
-          echo "✅ Creating tag ${TAG}"
-          git tag "${TAG}"
-          git push origin "${TAG}"
+          echo "📦 Merging artifacts..."
+          mkdir -p release_assets
+          cp -r merged_artifacts/* release_assets/
+          tar -czf r3c_full_assets_${{ github.run_id }}.tar.gz release_assets
+          echo "✅ Assets ready for release."
 
-      # ✅ 4. 릴리스 생성 + 아티팩트 업로드
-      - name: 🚀 Create GitHub Release with Assets
+      # ================================================================
+      # 4. Auto Tag
+      # ================================================================
+      - name: 🏷️ Create Auto Stable Tag
+        id: tag
+        run: |
+          VERSION="v$(date +'%y.%m.%d-%H%M')-stable"
+          git tag -a "$VERSION" -m "Auto Stable Release ($VERSION)"
+          git push origin "$VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      # ================================================================
+      # 5. Generate Auto Changelog
+      # ================================================================
+      - name: 🧾 Generate Changelog
+        id: changelog
+        run: |
+          echo "🧾 Generating changelog..."
+          git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
+          echo "✅ Changelog created."
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          cat CHANGELOG.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      # ================================================================
+      # 6. Publish Release
+      # ================================================================
+      - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GH_TOKEN }}
-          tag_name: ${{ env.TAG }}
-          name: "R3C Stable — ${{ env.TAG }}"
+          tag_name: ${{ steps.tag.outputs.version }}
+          name: 🔖 Auto Stable Release — ${{ steps.tag.outputs.version }}
           body: |
-            🧩 **R3C Immutable Stable Release**
-            - Tag: `${{ env.TAG }}`
-            - Built automatically from cross-platform pipeline.
-            - Includes Linux/macOS/Windows binaries.
-          draft: false
-          prerelease: false
+            🔄 **Automated Cross-Platform Stable Release**
+            - Repository: ${{ github.repository }}
+            - Commit: ${{ github.sha }}
+            - Generated on: ${{ github.run_id }}
+            - Platforms: Linux, macOS, Windows
+            - Last commits:
+            ${{ steps.changelog.outputs.log }}
           files: |
-            artifacts/**/*.zip
-            artifacts/**/*.tar.gz
-            artifacts/**/*.exe
-            artifacts/**/*.bin
+            r3c_full_assets_${{ github.run_id }}.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ================================================================
+      # 7. Summary
+      # ================================================================
+      - name: ✅ Print Summary
+        run: |
+          echo "🎉 Multi-OS Auto Stable Release Complete!"
+          echo "📦 Tag: ${{ steps.tag.outputs.version }}"
