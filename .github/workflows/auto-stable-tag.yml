@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Release (Full Assets + Multi-OS + Changelog)
+name: 🔖 Auto Stable Tag & Release (Per-Platform Assets + Changelog)
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   release:
-    name: 🧱 Cross-Platform Auto Build & Release
+    name: 🧱 Cross-Platform Auto Build
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -63,22 +63,31 @@ jobs:
           echo "✅ Build complete for $RUNNER_OS"
 
       # ================================================================
-      # 📦 4. Package
+      # 📦 4. Package (per platform)
       # ================================================================
-      - name: 📦 Package Build Artifacts
+      - name: 📦 Package Artifacts
+        shell: bash
         run: |
-          mkdir -p dist/${{ matrix.os }}
-          cp -r build/* dist/${{ matrix.os }}/ || true
-          echo "✅ Packaged artifacts for ${{ matrix.os }}"
+          mkdir -p dist
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            7z a r3c_full_assets_windows.zip ./build/*
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            tar -czf r3c_full_assets_macos.tar.gz -C build .
+          else
+            tar -czf r3c_full_assets_linux.tar.gz -C build .
+          fi
+          echo "✅ Packaged $RUNNER_OS artifacts."
 
       # ================================================================
-      # 💾 5. Upload Artifacts
+      # 💾 5. Upload each platform artifact
       # ================================================================
-      - name: 💾 Upload OS Artifacts
+      - name: 💾 Upload Platform Artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
-          path: dist/${{ matrix.os }}
+          path: |
+            *.tar.gz
+            *.zip
 
   # ====================================================================
   # 🏷️ TAG + RELEASE
@@ -89,45 +98,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ================================================================
-      # 1. Checkout
-      # ================================================================
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # ================================================================
-      # 2. Download all artifacts
-      # ================================================================
-      - name: 📦 Download all OS Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: merged_artifacts
-
-      # ================================================================
-      # 3. Merge + Compress
-      # ================================================================
-      - name: 🧩 Merge all build artifacts
-        run: |
-          echo "📦 Merging artifacts..."
-          mkdir -p release_assets
-          cp -r merged_artifacts/* release_assets/
-          tar -czf r3c_full_assets_${{ github.run_id }}.tar.gz release_assets
-          echo "✅ Assets ready for release."
-
-      # ================================================================
-      # 3.5. ⚙️ Setup Git Identity (fix for Committer unknown)
-      # ================================================================
       - name: ⚙️ Setup Git Identity
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      # ================================================================
-      # 4. Auto Tag
-      # ================================================================
       - name: 🏷️ Create Auto Stable Tag
         id: tag
         run: |
@@ -136,9 +117,11 @@ jobs:
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # ================================================================
-      # 5. Generate Auto Changelog (universal-safe)
-      # ================================================================
+      - name: 📦 Download all OS Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+
       - name: 🧾 Generate Changelog
         id: changelog
         shell: bash
@@ -146,14 +129,9 @@ jobs:
           echo "🧾 Generating changelog..."
           git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
           echo "✅ Changelog created."
-          
-          # collapse multi-line changelog into safe single-line for GitHub output
           LOG_CONTENT=$(cat CHANGELOG.md | sed ':a;N;$!ba;s/\n/\\n/g')
           printf "log=%s\n" "$LOG_CONTENT" >> "$GITHUB_OUTPUT"
 
-      # ================================================================
-      # 6. Publish Release
-      # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -168,14 +146,12 @@ jobs:
             - Recent Commits:
             ${{ steps.changelog.outputs.log }}
           files: |
-            r3c_full_assets_${{ github.run_id }}.tar.gz
+            release_assets/**/*.tar.gz
+            release_assets/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ================================================================
-      # 7. Summary
-      # ================================================================
-      - name: ✅ Print Summary
+      - name: ✅ Summary
         run: |
-          echo "🎉 Multi-OS Auto Stable Release Complete!"
+          echo "🎉 Auto Stable Multi-Platform Release Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
