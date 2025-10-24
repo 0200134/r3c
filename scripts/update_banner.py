@@ -1,87 +1,110 @@
-import os, requests, datetime, matplotlib.pyplot as plt
-
-# Headless 환경에서도 matplotlib 동작하도록 설정
+import os
+import requests
+import datetime
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
-repo = os.getenv("GITHUB_REPOSITORY", "r3c-foundation/r3c")
-token = os.getenv("GH_TOKEN")
+# ================================================================
+# 🔧 Environment & Constants
+# ================================================================
+REPO = os.getenv("GITHUB_REPOSITORY", "r3c-foundation/r3c")
+TOKEN = os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+HEADERS = {"Authorization": f"token {TOKEN}"} if TOKEN else {}
 
-headers = {"Authorization": f"token {token}"} if token else {}
-views_url = f"https://api.github.com/repos/{repo}/traffic/views"
-clones_url = f"https://api.github.com/repos/{repo}/traffic/clones"
-info_url = f"https://api.github.com/repos/{repo}"
+README_PATH = "README.md"
+GRAPH_PATH = "traffic_graph.png"
 
-# === API 호출 ===
-try:
-    views = requests.get(views_url, headers=headers).json()
-    clones = requests.get(clones_url, headers=headers).json()
-    info = requests.get(info_url, headers=headers).json()
-except Exception as e:
-    print("⚠️ GitHub API error:", e)
-    views, clones, info = {}, {}, {}
+# ================================================================
+# 📊 Fetch GitHub Traffic Data
+# ================================================================
+def fetch_traffic():
+    views_url = f"https://api.github.com/repos/{REPO}/traffic/views"
+    clones_url = f"https://api.github.com/repos/{REPO}/traffic/clones"
 
-total_views = views.get("count", 0)
-unique_visitors = views.get("uniques", 0)
-total_clones = clones.get("count", 0)
-unique_cloners = clones.get("uniques", 0)
-stars = info.get("stargazers_count", 0)
-license_name = info.get("license", {}).get("spdx_id", "MIT")
+    views_data = requests.get(views_url, headers=HEADERS).json()
+    clones_data = requests.get(clones_url, headers=HEADERS).json()
 
-# === 그래프 생성 ===
-try:
-    days = [v["timestamp"][:10] for v in views.get("views", [])]
-    counts = [v["count"] for v in views.get("views", [])]
-    plt.figure(figsize=(6,3))
-    plt.plot(days, counts, marker="o", color="lime")
-    plt.title("R3C Traffic (Last 14 days)")
-    plt.xlabel("Date")
-    plt.ylabel("Views")
-    plt.grid(True, alpha=0.3)
-    plt.xticks(rotation=45, ha="right")
+    views_count = views_data.get("count", 0)
+    views_uniques = views_data.get("uniques", 0)
+    clones_count = clones_data.get("count", 0)
+    clones_uniques = clones_data.get("uniques", 0)
+
+    # 그래프용 데이터
+    views_daily = views_data.get("views", [])
+    clones_daily = clones_data.get("clones", [])
+
+    return {
+        "views": views_count,
+        "unique_views": views_uniques,
+        "clones": clones_count,
+        "unique_clones": clones_uniques,
+        "views_daily": views_daily,
+        "clones_daily": clones_daily,
+    }
+
+# ================================================================
+# 📈 Generate Traffic Graph
+# ================================================================
+def make_graph(data):
+    plt.figure(figsize=(6, 3))
+    plt.plot([v["count"] for v in data["views_daily"]], label="Views", linewidth=2)
+    plt.plot([c["count"] for c in data["clones_daily"]], label="Clones", linewidth=2)
+    plt.title("GitHub Traffic (14d)")
+    plt.legend()
     plt.tight_layout()
-    plt.savefig("traffic_graph.png", dpi=120)
-    print("✅ traffic_graph.png generated.")
-except Exception as e:
-    print("⚠️ Graph error:", e)
-    from PIL import Image, ImageDraw
-    img = Image.new("RGB", (600, 300), color=(30,30,30))
-    draw = ImageDraw.Draw(img)
-    draw.text((180,130), "📊 No data yet", fill=(180,180,180))
-    img.save("traffic_graph.png")
-    print("🪄 Placeholder graph created.")
+    plt.savefig(GRAPH_PATH)
+    plt.close()
 
-# === 배너 구성 ===
-banner = f"""🌸 R3C — Rust Independence Compiler  
-Rewrite the base. Build compilers that heal themselves.  
-Cross-platform C++ · NASM · Rust transpiler pipeline
+# ================================================================
+# 🪄 Update README Banner Section
+# ================================================================
+def update_readme(data):
+    if not os.path.exists(README_PATH):
+        print("❌ README.md not found")
+        return
 
-⭐ Stars: {stars} 👁 Views(14d): {total_views} 🧭 Clones(14d): {total_clones}  
-⚖️ License: {license_name} 🕒 Updated: {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
-"""
+    now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
-# === README 삽입 ===
-try:
-    with open("README.md", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-except FileNotFoundError:
-    lines = []
+    banner = (
+        f"🌸 R3C — Rust Independence Compiler\n"
+        f"Rewrite the base. Build compilers that heal themselves.\n"
+        f"Cross-platform C++ · NASM · Rust transpiler pipeline\n\n"
+        f"⭐ Stars: 1   👁️ Views(14d): {data['views']}   "
+        f"🧭 Clones(14d): {data['clones']}\n"
+        f"🧑‍💻 Unique Visitors: {data['unique_views']}   "
+        f"🔁 Unique Cloners: {data['unique_clones']}\n"
+        f"⚖️ License: MIT   🕒 Updated: {now}\n\n"
+        f"![Traffic Graph]({GRAPH_PATH})\n"
+    )
 
-start, end = None, None
-for i, line in enumerate(lines):
-    if "<!--AUTO-BANNER-START-->" in line:
-        start = i
-    if "<!--AUTO-BANNER-END-->" in line:
-        end = i
+    with open(README_PATH, "r", encoding="utf-8") as f:
+        content = f.read()
 
-banner_block = f"<!--AUTO-BANNER-START-->\n{banner}\n![Traffic Graph](traffic_graph.png)\n<!--AUTO-BANNER-END-->\n"
+    # 기존 헤더부터 "Traffic Graph" 구간까지 교체
+    start = content.find("🌸 R3C")
+    end = content.find("![Traffic Graph]")
+    if start != -1:
+        if end != -1:
+            content = content[:start] + banner + content[end + len("![Traffic Graph](") :]
+        else:
+            content = banner + content
+    else:
+        content = banner + "\n" + content
 
-if start is not None and end is not None:
-    lines[start:end+1] = [banner_block]
-else:
-    lines.insert(0, banner_block + "\n")
+    with open(README_PATH, "w", encoding="utf-8") as f:
+        f.write(content)
 
-with open("README.md", "w", encoding="utf-8") as f:
-    f.writelines(lines)
+    print("✅ README updated successfully.")
 
-print("✅ README updated with banner + graph.")
+
+# ================================================================
+# 🚀 Main
+# ================================================================
+if __name__ == "__main__":
+    print("📡 Fetching GitHub traffic data...")
+    data = fetch_traffic()
+    print(f"✅ Views: {data['views']}, Clones: {data['clones']}")
+    make_graph(data)
+    update_readme(data)
+    print("🎉 README banner and traffic graph updated!")
