@@ -38,19 +38,28 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
       # ================================================================
-      # 🧩 3. Build
+      # 🧩 3-A. Build on Windows (PowerShell)
       # ================================================================
-      - name: 🧩 Build on ${{ matrix.os }}
+      - name: 🧩 Build on Windows
+        if: matrix.os == 'windows-latest'
         run: |
-          echo "🏗️ Building project on $RUNNER_OS..."
+          Write-Host "🏗️ Building on Windows..."
+          mkdir build
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          Write-Host "✅ Windows build complete."
+
+      # ================================================================
+      # 🧩 3-B. Build on macOS/Linux (bash)
+      # ================================================================
+      - name: 🧩 Build on Unix
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          echo "🏗️ Building on Unix ($RUNNER_OS)..."
           mkdir -p build
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-            cmake --build build --config Release
-          else
-            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-            cmake --build build --config Release -j$(nproc)
-          fi
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(nproc)
           echo "✅ Build complete for $RUNNER_OS"
 
       # ================================================================
@@ -146,7 +155,7 @@ jobs:
             - Commit: ${{ github.sha }}
             - Generated on: ${{ github.run_id }}
             - Platforms: Linux, macOS, Windows
-            - Last commits:
+            - Recent Commits:
             ${{ steps.changelog.outputs.log }}
           files: |
             r3c_full_assets_${{ github.run_id }}.tar.gz
