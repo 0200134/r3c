@@ -109,10 +109,24 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 🏷️ Create Auto Stable Tag
+      # ✅ 중복 방지 + 자동 증가 태그 생성
+      - name: 🏷️ Create Auto Stable Tag (Safe)
         id: tag
+        shell: bash
         run: |
           VERSION="v$(date +'%y.%m.%d-%H%M')-stable"
+
+          # 🔍 기존 태그 존재 시 카운터 붙이기
+          if git rev-parse "$VERSION" >/dev/null 2>&1; then
+            echo "⚠️ Tag $VERSION already exists. Generating new tag..."
+            COUNT=1
+            while git rev-parse "${VERSION}-${COUNT}" >/dev/null 2>&1; do
+              COUNT=$((COUNT+1))
+            done
+            VERSION="${VERSION}-${COUNT}"
+            echo "➡️ Using new tag: $VERSION"
+          fi
+
           git tag -a "$VERSION" -m "Auto Stable Release ($VERSION)"
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
