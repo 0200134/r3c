@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   schedule:
-    # 매년 1월 1일 자동 릴리스
+    # 매년 1월 1일 자동 릴리스 (UTC 기준)
     - cron: "0 0 1 1 *"
   workflow_dispatch:
 
@@ -166,20 +166,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ================================================================
-      # 7. 🔑 Token Refresh (GitHub App)
+      # 7. 🔑 Token Refresh (safe condition)
       # ================================================================
-      - name: 🔑 Refresh GitHub App Token (if available)
-        if: ${{ secrets.APP_PRIVATE_KEY != '' }}
+      - name: 🔑 Refresh GitHub App Token (if secrets exist)
+        if: ${{ env.APP_PRIVATE_KEY_EXISTS == 'true' }}
+        env:
+          APP_PRIVATE_KEY_EXISTS: ${{ secrets.APP_PRIVATE_KEY != null }}
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_INSTALLATION_ID: ${{ secrets.APP_INSTALLATION_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         run: |
           echo "🔄 Refreshing installation token..."
           npm install -g jsonwebtoken
-          echo "${{ secrets.APP_PRIVATE_KEY }}" > key.pem
+          echo "$APP_PRIVATE_KEY" > key.pem
           node -e "
             const fs = require('fs');
             const jwt = require('jsonwebtoken');
             const key = fs.readFileSync('key.pem');
             const token = jwt.sign(
-              { iss: '${{ secrets.APP_ID }}' },
+              { iss: process.env.APP_ID },
               key,
               { algorithm: 'RS256', expiresIn: '9m' }
             );
@@ -190,7 +195,7 @@ jobs:
           curl -s -X POST \
             -H "Authorization: Bearer $JWT" \
             -H "Accept: application/vnd.github+json" \
-            https://api.github.com/app/installations/${{ secrets.APP_INSTALLATION_ID }}/access_tokens \
+            https://api.github.com/app/installations/${APP_INSTALLATION_ID}/access_tokens \
             -o token.json
           cat token.json | jq -r '.token' > refreshed_token.txt
           echo "🔐 Token refreshed successfully"
