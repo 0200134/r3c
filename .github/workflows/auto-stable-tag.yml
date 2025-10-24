@@ -39,7 +39,7 @@ jobs:
           pip install requests matplotlib
 
       # ================================================================
-      # 3. Build (Linux only for simplicity — multi-OS optional)
+      # 3. Build (Linux only for simplicity)
       # ================================================================
       - name: 🧩 Build Project
         run: |
@@ -78,7 +78,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 7. Generate Changelog
+      # 7. Generate Changelog (EOF fixed)
       # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
@@ -86,9 +86,11 @@ jobs:
           echo "🧾 Generating changelog..."
           git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
           echo "✅ Changelog created."
-          echo "log<<EOF" >> $GITHUB_OUTPUT
-          cat CHANGELOG.md >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "log<<__CHANGELOG__"
+            cat CHANGELOG.md
+            echo "__CHANGELOG__"
+          } >> $GITHUB_OUTPUT
 
       # ================================================================
       # 8. Publish GitHub Release
