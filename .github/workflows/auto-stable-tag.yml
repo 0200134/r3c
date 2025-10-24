@@ -1,26 +1,89 @@
-name: 🔖 Auto Stable Tag (immutable)
+name: 🔖 Auto Stable Tag (Immutable)
 
 on:
   workflow_run:
     workflows: ["🧩 R3C Cross-Platform Build (stable)"]
-    types:
-      - completed
+    types: [completed]
 
 permissions:
-  contents: write  # 🔥 꼭 필요: 태그 푸시 권한
+  contents: write  # ✅ tag / release 생성에 필수
 
 jobs:
-  tag:
+  release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
-      - name: Create immutable timestamp tag
+
+      - name: 🕒 Generate immutable tag
+        id: tag
         run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           TAG="auto-stable-${TS}"
-          echo "Creating tag $TAG"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "✅ Generated tag: $TAG"
+
+      - name: ⚙️ Configure Git
+        run: |
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
+
+      - name: 🏷️ Create and push tag
+        run: |
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      # -----------------------------------------------------
+      # 🧱 BUILD PHASE (Cross Platform)
+      # -----------------------------------------------------
+      - name: 🧰 Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "3.28.3"
+
+      - name: 🧱 Build for Linux
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(nproc)
+          mkdir -p artifacts/linux
+          cp build/r3c artifacts/linux/r3c-linux
+
+      - name: 🍎 Build for macOS (Cross-compile)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang
+          cmake -B build-macos -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-macos --config Release -j$(nproc)
+          mkdir -p artifacts/macos
+          cp build-macos/r3c artifacts/macos/r3c-macos
+
+      - name: 🪟 Build for Windows (Cross-compile via MinGW)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y mingw-w64
+          cmake -B build-win -S . -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-win --config Release -j$(nproc)
+          mkdir -p artifacts/windows
+          cp build-win/r3c.exe artifacts/windows/r3c-windows.exe
+
+      # -----------------------------------------------------
+      # 📦 CREATE RELEASE
+      # -----------------------------------------------------
+      - name: 📦 Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "R3C Stable — ${{ env.TAG }}"
+          body: |
+            🧩 **R3C Immutable Stable Release**
+            - Tag: `${{ env.TAG }}`
+            - Source: [r3c-foundation/r3c](https://github.com/r3c-foundation/r3c)
+            - Auto-generated after successful cross-platform stable build.
+            - Includes binaries for: Linux, macOS, and Windows.
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/linux/r3c-linux
+            artifacts/macos/r3c-macos
+            artifacts/windows/r3c-windows.exe
