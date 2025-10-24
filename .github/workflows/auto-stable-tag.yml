@@ -1,11 +1,12 @@
-name: 🔖 Auto Stable Tag & Release (Self-Alive, Multi-OS, Token Refresh)
+name: 🔖 Auto Stable Tag, Banner & Traffic (Self-Alive Ecosystem)
 
 on:
   push:
     branches: [main]
   schedule:
-    # 매년 1월 1일 자동 릴리스 (UTC 기준)
+    # 매년 1월 1일 자동 릴리스 + 매주 일요일 배너 갱신
     - cron: "0 0 1 1 *"
+    - cron: "0 3 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -23,26 +24,17 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      # ================================================================
-      # 🧰 1. Checkout
-      # ================================================================
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # ================================================================
-      # ⚙️ 2. Configure Git
-      # ================================================================
       - name: ⚙️ Setup Git Environment
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      # ================================================================
-      # 🧩 3-A. Build on Windows
-      # ================================================================
       - name: 🧩 Build on Windows
         if: matrix.os == 'windows-latest'
         run: |
@@ -52,9 +44,6 @@ jobs:
           cmake --build build --config Release
           Write-Host "✅ Windows build complete."
 
-      # ================================================================
-      # 🧩 3-B. Build on macOS/Linux
-      # ================================================================
       - name: 🧩 Build on Unix
         if: matrix.os != 'windows-latest'
         shell: bash
@@ -65,53 +54,35 @@ jobs:
           cmake --build build --config Release -j$(nproc)
           echo "✅ Build complete for $RUNNER_OS"
 
-      # ================================================================
-      # 📦 4. Package
-      # ================================================================
       - name: 📦 Package Build Artifacts
         run: |
           mkdir -p dist/${{ matrix.os }}
           cp -r build/* dist/${{ matrix.os }}/ || true
           echo "✅ Packaged artifacts for ${{ matrix.os }}"
 
-      # ================================================================
-      # 💾 5. Upload Artifacts
-      # ================================================================
       - name: 💾 Upload OS Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: dist/${{ matrix.os }}
 
-  # ====================================================================
-  # 🏷️ TAG + RELEASE + TOKEN REFRESH
-  # ====================================================================
   tag_release:
-    name: 🚀 Create Tag, Publish Release & Refresh Token
+    name: 🚀 Tag, Publish Release, Refresh Token, Update Banner
     needs: release
     runs-on: ubuntu-latest
 
     steps:
-      # ================================================================
-      # 1. Checkout
-      # ================================================================
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      # ================================================================
-      # 2. Download all artifacts
-      # ================================================================
       - name: 📦 Download all OS Artifacts
         uses: actions/download-artifact@v4
         with:
           path: merged_artifacts
 
-      # ================================================================
-      # 3. Merge + Compress
-      # ================================================================
       - name: 🧩 Merge all build artifacts
         run: |
           echo "📦 Merging artifacts..."
@@ -120,9 +91,6 @@ jobs:
           tar -czf r3c_full_assets_${{ github.run_id }}.tar.gz release_assets
           echo "✅ Assets ready for release."
 
-      # ================================================================
-      # 4. Auto Tag
-      # ================================================================
       - name: 🏷️ Create Auto Stable Tag
         id: tag
         run: |
@@ -131,9 +99,6 @@ jobs:
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # ================================================================
-      # 5. Generate Auto Changelog
-      # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
         run: |
@@ -144,9 +109,6 @@ jobs:
           cat CHANGELOG.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      # ================================================================
-      # 6. Publish Release
-      # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -166,9 +128,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ================================================================
-      # 7. 🔑 Token Refresh (safe condition)
+      # 🔁 Auto Banner + Traffic Update
       # ================================================================
-      - name: 🔑 Refresh GitHub App Token (if secrets exist)
+      - name: 🪄 Auto Update README Banner & Traffic Stats
+        run: |
+          echo "📊 Updating banner and traffic data..."
+          pip install requests matplotlib
+          python scripts/update_banner.py
+          git add README.md || true
+          git commit -m "📈 Auto-update README banner" || echo "No changes"
+          git push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ================================================================
+      # 🔑 Refresh GitHub App Token (safe)
+      # ================================================================
+      - name: 🔑 Refresh GitHub App Token (if App secrets exist)
         if: ${{ env.APP_PRIVATE_KEY_EXISTS == 'true' }}
         env:
           APP_PRIVATE_KEY_EXISTS: ${{ secrets.APP_PRIVATE_KEY != null }}
@@ -201,11 +177,9 @@ jobs:
           echo "🔐 Token refreshed successfully"
           echo "Partial token preview: $(head -c 20 refreshed_token.txt)****"
 
-      # ================================================================
-      # 8. ✅ Summary
-      # ================================================================
       - name: ✅ Print Summary
         run: |
-          echo "🎉 Multi-OS Auto Stable Release + Annual Renewal Complete!"
+          echo "🎉 Multi-OS Auto Stable Release, Banner, and Token Refresh Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
+          echo "📊 Banner updated."
           echo "🔐 Token refreshed (if App used)."
