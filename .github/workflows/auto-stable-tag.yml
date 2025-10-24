@@ -1,10 +1,10 @@
-name: 🔖 Auto Stable Tag, Banner & Traffic (Self-Alive Ecosystem)
+name: 🔖 Auto Stable Tag, Banner & Traffic Graph (Self-Alive Ecosystem)
 
 on:
   push:
     branches: [main]
   schedule:
-    # 매년 1월 1일 자동 릴리스 + 매주 일요일 배너 갱신
+    # 매년 1월 1일 릴리스 + 매주 일요일 03시 그래프 업데이트
     - cron: "0 0 1 1 *"
     - cron: "0 3 * * 0"
   workflow_dispatch:
@@ -15,82 +15,60 @@ permissions:
   actions: read
 
 jobs:
-  release:
-    name: 🧱 Cross-Platform Auto Build & Release
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+  ecosystem:
+    name: 🧱 Auto Build + Release + Banner + Graph
+    runs-on: ubuntu-latest
 
     steps:
+      # ================================================================
+      # 1. Checkout
+      # ================================================================
       - name: 🧰 Checkout repository
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: ⚙️ Setup Git Environment
+      # ================================================================
+      # 2. Setup Environment
+      # ================================================================
+      - name: ⚙️ Setup Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip cmake g++
+          pip install requests matplotlib
+
+      # ================================================================
+      # 3. Build (Linux only for simplicity — multi-OS optional)
+      # ================================================================
+      - name: 🧩 Build Project
+        run: |
+          echo "🏗️ Building project..."
+          mkdir -p build
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(nproc)
+          echo "✅ Build complete."
+
+      # ================================================================
+      # 4. Package Build Artifacts
+      # ================================================================
+      - name: 📦 Package Build Artifacts
+        run: |
+          mkdir -p dist
+          cp -r build/* dist/ || true
+          echo "✅ Artifacts packaged."
+
+      # ================================================================
+      # 5. ⚙️ Setup Git Identity (fix committer unknown)
+      # ================================================================
+      - name: ⚙️ Setup Git Identity
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 🧩 Build on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          Write-Host "🏗️ Building on Windows..."
-          mkdir build
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
-          Write-Host "✅ Windows build complete."
-
-      - name: 🧩 Build on Unix
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: |
-          echo "🏗️ Building on Unix ($RUNNER_OS)..."
-          mkdir -p build
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -j$(nproc)
-          echo "✅ Build complete for $RUNNER_OS"
-
-      - name: 📦 Package Build Artifacts
-        run: |
-          mkdir -p dist/${{ matrix.os }}
-          cp -r build/* dist/${{ matrix.os }}/ || true
-          echo "✅ Packaged artifacts for ${{ matrix.os }}"
-
-      - name: 💾 Upload OS Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: r3c-${{ matrix.os }}
-          path: dist/${{ matrix.os }}
-
-  tag_release:
-    name: 🚀 Tag, Publish Release, Refresh Token, Update Banner
-    needs: release
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: 🧰 Checkout repository
-        uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          fetch-depth: 0
-
-      - name: 📦 Download all OS Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: merged_artifacts
-
-      - name: 🧩 Merge all build artifacts
-        run: |
-          echo "📦 Merging artifacts..."
-          mkdir -p release_assets
-          cp -r merged_artifacts/* release_assets/
-          tar -czf r3c_full_assets_${{ github.run_id }}.tar.gz release_assets
-          echo "✅ Assets ready for release."
-
+      # ================================================================
+      # 6. Create Auto Stable Tag
+      # ================================================================
       - name: 🏷️ Create Auto Stable Tag
         id: tag
         run: |
@@ -99,6 +77,9 @@ jobs:
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      # ================================================================
+      # 7. Generate Changelog
+      # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
         run: |
@@ -109,6 +90,9 @@ jobs:
           cat CHANGELOG.md >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+      # ================================================================
+      # 8. Publish GitHub Release
+      # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -119,32 +103,31 @@ jobs:
             - Repository: ${{ github.repository }}
             - Commit: ${{ github.sha }}
             - Generated on: ${{ github.run_id }}
-            - Platforms: Linux, macOS, Windows
+            - Platform: Linux (auto)
             - Recent Commits:
             ${{ steps.changelog.outputs.log }}
           files: |
-            r3c_full_assets_${{ github.run_id }}.tar.gz
+            dist/**
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ================================================================
-      # 🔁 Auto Banner + Traffic Update
+      # 9. Auto Banner + Traffic Graph Update
       # ================================================================
-      - name: 🪄 Auto Update README Banner & Traffic Stats
+      - name: 🪄 Auto Update README Banner & Traffic Graph
         run: |
           echo "📊 Updating banner and traffic data..."
-          pip install requests matplotlib
           python scripts/update_banner.py
-          git add README.md || true
-          git commit -m "📈 Auto-update README banner" || echo "No changes"
+          git add README.md traffic_graph.png || true
+          git commit -m "📈 Auto-update README (banner + graph)" || echo "No changes"
           git push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ================================================================
-      # 🔑 Refresh GitHub App Token (safe)
+      # 10. Refresh GitHub App Token (if App secrets exist)
       # ================================================================
-      - name: 🔑 Refresh GitHub App Token (if App secrets exist)
+      - name: 🔑 Refresh GitHub App Token (safe)
         if: ${{ env.APP_PRIVATE_KEY_EXISTS == 'true' }}
         env:
           APP_PRIVATE_KEY_EXISTS: ${{ secrets.APP_PRIVATE_KEY != null }}
@@ -177,9 +160,12 @@ jobs:
           echo "🔐 Token refreshed successfully"
           echo "Partial token preview: $(head -c 20 refreshed_token.txt)****"
 
+      # ================================================================
+      # 11. ✅ Print Summary
+      # ================================================================
       - name: ✅ Print Summary
         run: |
-          echo "🎉 Multi-OS Auto Stable Release, Banner, and Token Refresh Complete!"
+          echo "🎉 Auto Stable Release + Banner + Graph + Token Refresh Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
           echo "📊 Banner updated."
           echo "🔐 Token refreshed (if App used)."
