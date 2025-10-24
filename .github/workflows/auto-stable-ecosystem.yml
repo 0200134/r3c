@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Windows-safe Final)
+name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final + Graph Fix)
 
 on:
   push:
@@ -14,9 +14,6 @@ permissions:
   actions: read
 
 jobs:
-  # ================================================================
-  # 🧱 1. Multi-Platform Build
-  # ================================================================
   build:
     name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -37,7 +34,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 🧩 Configure + Build (cross-platform safe)
+      - name: 🧩 Configure + Build
         shell: bash
         run: |
           echo "🏗️ Building on $RUNNER_OS..."
@@ -70,11 +67,8 @@ jobs:
           name: r3c-${{ matrix.os }}
           path: dist/*
 
-  # ================================================================
-  # 🚀 2. Tag + Release + SHA256 + PGP Sign + Banner
-  # ================================================================
   release:
-    name: 🚀 Tag + Release + Verify
+    name: 🚀 Tag + Multi-OS Release + Sign + Graph
     runs-on: ubuntu-latest
     needs: build
 
@@ -90,7 +84,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 📦 Download all platform builds
+      - name: 📦 Download all builds
         uses: actions/download-artifact@v4
         with:
           path: merged_artifacts
@@ -115,9 +109,6 @@ jobs:
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      # ================================================================
-      # 🔐 SHA256 + GPG Sign
-      # ================================================================
       - name: 🔐 Generate SHA256 + PGP Signatures
         id: sign
         env:
@@ -168,19 +159,19 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🪄 Auto Update README Banner & Graph
+      - name: 🪄 Auto Update README + Graph
         run: |
-          echo "📊 Updating banner + graph..."
+          echo "📊 Updating README banner + graph..."
           python scripts/update_banner.py
-          echo "\n\n### 🔐 Latest SHA256 Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n\n✅ **Signed file:** \`SHA256SUMS.txt.asc\` (verify with \`gpg --verify\`)" >> README.md
+          echo "\n\n### 🔐 Latest SHA256 Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n✅ **Signed file:** \`SHA256SUMS.txt.asc\` (verify with \`gpg --verify\`)" >> README.md
           git add README.md traffic_graph.png || true
-          git commit -m "📈 Auto-update README (banner + SHA256 + graph)" || echo "No changes"
+          git commit -m "📈 Auto-update README (banner + graph + SHA256)" || echo "No changes"
           git push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: ✅ Summary
         run: |
-          echo "🎉 Multi-Platform Release + SHA256 + PGP Sign Complete!"
+          echo "🎉 Multi-Platform Release Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
-          echo "🔐 All platforms built successfully."
+          echo "🔐 Checksums + Banner + Graph updated."
