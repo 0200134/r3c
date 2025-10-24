@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag (Immutable)
+name: 🔖 Auto Stable Tag & Release (PAT-based Immutable)
 
 on:
   workflow_run:
@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: write
+  contents: read  # ✅ 기본 read만, write는 PAT이 대신 수행
 
 jobs:
   release:
@@ -16,31 +16,88 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # -------------------------------------------------------
+      # 🕒 Generate tag
+      # -------------------------------------------------------
       - name: 🕒 Generate immutable tag
         run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           echo "TAG=auto-stable-${TS}" >> $GITHUB_ENV
+          echo "✅ Generated tag: auto-stable-${TS}"
 
-      - name: ⚙️ Configure Git
+      # -------------------------------------------------------
+      # ⚙️ Git config + remote token setup
+      # -------------------------------------------------------
+      - name: ⚙️ Configure Git (with PAT)
         run: |
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/r3c-foundation/r3c.git
 
+      # -------------------------------------------------------
+      # 🏷️ Create and push tag
+      # -------------------------------------------------------
       - name: 🏷️ Create and push tag
         run: |
           git tag "${TAG}"
           git push origin "${TAG}"
 
+      # -------------------------------------------------------
+      # 🧰 Build (Cross Platform)
+      # -------------------------------------------------------
+      - name: 🧰 Set up CMake
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "3.28.3"
+
+      - name: 🧱 Build (Linux)
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release -j$(nproc)
+          mkdir -p artifacts/linux
+          cp build/r3c artifacts/linux/r3c-linux
+
+      - name: 🍎 Build (macOS cross)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y clang
+          cmake -B build-macos -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-macos --config Release -j$(nproc)
+          mkdir -p artifacts/macos
+          cp build-macos/r3c artifacts/macos/r3c-macos
+
+      - name: 🪟 Build (Windows cross via MinGW)
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y mingw-w64
+          cmake -B build-win -S . -DCMAKE_TOOLCHAIN_FILE=cmake/toolchains/mingw.cmake -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-win --config Release -j$(nproc)
+          mkdir -p artifacts/windows
+          cp build-win/r3c.exe artifacts/windows/r3c-windows.exe
+
+      # -------------------------------------------------------
+      # 📦 Create GitHub Release (with PAT)
+      # -------------------------------------------------------
       - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}   # 🔥 이게 핵심
+          token: ${{ secrets.GH_TOKEN }}   # ✅ 핵심: PAT으로 인증
           tag_name: ${{ env.TAG }}
           name: "R3C Stable — ${{ env.TAG }}"
           body: |
             🧩 **R3C Immutable Stable Release**
             - Tag: `${{ env.TAG }}`
             - Source: [r3c-foundation/r3c](https://github.com/r3c-foundation/r3c)
-            - Auto-generated after successful cross-platform stable build.
+            - Generated automatically after successful build.
+            - Includes prebuilt binaries for:
+              - 🐧 Linux
+              - 🍎 macOS
+              - 🪟 Windows
+            ---
+            _This release is generated via a fine-grained Personal Access Token (GH_TOKEN)._  
           draft: false
           prerelease: false
+          files: |
+            artifacts/linux/r3c-linux
+            artifacts/macos/r3c-macos
+            artifacts/windows/r3c-windows.exe
