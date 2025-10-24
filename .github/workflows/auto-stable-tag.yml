@@ -137,20 +137,19 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 5. Generate Auto Changelog (safe delimiter)
+      # 5. Generate Auto Changelog (universal-safe)
       # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
+        shell: bash
         run: |
           echo "🧾 Generating changelog..."
           git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
           echo "✅ Changelog created."
-
-          {
-            echo 'log<<CHANGELOG'
-            cat CHANGELOG.md
-            echo 'CHANGELOG'
-          } >> "$GITHUB_OUTPUT"
+          
+          # collapse multi-line changelog into safe single-line for GitHub output
+          LOG_CONTENT=$(cat CHANGELOG.md | sed ':a;N;$!ba;s/\n/\\n/g')
+          printf "log=%s\n" "$LOG_CONTENT" >> "$GITHUB_OUTPUT"
 
       # ================================================================
       # 6. Publish Release
