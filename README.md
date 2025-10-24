@@ -1,3 +1,5 @@
+📦 Repository has been officially moved to r3c-foundation/r3c.
+
 why  I  build  these:  I  want use more  stable, reliable rust.  And  i  want  to  use rust  more  consistently.
 
 📢 **Notice — Ownershi6p Transfer Invitation**
@@ -149,6 +151,7 @@ so once merged, they’re automatically included in the next **Auto Stable Relea
 SHA256 hash of r3c-windows-latest.zip:
 0e559938a0fd25be65fa058d53066eb209a73c730a0019ca5a6ea089d5908080
 CertUtil: -hashfile command completed successfully.
+
 ```
 
 ```
