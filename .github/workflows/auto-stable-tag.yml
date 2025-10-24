@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Release (Per-Platform Assets + Changelog)
+name: 🔖 Auto Stable Tag & Release (Per-Platform Assets + Changelog + Banner Update)
 
 on:
   push:
@@ -90,10 +90,10 @@ jobs:
             *.zip
 
   # ====================================================================
-  # 🏷️ TAG + RELEASE
+  # 🏷️ TAG + RELEASE + README UPDATE
   # ====================================================================
   tag_release:
-    name: 🚀 Create Tag & Publish Release
+    name: 🚀 Create Tag, Publish Release, and Update Banner
     needs: release
     runs-on: ubuntu-latest
 
@@ -116,7 +116,6 @@ jobs:
         run: |
           VERSION="v$(date +'%y.%m.%d-%H%M')-stable"
 
-          # 🔍 기존 태그 존재 시 카운터 붙이기
           if git rev-parse "$VERSION" >/dev/null 2>&1; then
             echo "⚠️ Tag $VERSION already exists. Generating new tag..."
             COUNT=1
@@ -165,7 +164,28 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ================================================================
+      # 🧠 README Banner Auto Update
+      # ================================================================
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: 🔁 Update README Banner
+        run: |
+          pip install requests
+          python scripts/update_banner.py
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 💾 Commit Banner Update
+        run: |
+          git add README.md
+          git diff --quiet && echo "No changes to commit." || git commit -m "🔁 Auto-update README banner"
+          git push
+
       - name: ✅ Summary
         run: |
-          echo "🎉 Auto Stable Multi-Platform Release Complete!"
+          echo "🎉 Auto Stable Release + README Banner Updated!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
