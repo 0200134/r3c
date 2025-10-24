@@ -1,41 +1,30 @@
-name: 🔖 Auto Stable Tag & Full Release (Immutable + PAT)
+name: 🔖 Auto Stable Tag (PAT-fix)
 
 on:
-  workflow_run:
-    workflows: ["🧩 R3C Cross-Platform Build (stable)"]
-    types: [completed]
+  workflow_dispatch:
 
 permissions:
-  contents: read   # ✅ PAT이 대신 write 수행
+  contents: read
 
 env:
-  GH_REPO: r3c-foundation/r3c
-  GH_USER: r3c-bot
-  GH_EMAIL: r3c-bot@users.noreply.github.com
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}   # ✅ PAT을 전역 환경 변수로 등록
+  GH_TOKEN: ${{ secrets.GH_TOKEN }}
 
 jobs:
-  release:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+  tag:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: 🕒 Generate immutable tag
-        run: |
-          TS=$(date -u +'%Y%m%d-%H%M%S')
-          echo "TAG=auto-stable-${TS}" >> $GITHUB_ENV
-          echo "✅ Generated tag: auto-stable-${TS}"
-
       - name: ⚙️ Configure Git with PAT
         run: |
-          git config user.name "${GH_USER}"
-          git config user.email "${GH_EMAIL}"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git
-          git fetch origin
+          git config user.name "r3c-bot"
+          git config user.email "r3c-bot@users.noreply.github.com"
+          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/r3c-foundation/r3c.git
 
-      - name: 🏷️ Create and push tag (using PAT)
+      - name: 🏷️ Create and push tag using PAT
         run: |
-          git tag "${TAG}"
-          git push origin "${TAG}"
+          TS=$(date -u +'%Y%m%d-%H%M%S')
+          TAG="auto-stable-${TS}"
+          echo "Creating $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"
