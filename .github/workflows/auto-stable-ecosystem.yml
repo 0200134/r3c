@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final Safe Edition)
+name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final Windows-Safe Edition)
 
 on:
   push:
@@ -56,7 +56,8 @@ jobs:
         run: |
           mkdir -p dist
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            powershell Compress-Archive -Path build/* -DestinationPath dist/r3c-windows.zip
+            echo "📦 Compressing Windows build..."
+            powershell Compress-Archive -Path build -DestinationPath dist\\r3c-windows.zip
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
             tar -czf dist/r3c-macos.tar.gz build
           else
@@ -96,7 +97,7 @@ jobs:
           path: merged_artifacts
 
       # ================================================================
-      # 🧾 Safe Changelog (no delimiter bug)
+      # 🧾 Safe Changelog (No delimiter bug)
       # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
@@ -115,7 +116,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 🔐 SHA256 + GPG Signatures
+      # 🔐 SHA256 + Optional PGP
       # ================================================================
       - name: 🔐 Generate SHA256 + Optional PGP
         id: sign
@@ -142,7 +143,7 @@ jobs:
           cd ..
 
       # ================================================================
-      # 🚀 Publish GitHub Release (safe changelog ref)
+      # 🚀 Publish GitHub Release
       # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
