@@ -1,8 +1,8 @@
-name: R3C Auto Stable Tag (v1)
+name: 🔖 Auto Stable Tag (immutable)
 
 on:
   workflow_run:
-    workflows: ["R3C Solo Autonomous Build (v13-cross-safe)"]
+    workflows: ["🧩 R3C Cross-Platform Build (stable)"]
     types:
       - completed
 
@@ -11,11 +11,13 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Create auto-stable tag
+      - uses: actions/checkout@v4
+      - name: Create immutable timestamp tag
         run: |
-          TAG="auto-stable-v1"
-          git tag -f $TAG
-          git push origin $TAG --force
+          TS=$(date -u +'%Y%m%d-%H%M%S')
+          TAG="auto-stable-${TS}"
+          echo "Creating tag $TAG"
+          git config user.name "r3c-bot"
+          git config user.email "r3c-bot@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"

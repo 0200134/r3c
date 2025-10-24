@@ -1,13 +1,12 @@
-name: 🧩 R3C Cross-Platform Auto Build & Release (v6.6 LTS)
+name: 🧩 R3C Cross-Platform Build (stable)
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch:
+  pull_request:
 
 jobs:
   build:
-    name: 🧱 Build on ${{ matrix.os }}
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -15,98 +14,76 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: 🧰 Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: ⚙️ Set up CMake
+      - name: Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
-      # ============================================
-      # 🪟 Windows (PowerShell)
-      # ============================================
-      - name: 🪟 Configure (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          echo "🪟 Configuring for Windows..."
-          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-
-      - name: 🪟 Build (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          echo "🪟 Building..."
-          cmake --build build --config Release --target r3c_cli
-
-      - name: 🪟 Package (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          echo "🪟 Packaging..."
-          mkdir dist
-          Copy-Item "build/Release/r3c_cli.exe" -Destination "dist/"
-          Compress-Archive -Path "dist/*" -DestinationPath "r3c-windows-latest.zip"
-
-      # ============================================
-      # 🐧 macOS / Linux (Bash)
-      # ============================================
-      - name: 🧩 Configure (Unix)
+      - name: Configure (Linux/macOS)
         if: matrix.os != 'windows-latest'
         shell: bash
-        run: |
-          echo "⚙️ Configuring for $RUNNER_OS..."
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
 
-      - name: 🔨 Build (Unix)
+      - name: Configure (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build (Linux/macOS)
         if: matrix.os != 'windows-latest'
         shell: bash
-        run: |
-          echo "🔨 Building for $RUNNER_OS..."
-          cmake --build build --target r3c_cli -j$(nproc || sysctl -n hw.ncpu)
+        run: cmake --build build --config Release -j
 
-      - name: 📦 Package (Unix)
-        if: matrix.os != 'windows-latest'
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: cmake --build build --config Release --target r3c_cli
+
+      - name: Demo generate outputs
         shell: bash
         run: |
-          echo "📦 Packaging..."
-          mkdir -p dist
-          cp build/r3c_cli dist/
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
-            zip -r r3c-macos-latest.zip dist
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            ./build/Release/r3c_cli.exe --outdir build/out
           else
-            zip -r r3c-linux-latest.zip dist
+            ./build/r3c_cli --outdir build/out
           fi
+          ls -la build/out || true
 
-      # ============================================
-      # 🚀 Upload artifacts
-      # ============================================
-      - name: 🚀 Upload Artifacts
+      - name: Assemble & link on Ubuntu (demo proof)
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get update && sudo apt-get install -y nasm
+          nasm -felf64 build/out/output.asm -o build/out/output.o
+          ld -o build/out/r3c_demo build/out/output.o
+          file build/out/r3c_demo || true
+          echo "Size:"; stat -c%s build/out/r3c_demo
+
+      - name: Package artifact
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp -r build/out dist/
+          if [[ -f build/out/r3c_demo ]]; then cp build/out/r3c_demo dist/; fi
+          tar -czf r3c-${{ matrix.os }}.tar.gz -C dist .
+
+      - name: Package artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item build\out dist\ -Recurse -Force
+          Compress-Archive -Path dist\* -DestinationPath r3c-windows-latest.zip -Force
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: |
-            r3c-*-latest.zip
-
-  # ============================================
-  # 🧾 Auto Release
-  # ============================================
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: 🧾 Download All Builds
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: 🚀 Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: auto-stable-${{ github.run_id }}
-          name: R3C Stable Auto Release (${{ github.run_id }})
-          files: |
-            artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            r3c-${{ matrix.os }}.tar.gz
+            r3c-windows-latest.zip
+          if-no-files-found: ignore
