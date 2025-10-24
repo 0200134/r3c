@@ -164,3 +164,5 @@ CertUtil: -hashfile command completed successfully.
 
 ![Traffic Graph](docs/traffic.png)
 
+---
+⭐ Starred by builders who believe Rust deserves independence.
