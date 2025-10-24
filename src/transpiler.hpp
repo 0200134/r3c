@@ -1,37 +1,24 @@
 #pragma once
 #include <string>
-#include <vector>
-#include <filesystem>
 
 namespace r3c {
 
+struct TranspileOptions {
+  std::string input_path;
+  std::string out_dir = "build/out";
+  bool emit_asm = false;
+  bool emit_rust = false;
+};
+
 class Transpiler {
 public:
-    Transpiler(const std::string& lts_version, bool verbose = true);
-
-    // 🧱 Stage 1: C++ → Rust
-    bool cpp_to_rust(const std::filesystem::path& input,
-                     const std::filesystem::path& output_dir);
-
-    // ⚙️ Stage 2: Rust → ASM
-    bool rust_to_asm(const std::filesystem::path& input,
-                     const std::filesystem::path& asm_out);
-
-    // 🧩 Pipeline integration
-    bool run_full_pipeline(const std::vector<std::string>& files,
-                           bool self_recompile,
-                           bool emit_asm,
-                           const std::string& asm_out,
-                           bool skip_bootstrap);
+  int run(const TranspileOptions& opt);
 
 private:
-    std::string lts_version_;
-    bool verbose_;
-    bool bootstrap_checked_ = false;
-
-    bool check_environment();
-    bool perform_bootstrap();
-    void log(const std::string& msg);
+  int ensure_out_dir(const std::string& outdir);
+  int write_text(const std::string& path, const std::string& content);
+  std::string toy_rust_stub();
+  std::string toy_linux_x64_nasm();
 };
 
 } // namespace r3c
