@@ -1,19 +1,33 @@
-#include "pipeline.hpp"
+#include "transpiler.hpp"
 #include <iostream>
-#include <vector>
 #include <string>
+#include <vector>
+
+using namespace r3c;
 
 int main(int argc, char** argv) {
-    using namespace std;
-    cout << "🧩 R3C CLI Start" << endl;
+  TranspileOptions opt;
+  // defaults
+  opt.emit_asm = true;
+  opt.emit_rust = true;
 
-    vector<string> files = { "example.cpp" };
-    string version = "v6.6-lts";
-    bool self_recompile = false;
-    bool emit_asm = true;
-    string asm_out = "build/output.asm";
-    bool skip_bootstrap = false;
-
-    int result = run_pipeline(files, version, self_recompile, emit_asm, asm_out, skip_bootstrap);
-    return result;
+  for(int i=1;i<argc;i++){
+    std::string a = argv[i];
+    if(a=="--input" && i+1<argc){ opt.input_path = argv[++i]; }
+    else if(a=="--outdir" && i+1<argc){ opt.out_dir = argv[++i]; }
+    else if(a=="--emit-asm"){ opt.emit_asm = true; }
+    else if(a=="--no-emit-asm"){ opt.emit_asm = false; }
+    else if(a=="--emit-rust"){ opt.emit_rust = true; }
+    else if(a=="--no-emit-rust"){ opt.emit_rust = false; }
+    else if(a=="-h" || a=="--help"){
+      std::cout << "r3c_cli usage:\n"
+                   "  --input <file>      input source (optional for demo)\n"
+                   "  --outdir <dir>      output directory (default: build/out)\n"
+                   "  --[no-]emit-asm     emit NASM file (default: on)\n"
+                   "  --[no-]emit-rust    emit Rust stub (default: on)\n";
+      return 0;
+    }
+  }
+  Transpiler t;
+  return t.run(opt);
 }
