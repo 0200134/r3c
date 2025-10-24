@@ -1,87 +1,52 @@
-import os, re, requests, sys
+import requests, os, json, datetime, matplotlib.pyplot as plt
 
-# ================================================================
-# 🧭 Repository Configuration
-# ================================================================
-OWNER = "r3c-foundation"
-REPO = "r3c"
-README_PATH = "README.md"
-
-# ================================================================
-# 🔐 Auth Header (GH_TOKEN)
-# ================================================================
+repo = os.getenv("GITHUB_REPOSITORY", "r3c-foundation/r3c")
 token = os.getenv("GH_TOKEN")
-if not token:
-    print("❌ Error: GH_TOKEN not found in environment.")
-    sys.exit(1)
 
-headers = {"Authorization": f"Bearer {token}"}
+headers = {"Authorization": f"token {token}"}
+stats_url = f"https://api.github.com/repos/{repo}/traffic/views"
+clones_url = f"https://api.github.com/repos/{repo}/traffic/clones"
+info_url = f"https://api.github.com/repos/{repo}"
 
-# ================================================================
-# 📊 Fetch Repository Info
-# ================================================================
-print("📡 Fetching repository statistics...")
+views = requests.get(stats_url, headers=headers).json()
+clones = requests.get(clones_url, headers=headers).json()
+info = requests.get(info_url, headers=headers).json()
 
-repo_info = requests.get(f"https://api.github.com/repos/{OWNER}/{REPO}", headers=headers).json()
-stars = repo_info.get("stargazers_count", 0)
+total_views = views.get("count", 0)
+unique_visitors = views.get("uniques", 0)
+total_clones = clones.get("count", 0)
+unique_cloners = clones.get("uniques", 0)
+stars = info.get("stargazers_count", 0)
+license_name = info.get("license", {}).get("spdx_id", "MIT")
 
-tags = requests.get(f"https://api.github.com/repos/{OWNER}/{REPO}/tags", headers=headers).json()
-version = tags[0]["name"] if tags else "v0.0.0"
-
-clones_data = requests.get(f"https://api.github.com/repos/{OWNER}/{REPO}/traffic/clones", headers=headers).json()
-views_data = requests.get(f"https://api.github.com/repos/{OWNER}/{REPO}/traffic/views", headers=headers).json()
-
-clones = clones_data.get("count", 0)
-unique_cloners = clones_data.get("uniques", 0)
-views = views_data.get("count", 0)
-visitors = views_data.get("uniques", 0)
-
-print(f"""
-⭐ Stars: {stars}
-🔖 Version: {version}
-🧭 Clones: {clones}
-👥 Unique Cloners: {unique_cloners}
-📈 Views: {views}
-👁 Unique Visitors: {visitors}
-""")
-
-# ================================================================
-# 🧩 Banner Block Template
-# ================================================================
-new_banner = f"""<!-- AUTO-BANNER:START -->
-🌸 **R3C — Rust Independence Compiler**  
+banner = f"""🌸 R3C — Rust Independence Compiler  
 Rewrite the base. Build compilers that heal themselves.  
-Cross-platform C++ · NASM · Rust transpiler pipeline  
+Cross-platform C++ · NASM · Rust transpiler pipeline
 
-| Stars | Version | Clones (14d) | Unique Cloners | Views (14d) | Visitors (14d) | License |
-|:------|:--------|:-------------|:----------------|:-------------|:----------------|:---------|
-| ⭐ {stars} | 🔖 {version} | 🧭 {clones} | 👥 {unique_cloners} | 📈 {views} | 👁 {visitors} | ⚖️ MIT |
-<!-- AUTO-BANNER:END -->
+Stars: ⭐ {stars}  
+Views (14d): 👁 {total_views} / {unique_visitors} unique  
+Clones (14d): 🧭 {total_clones} / {unique_cloners} unique  
+License: ⚖️ {license_name}  
+Updated: {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
 """
 
-# ================================================================
-# ✏️ Update README.md
-# ================================================================
-if not os.path.exists(README_PATH):
-    print(f"❌ README.md not found at path: {README_PATH}")
-    sys.exit(1)
+with open("README.md", "r", encoding="utf-8") as f:
+    lines = f.readlines()
 
-with open(README_PATH, "r", encoding="utf-8") as f:
-    content = f.read()
+# Replace between banner markers if present
+start, end = None, None
+for i, line in enumerate(lines):
+    if "<!--AUTO-BANNER-START-->" in line:
+        start = i
+    if "<!--AUTO-BANNER-END-->" in line:
+        end = i
 
-if "<!-- AUTO-BANNER:START -->" in content:
-    content = re.sub(
-        r"<!-- AUTO-BANNER:START -->.*<!-- AUTO-BANNER:END -->",
-        new_banner,
-        content,
-        flags=re.DOTALL
-    )
-    print("🔁 Existing banner updated.")
+if start is not None and end is not None:
+    lines[start+1:end] = [banner + "\n"]
 else:
-    content = new_banner + "\n\n" + content
-    print("🆕 Banner block added to README.")
+    lines.insert(0, "<!--AUTO-BANNER-START-->\n" + banner + "\n<!--AUTO-BANNER-END-->\n\n")
 
-with open(README_PATH, "w", encoding="utf-8") as f:
-    f.write(content)
+with open("README.md", "w", encoding="utf-8") as f:
+    f.writelines(lines)
 
-print("✅ README banner updated successfully!")
+print("✅ README banner updated successfully.")
