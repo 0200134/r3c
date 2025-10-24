@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Self-Alive Ecosystem)
+name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Windows-safe Final)
 
 on:
   push:
@@ -14,6 +14,9 @@ permissions:
   actions: read
 
 jobs:
+  # ================================================================
+  # 🧱 1. Multi-Platform Build
+  # ================================================================
   build:
     name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -34,15 +37,22 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 🧩 Build
+      - name: 🧩 Configure + Build (cross-platform safe)
+        shell: bash
         run: |
           echo "🏗️ Building on $RUNNER_OS..."
-          mkdir build
+          mkdir -p build
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release -j$(nproc 2>/dev/null || echo 4)
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake --build build --config Release
+          else
+            CORES=$(nproc 2>/dev/null || sysctl -n hw.ncpu || echo 4)
+            cmake --build build --config Release -j${CORES}
+          fi
           echo "✅ Build complete on $RUNNER_OS"
 
-      - name: 📦 Package
+      - name: 📦 Package artifacts
+        shell: bash
         run: |
           mkdir -p dist
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -52,6 +62,7 @@ jobs:
           else
             tar -czf dist/r3c-linux.tar.gz build
           fi
+          echo "✅ Packaged artifacts for $RUNNER_OS"
 
       - name: 💾 Upload artifact
         uses: actions/upload-artifact@v4
@@ -59,8 +70,11 @@ jobs:
           name: r3c-${{ matrix.os }}
           path: dist/*
 
+  # ================================================================
+  # 🚀 2. Tag + Release + SHA256 + PGP Sign + Banner
+  # ================================================================
   release:
-    name: 🚀 Multi-OS Release + Sign
+    name: 🚀 Tag + Release + Verify
     runs-on: ubuntu-latest
     needs: build
 
@@ -76,7 +90,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 📦 Download artifacts
+      - name: 📦 Download all platform builds
         uses: actions/download-artifact@v4
         with:
           path: merged_artifacts
@@ -102,24 +116,28 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 🔐 Generate SHA256 + PGP Sign
+      # 🔐 SHA256 + GPG Sign
       # ================================================================
-      - name: 🔐 Generate SHA256 and PGP signatures
+      - name: 🔐 Generate SHA256 + PGP Signatures
         id: sign
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          echo "🔍 Calculating SHA256 checksums..."
+          echo "🔍 Calculating SHA256..."
           cd merged_artifacts
           find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; > SHA256SUMS.txt
-          echo "✅ Checksums generated."
+          echo "✅ SHA256 complete."
 
-          echo "🔑 Importing GPG key..."
-          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
-          echo "🔏 Signing checksum file..."
-          echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --armor --detach-sign -o SHA256SUMS.txt.asc SHA256SUMS.txt
-          echo "✅ PGP signature created (SHA256SUMS.txt.asc)"
+          if [ -n "$GPG_PRIVATE_KEY" ]; then
+            echo "🔑 Importing GPG key..."
+            echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+            echo "🔏 Signing SHA256SUMS..."
+            echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --armor --detach-sign -o SHA256SUMS.txt.asc SHA256SUMS.txt
+            echo "✅ PGP signature created."
+          else
+            echo "⚠️ No GPG key detected — skipping signature."
+          fi
 
           echo "checksums<<__HASH__" >> $GITHUB_OUTPUT
           cat SHA256SUMS.txt >> $GITHUB_OUTPUT
@@ -141,7 +159,7 @@ jobs:
             ```
             ${{ steps.sign.outputs.checksums }}
             ```
-            - Signature: `SHA256SUMS.txt.asc`  
+            - Signature: `SHA256SUMS.txt.asc` (if available)
             - Recent Commits:
             ${{ steps.changelog.outputs.log }}
           files: |
@@ -150,12 +168,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🪄 Update README
+      - name: 🪄 Auto Update README Banner & Graph
         run: |
+          echo "📊 Updating banner + graph..."
           python scripts/update_banner.py
           echo "\n\n### 🔐 Latest SHA256 Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n\n✅ **Signed file:** \`SHA256SUMS.txt.asc\` (verify with \`gpg --verify\`)" >> README.md
           git add README.md traffic_graph.png || true
-          git commit -m "📈 Auto-update README (banner + signed SHA256)" || echo "No changes"
+          git commit -m "📈 Auto-update README (banner + SHA256 + graph)" || echo "No changes"
           git push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -164,4 +183,4 @@ jobs:
         run: |
           echo "🎉 Multi-Platform Release + SHA256 + PGP Sign Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
-          echo "🔐 SHA + PGP signature generated and uploaded."
+          echo "🔐 All platforms built successfully."
