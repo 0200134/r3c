@@ -1,3 +1,7 @@
+### ⚙️ R3C — The Rust Compiler that breathes without LLVM
+If you believe in compiler independence and long-term stability,  
+🌟 star this project and help shape the future of Rust sovereignty.
+
 📦 Repository has been officially moved to r3c-foundation/r3c.
 
 why  I  build  these:  I  want use more  stable, reliable rust.  And  i  want  to  use rust  more  consistently.
@@ -159,3 +163,4 @@ CertUtil: -hashfile command completed successfully.
 ```
 
 ![Traffic Graph](docs/traffic.png)
+
