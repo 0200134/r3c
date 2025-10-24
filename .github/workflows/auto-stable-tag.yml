@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Release (R3C Foundation Verified)
+name: 🔖 Auto Stable Tag & Release (Full Assets)
 
 on:
   workflow_run:
@@ -18,25 +18,25 @@ jobs:
       BOT_EMAIL: r3c-bot@users.noreply.github.com
 
     steps:
-      # ✅ PAT 기반으로 전체 체크아웃
-      - name: 🧰 Checkout with Personal Access Token
+      # ✅ 1. PAT으로 전체 리포 가져오기
+      - name: 🧰 Checkout with PAT
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
           fetch-depth: 0
 
-      # ✅ git user 설정 + origin URL 재설정
-      - name: ⚙️ Configure Git
+      # ✅ 2. 최근 빌드 아티팩트 다운로드
+      - name: 📦 Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      # ✅ 3. Git 설정 및 태그 생성
+      - name: ⚙️ Configure Git and Create Tag
         run: |
           git config --global user.name "${BOT_NAME}"
           git config --global user.email "${BOT_EMAIL}"
           git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ env.REPO }}.git
-          git remote -v
-
-      # ✅ 새 태그 생성 및 푸시
-      - name: 🏷️ Create and Push Tag
-        id: tag
-        run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           TAG="auto-stable-${TS}"
           echo "TAG=${TAG}" >> $GITHUB_ENV
@@ -44,8 +44,8 @@ jobs:
           git tag "${TAG}"
           git push origin "${TAG}"
 
-      # ✅ 릴리스 생성
-      - name: 📦 Create GitHub Release
+      # ✅ 4. 릴리스 생성 + 아티팩트 업로드
+      - name: 🚀 Create GitHub Release with Assets
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GH_TOKEN }}
@@ -54,6 +54,12 @@ jobs:
           body: |
             🧩 **R3C Immutable Stable Release**
             - Tag: `${{ env.TAG }}`
-            - Source: https://github.com/${{ env.REPO }}
+            - Built automatically from cross-platform pipeline.
+            - Includes Linux/macOS/Windows binaries.
           draft: false
           prerelease: false
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.tar.gz
+            artifacts/**/*.exe
+            artifacts/**/*.bin
