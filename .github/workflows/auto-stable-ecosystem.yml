@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final + Graph Fix)
+name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final Safe Edition)
 
 on:
   push:
@@ -14,6 +14,9 @@ permissions:
   actions: read
 
 jobs:
+  # ================================================================
+  # 🧱 1. Multi-Platform Build
+  # ================================================================
   build:
     name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -34,7 +37,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 🧩 Configure + Build
+      - name: 🧩 Configure + Build (Cross-Platform Safe)
         shell: bash
         run: |
           echo "🏗️ Building on $RUNNER_OS..."
@@ -67,6 +70,9 @@ jobs:
           name: r3c-${{ matrix.os }}
           path: dist/*
 
+  # ================================================================
+  # 🚀 2. Tag + Release + SHA256 + PGP Sign + Graph
+  # ================================================================
   release:
     name: 🚀 Tag + Multi-OS Release + Sign + Graph
     runs-on: ubuntu-latest
@@ -89,17 +95,16 @@ jobs:
         with:
           path: merged_artifacts
 
+      # ================================================================
+      # 🧾 Safe Changelog (no delimiter bug)
+      # ================================================================
       - name: 🧾 Generate Changelog
         id: changelog
         run: |
           echo "🧾 Generating changelog..."
           git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
           echo "✅ Changelog created."
-          {
-            echo "log<<__CHANGELOG__"
-            cat CHANGELOG.md
-            echo "__CHANGELOG__"
-          } >> $GITHUB_OUTPUT
+          echo "log_path=CHANGELOG.md" >> $GITHUB_OUTPUT
 
       - name: 🏷️ Create Tag
         id: tag
@@ -109,16 +114,19 @@ jobs:
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: 🔐 Generate SHA256 + PGP Signatures
+      # ================================================================
+      # 🔐 SHA256 + GPG Signatures
+      # ================================================================
+      - name: 🔐 Generate SHA256 + Optional PGP
         id: sign
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          echo "🔍 Calculating SHA256..."
+          echo "🔍 Calculating SHA256 checksums..."
           cd merged_artifacts
           find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; > SHA256SUMS.txt
-          echo "✅ SHA256 complete."
+          echo "✅ SHA256 checksums complete."
 
           if [ -n "$GPG_PRIVATE_KEY" ]; then
             echo "🔑 Importing GPG key..."
@@ -127,14 +135,15 @@ jobs:
             echo "$GPG_PASSPHRASE" | gpg --batch --yes --passphrase-fd 0 --armor --detach-sign -o SHA256SUMS.txt.asc SHA256SUMS.txt
             echo "✅ PGP signature created."
           else
-            echo "⚠️ No GPG key detected — skipping signature."
+            echo "⚠️ No GPG key found — skipping signature."
           fi
 
-          echo "checksums<<__HASH__" >> $GITHUB_OUTPUT
-          cat SHA256SUMS.txt >> $GITHUB_OUTPUT
-          echo "__HASH__" >> $GITHUB_OUTPUT
+          echo "checksums_path=merged_artifacts/SHA256SUMS.txt" >> $GITHUB_OUTPUT
           cd ..
 
+      # ================================================================
+      # 🚀 Publish GitHub Release (safe changelog ref)
+      # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -146,22 +155,22 @@ jobs:
             - Commit: ${{ github.sha }}
             - Generated on: ${{ github.run_id }}
             - Platforms: Linux, macOS, Windows
-            - Checksums:
-            ```
-            ${{ steps.sign.outputs.checksums }}
-            ```
-            - Signature: `SHA256SUMS.txt.asc` (if available)
+            - Checksums file: `SHA256SUMS.txt`
+            - Signature file: `SHA256SUMS.txt.asc` (if available)
             - Recent Commits:
-            ${{ steps.changelog.outputs.log }}
+            $(cat ${{ steps.changelog.outputs.log_path }})
           files: |
             merged_artifacts/**/*
 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ================================================================
+      # 🪄 Auto Update README + Graph
+      # ================================================================
       - name: 🪄 Auto Update README + Graph
         run: |
-          echo "📊 Updating README banner + graph..."
+          echo "📊 Updating README banner + traffic graph..."
           python scripts/update_banner.py
           echo "\n\n### 🔐 Latest SHA256 Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n✅ **Signed file:** \`SHA256SUMS.txt.asc\` (verify with \`gpg --verify\`)" >> README.md
           git add README.md traffic_graph.png || true
@@ -172,6 +181,6 @@ jobs:
 
       - name: ✅ Summary
         run: |
-          echo "🎉 Multi-Platform Release Complete!"
+          echo "🎉 Multi-Platform Auto Release Complete!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
-          echo "🔐 Checksums + Banner + Graph updated."
+          echo "🔐 SHA256 + Changelog + Graph updated successfully."
