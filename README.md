@@ -166,3 +166,7 @@ CertUtil: -hashfile command completed successfully.
 
 ---
 ⭐ Starred by builders who believe Rust deserves independence.
+
+🚀 Featured on Reddit r/rust — Ignition Phase of R3C has begun.  
+🔥 Over 700+ views in under 30 minutes.  
+🧠 The LLVM-free Rust compiler evolution continues.
