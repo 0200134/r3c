@@ -1,10 +1,9 @@
 name: 🔖 Auto Stable Tag & Release (GH_TOKEN Forced)
 
 on:
-  workflow_dispatch:  # ⚙️ 수동 실행 테스트 후 자동 워크플로에 연결 가능
-  # workflow_run:
-  #   workflows: ["🧩 R3C Cross-Platform Build (stable)"]
-  #   types: [completed]
+  workflow_run:
+    workflows: ["🧩 R3C Cross-Platform Build (stable)"]
+    types: [completed]
 
 permissions:
   contents: none  # 기본 GITHUB_TOKEN 차단
@@ -17,30 +16,22 @@ env:
 
 jobs:
   tag_release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
-      # -------------------------------------------------------
-      # 🧰 Checkout (using PAT)
-      # -------------------------------------------------------
       - name: 🧰 Checkout with PAT
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      # -------------------------------------------------------
-      # ⚙️ Configure Git (Force PAT)
-      # -------------------------------------------------------
-      - name: ⚙️ Configure Git
+      - name: ⚙️ Configure Git (Force PAT)
         run: |
           git config --global user.name "${GH_USER}"
           git config --global user.email "${GH_EMAIL}"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git
           git remote -v
 
-      # -------------------------------------------------------
-      # 🏷️ Create and push tag (PAT 인증)
-      # -------------------------------------------------------
       - name: 🏷️ Create and push tag
         id: tag
         run: |
@@ -51,9 +42,6 @@ jobs:
           git tag "${TAG}"
           git push origin "${TAG}"
 
-      # -------------------------------------------------------
-      # 📦 Create GitHub Release (PAT 인증)
-      # -------------------------------------------------------
       - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -63,7 +51,7 @@ jobs:
           body: |
             🧩 **R3C Immutable Stable Release**
             - Tag: `${{ env.TAG }}`
-            - Created automatically using Personal Access Token (GH_TOKEN)
+            - Triggered automatically after successful cross-platform build
             - Repository: https://github.com/${{ env.GH_REPO }}
           draft: false
           prerelease: false
