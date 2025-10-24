@@ -6,6 +6,9 @@ on:
     types:
       - completed
 
+permissions:
+  contents: write  # 🔥 꼭 필요: 태그 푸시 권한
+
 jobs:
   tag:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
