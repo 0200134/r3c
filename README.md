@@ -112,6 +112,29 @@ but to prove that modern compilers can evolve **beyond** it.
 > 🧠 From dependency to sovereignty.
 
 ---
+---
+
+### ⚖️ Governance & Neutral Position
+
+R3C stands as an **independent Rust compiler experiment**, exploring how Rust can sustain itself beyond LLVM without losing compatibility or transparency.  
+It is **not an anti-LLVM project**, but a *resilience study* — a Plan-B architecture for compiler continuity.
+
+- 🧩 **Respect for LLVM and Rust Foundation** —  
+  R3C does not use or redistribute LLVM/Apple/Rust trademarks, binaries, or code.  
+  All work follows the MIT license and public documentation standards.
+
+- 🧠 **Open Dialogue Policy** —  
+  If any organization (LLVM, Rust Foundation, or others) has questions or requests  
+  about terminology or references, please open an Issue or contact via  
+  `0200134hjh@gmail.com` for immediate review.
+
+- 🏛️ **Transparent Research** —  
+  All commits, CI logs, and release pipelines are fully public.  
+  Discussions are recorded through Issues and PRs for traceability.
+
+> “We are not escaping LLVM — we are transcending it.”  
+> The goal is *coexistence through autonomy*, not separation through conflict.
+>
 
 ## 📜 License
 
