@@ -1,6 +1,6 @@
 import os, requests, datetime, matplotlib.pyplot as plt
 
-# 헤드리스 환경 대응
+# Headless 환경에서도 matplotlib 동작하도록 설정
 import matplotlib
 matplotlib.use('Agg')
 
@@ -12,7 +12,7 @@ views_url = f"https://api.github.com/repos/{repo}/traffic/views"
 clones_url = f"https://api.github.com/repos/{repo}/traffic/clones"
 info_url = f"https://api.github.com/repos/{repo}"
 
-# === API 데이터 요청 ===
+# === API 호출 ===
 try:
     views = requests.get(views_url, headers=headers).json()
     clones = requests.get(clones_url, headers=headers).json()
@@ -51,7 +51,7 @@ except Exception as e:
     img.save("traffic_graph.png")
     print("🪄 Placeholder graph created.")
 
-# === 배너 텍스트 ===
+# === 배너 구성 ===
 banner = f"""🌸 R3C — Rust Independence Compiler  
 Rewrite the base. Build compilers that heal themselves.  
 Cross-platform C++ · NASM · Rust transpiler pipeline
@@ -60,7 +60,7 @@ Cross-platform C++ · NASM · Rust transpiler pipeline
 ⚖️ License: {license_name} 🕒 Updated: {datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")}
 """
 
-# === README 갱신 ===
+# === README 삽입 ===
 try:
     with open("README.md", "r", encoding="utf-8") as f:
         lines = f.readlines()
