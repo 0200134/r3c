@@ -5,9 +5,10 @@ Cross-platform C++ · NASM · Rust transpiler pipeline
 
 ⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
 🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
-⚖️ License: MIT   🕒 Updated: 2025-10-24 23:48 UTC
+⚖️ License: MIT   🕒 Updated: 2025-10-24 23:57 UTC
 
 ![Traffic Graph](traffic_graph.png)
+traffic_graph.png)
 traffic_graph.png)
 traffic_graph.png)
 <!--AUTO-BANNER-END-->
@@ -217,3 +218,6 @@ c118a3e8f58cd487873af51fe8a9d65241a1917302b99a8ea8d53c7ae287cf2b  ./r3c-ubuntu-l
 \n\n### 🔐 Latest Checksums\n```\ned996d7c563e73511a689c2a21ec368ed2331ad2fb0c474d765c49ee2a45f0f7  ./r3c-windows-latest/r3c-windows.zip
 376e5565c740dfe628eec146aba925b3ffbba6d626d8bc7d0e2a8c1f61f33891  ./r3c-macos-latest/r3c-macos.tar.gz
 ae6f5c30d591b6e2f5d7a0b10d1500fb1a37017c00d5e2fceaa6872a4c7a2ecf  ./r3c-ubuntu-latest/r3c-linux.tar.gz\n```\n
+\n\n### 🔐 Latest Checksums\n```\nabc546dc95eabc6f72e02509dc3b5aea572f038d5b26ac6966b2b4e02686d9f2  ./r3c-windows-latest/r3c-windows.zip
+dc420b3249f86f18e1ef66d73cf466e4fd5afd93364eb60f8737958973bb3bd3  ./r3c-macos-latest/r3c-macos.tar.gz
+5bddc4ea83d77cdc7cd49d808ee19b6e3094198cc59d58ab08ecd98fec13fc67  ./r3c-ubuntu-latest/r3c-linux.tar.gz\n```\n
