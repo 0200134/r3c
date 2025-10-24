@@ -1,11 +1,11 @@
-name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final LTS + Collision-Safe)
+name: 🔖 Auto Stable Multi-OS Release + SHA256 + PGP Sign (Final LTS Ecosystem)
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 0 1 1 *"  # 매년 1월 1일
-    - cron: "0 3 * * 0"  # 매주 일요일 3시
+    - cron: "0 0 1 1 *"
+    - cron: "0 3 * * 0"
   workflow_dispatch:
 
 permissions:
@@ -70,10 +70,10 @@ jobs:
           path: dist/*
 
   # ================================================================
-  # 🚀 2. Tag + Release + Sign + README
+  # 🚀 2. Tag + Release + Sign + README Update
   # ================================================================
   release:
-    name: 🚀 Tag + Release + Sign + Update
+    name: 🚀 Tag + Release + Sign + README Update
     runs-on: ubuntu-latest
     needs: build
 
@@ -103,9 +103,9 @@ jobs:
           echo "log_path=CHANGELOG.md" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 🏷️ Create Unique Tag (run_id 기반)
+      # 🏷️ Unique Tag (Collision-Safe)
       # ================================================================
-      - name: 🏷️ Create Auto Tag (Collision-Safe)
+      - name: 🏷️ Create Auto Tag (run_id-safe)
         id: tag
         run: |
           VERSION="v$(date +'%y.%m.%d-%H%M')-${{ github.run_id }}-stable"
@@ -140,7 +140,7 @@ jobs:
           cd ..
 
       # ================================================================
-      # 🚀 Publish Release
+      # 🚀 Publish GitHub Release
       # ================================================================
       - name: 🚀 Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -148,7 +148,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.version }}
           name: 🔖 Auto Stable Multi-OS Release — ${{ steps.tag.outputs.version }}
           body: |
-            🔄 **Automated Cross-Platform Stable Release**
+            🔄 **Cross-Platform Stable Release**
             - Repository: ${{ github.repository }}
             - Commit: ${{ github.sha }}
             - Run ID: ${{ github.run_id }}
@@ -158,9 +158,16 @@ jobs:
             $(cat ${{ steps.changelog.outputs.log_path }})
           files: |
             merged_artifacts/**/*
-
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ================================================================
+      # 🐍 Install Python Dependencies (matplotlib fix)
+      # ================================================================
+      - name: 🐍 Setup Python + Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests matplotlib pillow
 
       # ================================================================
       # 🪄 Update README & Graph
