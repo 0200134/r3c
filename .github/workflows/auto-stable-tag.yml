@@ -9,7 +9,6 @@ permissions:
   contents: none
 
 env:
-  GH_TOKEN: ${{ secrets.GH_TOKEN }}
   GH_REPO: r3c-foundation/r3c
   GH_USER: r3c-bot
   GH_EMAIL: r3c-bot@users.noreply.github.com
@@ -20,18 +19,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      # --------------------------------------------------------
+      # ✅ Checkout with GH_TOKEN (critical fix)
+      # --------------------------------------------------------
+      - name: 🧰 Checkout using Personal Access Token
+        uses: actions/checkout@v4
         with:
+          repository: r3c-foundation/r3c
           token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
 
+      # --------------------------------------------------------
+      # ⚙️ Git configuration
+      # --------------------------------------------------------
       - name: ⚙️ Configure Git with PAT
         run: |
           git config user.name "${GH_USER}"
           git config user.email "${GH_EMAIL}"
-          git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${GH_REPO}.git
           git remote -v
 
-      - name: 🏷️ Create and push tag (with PAT)
+      # --------------------------------------------------------
+      # 🏷️ Create and push tag
+      # --------------------------------------------------------
+      - name: 🏷️ Create and push tag
         run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           TAG="auto-stable-${TS}"
@@ -40,6 +51,9 @@ jobs:
           git tag "${TAG}"
           git push origin "${TAG}"
 
+      # --------------------------------------------------------
+      # 📦 Create GitHub Release
+      # --------------------------------------------------------
       - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
