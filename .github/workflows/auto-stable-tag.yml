@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Release (PAT-based Immutable)
+name: 🔖 Auto Stable Tag & Full Release (Immutable + PAT)
 
 on:
   workflow_run:
@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: read  # ✅ 기본 read만, write는 PAT이 대신 수행
+  contents: read   # ✅ GH_TOKEN이 대신 write 수행
 
 jobs:
   release:
@@ -14,36 +14,30 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # -------------------------------------------------------
+      # 🧰 기본 설정
+      # -------------------------------------------------------
       - uses: actions/checkout@v4
 
-      # -------------------------------------------------------
-      # 🕒 Generate tag
-      # -------------------------------------------------------
-      - name: 🕒 Generate immutable tag
+      - name: 🕒 Generate tag
         run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           echo "TAG=auto-stable-${TS}" >> $GITHUB_ENV
           echo "✅ Generated tag: auto-stable-${TS}"
 
-      # -------------------------------------------------------
-      # ⚙️ Git config + remote token setup
-      # -------------------------------------------------------
       - name: ⚙️ Configure Git (with PAT)
         run: |
           git config user.name "r3c-bot"
           git config user.email "r3c-bot@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/r3c-foundation/r3c.git
 
-      # -------------------------------------------------------
-      # 🏷️ Create and push tag
-      # -------------------------------------------------------
       - name: 🏷️ Create and push tag
         run: |
           git tag "${TAG}"
           git push origin "${TAG}"
 
       # -------------------------------------------------------
-      # 🧰 Build (Cross Platform)
+      # 🧱 Build (Cross Platform)
       # -------------------------------------------------------
       - name: 🧰 Set up CMake
         uses: jwlawson/actions-setup-cmake@v2
@@ -57,7 +51,7 @@ jobs:
           mkdir -p artifacts/linux
           cp build/r3c artifacts/linux/r3c-linux
 
-      - name: 🍎 Build (macOS cross)
+      - name: 🍎 Build (macOS Cross)
         run: |
           sudo apt-get update -y
           sudo apt-get install -y clang
@@ -66,7 +60,7 @@ jobs:
           mkdir -p artifacts/macos
           cp build-macos/r3c artifacts/macos/r3c-macos
 
-      - name: 🪟 Build (Windows cross via MinGW)
+      - name: 🪟 Build (Windows Cross via MinGW)
         run: |
           sudo apt-get update -y
           sudo apt-get install -y mingw-w64
@@ -76,28 +70,60 @@ jobs:
           cp build-win/r3c.exe artifacts/windows/r3c-windows.exe
 
       # -------------------------------------------------------
-      # 📦 Create GitHub Release (with PAT)
+      # 🔐 SHA256 Hash Generation
+      # -------------------------------------------------------
+      - name: 🔐 Generate SHA256 checksums
+        run: |
+          cd artifacts
+          find . -type f ! -name "*.sha256" -exec sha256sum {} \; > checksums.sha256
+          cat checksums.sha256
+
+      # -------------------------------------------------------
+      # 🧾 Build Summary (Compiler + Commit info)
+      # -------------------------------------------------------
+      - name: 🧾 Generate Build Summary
+        run: |
+          echo "## 🧱 Build Summary" > build_summary.md
+          echo "- UTC Build Time: $(date -u)" >> build_summary.md
+          echo "- Commit: $(git rev-parse HEAD)" >> build_summary.md
+          echo "- Compiler Version:" >> build_summary.md
+          g++ --version | head -n 1 >> build_summary.md || true
+          clang++ --version | head -n 1 >> build_summary.md || true
+          echo "" >> build_summary.md
+          cat build_summary.md
+
+      # -------------------------------------------------------
+      # 🪶 Combine CHANGELOG.md if exists
+      # -------------------------------------------------------
+      - name: 🪶 Prepare release body
+        id: body
+        run: |
+          echo "## 🧩 R3C Immutable Stable Release" > release_body.md
+          echo "- Tag: \`${TAG}\`" >> release_body.md
+          echo "- Source: [r3c-foundation/r3c](https://github.com/r3c-foundation/r3c)" >> release_body.md
+          echo "- Includes: Linux, macOS, Windows binaries" >> release_body.md
+          echo "" >> release_body.md
+          cat build_summary.md >> release_body.md
+          echo "" >> release_body.md
+          if [ -f CHANGELOG.md ]; then
+            echo "## 🪶 CHANGELOG" >> release_body.md
+            cat CHANGELOG.md >> release_body.md
+          fi
+
+      # -------------------------------------------------------
+      # 📦 Create GitHub Release
       # -------------------------------------------------------
       - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GH_TOKEN }}   # ✅ 핵심: PAT으로 인증
+          token: ${{ secrets.GH_TOKEN }}
           tag_name: ${{ env.TAG }}
           name: "R3C Stable — ${{ env.TAG }}"
-          body: |
-            🧩 **R3C Immutable Stable Release**
-            - Tag: `${{ env.TAG }}`
-            - Source: [r3c-foundation/r3c](https://github.com/r3c-foundation/r3c)
-            - Generated automatically after successful build.
-            - Includes prebuilt binaries for:
-              - 🐧 Linux
-              - 🍎 macOS
-              - 🪟 Windows
-            ---
-            _This release is generated via a fine-grained Personal Access Token (GH_TOKEN)._  
+          body_path: release_body.md
           draft: false
           prerelease: false
           files: |
             artifacts/linux/r3c-linux
             artifacts/macos/r3c-macos
             artifacts/windows/r3c-windows.exe
+            artifacts/checksums.sha256
