@@ -1,3 +1,5 @@
+🌋 Currently featured in global Rust communities
+
 ### ⚙️ R3C — The Rust Compiler that breathes without LLVM
 If you believe in compiler independence and long-term stability,  
 🌟 star this project and help shape the future of Rust sovereignty.
@@ -170,3 +172,4 @@ CertUtil: -hashfile command completed successfully.
 🚀 Featured on Reddit r/rust — Ignition Phase of R3C has begun.  
 🔥 Over 700+ views in under 30 minutes.  
 🧠 The LLVM-free Rust compiler evolution continues.
+
