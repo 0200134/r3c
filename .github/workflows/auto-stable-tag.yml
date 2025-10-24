@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Release (GH_TOKEN Forced)
+name: 🔖 Auto Stable Tag & Release (GH_TOKEN Confirmed)
 
 on:
   workflow_run:
@@ -6,7 +6,7 @@ on:
     types: [completed]
 
 permissions:
-  contents: none  # 기본 GITHUB_TOKEN 차단
+  contents: none
 
 env:
   GH_TOKEN: ${{ secrets.GH_TOKEN }}
@@ -15,30 +15,28 @@ env:
   GH_EMAIL: r3c-bot@users.noreply.github.com
 
 jobs:
-  tag_release:
+  release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
-      - name: 🧰 Checkout with PAT
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_TOKEN }}
 
-      - name: ⚙️ Configure Git (Force PAT)
+      - name: ⚙️ Configure Git with PAT
         run: |
-          git config --global user.name "${GH_USER}"
-          git config --global user.email "${GH_EMAIL}"
+          git config user.name "${GH_USER}"
+          git config user.email "${GH_EMAIL}"
           git remote set-url origin https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}.git
           git remote -v
 
-      - name: 🏷️ Create and push tag
-        id: tag
+      - name: 🏷️ Create and push tag (with PAT)
         run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           TAG="auto-stable-${TS}"
           echo "TAG=${TAG}" >> $GITHUB_ENV
-          echo "✅ Creating tag: ${TAG}"
+          echo "✅ Creating tag ${TAG}"
           git tag "${TAG}"
           git push origin "${TAG}"
 
@@ -49,9 +47,8 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: "R3C Stable — ${{ env.TAG }}"
           body: |
-            🧩 **R3C Immutable Stable Release**
+            🧩 Auto-generated stable release
             - Tag: `${{ env.TAG }}`
-            - Triggered automatically after successful cross-platform build
-            - Repository: https://github.com/${{ env.GH_REPO }}
+            - Source: https://github.com/${{ env.GH_REPO }}
           draft: false
           prerelease: false
