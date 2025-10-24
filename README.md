@@ -36,14 +36,15 @@ The goal is not abandonment, but **continuity** — ensuring that R3C’s vision
   <em>Cross-platform C++ · NASM · Rust transpiler pipeline</em>
 </p>
 
-<p align="center">
-  <a href="https://github.com/0200134/r3c/stargazers"><img src="https://img.shields.io/github/stars/0200134/r3c?style=for-the-badge&color=yellow" alt="stars"></a>
-  <a href="https://github.com/0200134/r3c/releases"><img src="https://img.shields.io/badge/version-v0.1.0-blue?style=for-the-badge" alt="version"></a>
-  <img src="https://img.shields.io/badge/clones-1.2k%2F14d-brightgreen?style=for-the-badge" alt="clones">
-  <img src="https://img.shields.io/badge/visitors-96%2F14d-blue?style=for-the-badge" alt="visitors">
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-orange?style=for-the-badge" alt="license"></a>
-</p>
+<!-- AUTO-BANNER:START -->
+🌸 **R3C — Rust Independence Compiler**  
+Rewrite the base. Build compilers that heal themselves.  
+Cross-platform C++ · NASM · Rust transpiler pipeline  
 
+| Stars | Version | Clones (14d) | Visitors (14d) | License |
+|:------|:--------|:-------------|:----------------|:---------|
+| ⭐ $STARS | 🔖 $VERSION | 🧭 $CLONES | 👁 $VISITORS | ⚖️ MIT |
+<!-- AUTO-BANNER:END -->
 ---
 
 ## 🧭 Overview
@@ -172,4 +173,5 @@ CertUtil: -hashfile command completed successfully.
 🚀 Featured on Reddit r/rust — Ignition Phase of R3C has begun.  
 🔥 Over 700+ views in under 30 minutes.  
 🧠 The LLVM-free Rust compiler evolution continues.
+
 
