@@ -1,4 +1,4 @@
-name: 🔖 Auto Stable Tag & Release (GH_TOKEN Confirmed)
+name: 🔖 Auto Stable Tag & Release (R3C Foundation Verified)
 
 on:
   workflow_run:
@@ -6,43 +6,36 @@ on:
     types: [completed]
 
 permissions:
-  contents: none
-
-env:
-  GH_REPO: r3c-foundation/r3c
-  GH_USER: r3c-bot
-  GH_EMAIL: r3c-bot@users.noreply.github.com
+  contents: write
 
 jobs:
   release:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    env:
+      REPO: r3c-foundation/r3c
+      BOT_NAME: r3c-bot
+      BOT_EMAIL: r3c-bot@users.noreply.github.com
 
     steps:
-      # --------------------------------------------------------
-      # ✅ Checkout with GH_TOKEN (critical fix)
-      # --------------------------------------------------------
-      - name: 🧰 Checkout using Personal Access Token
+      # ✅ PAT 기반으로 전체 체크아웃
+      - name: 🧰 Checkout with Personal Access Token
         uses: actions/checkout@v4
         with:
-          repository: r3c-foundation/r3c
           token: ${{ secrets.GH_TOKEN }}
           fetch-depth: 0
 
-      # --------------------------------------------------------
-      # ⚙️ Git configuration
-      # --------------------------------------------------------
-      - name: ⚙️ Configure Git with PAT
+      # ✅ git user 설정 + origin URL 재설정
+      - name: ⚙️ Configure Git
         run: |
-          git config user.name "${GH_USER}"
-          git config user.email "${GH_EMAIL}"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${GH_REPO}.git
+          git config --global user.name "${BOT_NAME}"
+          git config --global user.email "${BOT_EMAIL}"
+          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/${{ env.REPO }}.git
           git remote -v
 
-      # --------------------------------------------------------
-      # 🏷️ Create and push tag
-      # --------------------------------------------------------
-      - name: 🏷️ Create and push tag
+      # ✅ 새 태그 생성 및 푸시
+      - name: 🏷️ Create and Push Tag
+        id: tag
         run: |
           TS=$(date -u +'%Y%m%d-%H%M%S')
           TAG="auto-stable-${TS}"
@@ -51,9 +44,7 @@ jobs:
           git tag "${TAG}"
           git push origin "${TAG}"
 
-      # --------------------------------------------------------
-      # 📦 Create GitHub Release
-      # --------------------------------------------------------
+      # ✅ 릴리스 생성
       - name: 📦 Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -61,8 +52,8 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: "R3C Stable — ${{ env.TAG }}"
           body: |
-            🧩 Auto-generated stable release
+            🧩 **R3C Immutable Stable Release**
             - Tag: `${{ env.TAG }}`
-            - Source: https://github.com/${{ env.GH_REPO }}
+            - Source: https://github.com/${{ env.REPO }}
           draft: false
           prerelease: false
