@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 0 1 1 *"     # 매년 1월 1일
-    - cron: "0 3 * * 0"     # 매주 일요일 새벽 3시
-  workflow_dispatch:
+    - cron: "0 0 1 1 *"     # 매년 1월 1일 자동 실행
+    - cron: "0 3 * * 0"     # 매주 일요일 새벽 3시 자동 실행
+  workflow_dispatch:          # 수동 실행 버튼 허용
 
 permissions:
   contents: write
@@ -114,7 +114,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       # ================================================================
-      # 🔐 SHA256 + PGP Sign
+      # 🔐 SHA256 + Optional PGP
       # ================================================================
       - name: 🔐 Generate SHA256 + Optional PGP
         id: sign
@@ -162,56 +162,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ================================================================
-      # 🐍 Install Python Dependencies (matplotlib fix)
+      # 🐍 Install Python + Dependencies
       # ================================================================
-      - name: 🐍 Setup Python + Dependencies
+      - name: 🐍 Setup Python Environment
         run: |
           python -m pip install --upgrade pip
           pip install requests matplotlib pillow
 
       # ================================================================
-      # 🪄 Update README & Graph
+      # 🪄 Update README + Traffic Graph
       # ================================================================
       - name: 🪄 Auto Update README + Graph
         run: |
-          echo "📊 Updating README..."
-          python scripts/update_banner.py
-          echo "\n\n### 🔐 Latest Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n" >> README.md
-          git add README.md || true
-          git commit -m "📈 Auto-update README (graph + SHA256)" || echo "No changes"
-          git push
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ================================================================
-      # 🧩 Apply LTS README Template (Vision + Governance auto-merge)
-      # ================================================================
-      - name: 🧩 Apply LTS README Template
-        run: |
-          echo "🧩 Applying README-template-LTS.md..."
-          VERSION=${{ steps.tag.outputs.version }}
-          python <<'PYCODE'
-          import os, re
-          tpl_path = "scripts/README-template-LTS.md"
-          if not os.path.exists(tpl_path):
-              print("⚠️ README-template-LTS.md not found, skipping.")
-              exit(0)
-
-          template = open(tpl_path, encoding="utf-8").read()
-          template = template.replace("$VERSION", os.getenv("VERSION", "v-latest"))
-
-          if os.path.exists("README.md"):
-              old = open("README.md", encoding="utf-8").read()
-              match = re.search(r"### 🔐 Latest Checksums[\\s\\S]*", old)
-              if match:
-                  template += "\n\n" + match.group(0)
-
-          with open("README.md", "w", encoding="utf-8") as f:
-              f.write(template)
-          PYCODE
-
-          git add README.md
-          git commit -m "🧩 Apply LTS README Template ($VERSION)" || true
+          python3 scripts/update_banner.py
+          git add README.md traffic_graph.png || true
+          git commit -m "📈 Auto-update README traffic graph" || echo "No changes"
           git push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -221,6 +186,6 @@ jobs:
       # ================================================================
       - name: ✅ Summary
         run: |
-          echo "🎉 Auto Stable Release + README(LTS) completed successfully!"
+          echo "🎉 Auto Stable Release completed successfully!"
           echo "📦 Tag: ${{ steps.tag.outputs.version }}"
           echo "🔐 Checksums generated and README updated."
