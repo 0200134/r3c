@@ -1,12 +1,10 @@
-name: 🔖 Auto Stable Multi-OS + Governance Sync (Full LTS Ecosystem)
+name: 🔖 Auto Stable Multi-OS Release + Per-Platform Artifacts (Final LTS Ecosystem)
 
 on:
   push:
     branches: [main]
   schedule:
-    # 매년 1월 1일 자동 릴리스
     - cron: "0 0 1 1 *"
-    # 매주 일요일 3시 정기 릴리스
     - cron: "0 3 * * 0"
   workflow_dispatch:
 
@@ -14,11 +12,11 @@ permissions:
   contents: write
   packages: write
   actions: read
-  id-token: write     # ✅ 안전한 전체 쓰기 대체 권한
+  id-token: write
 
 jobs:
   # ================================================================
-  # 🧱 1. Build (Linux / macOS / Windows)
+  # 🧱 Build (Linux / macOS / Windows)
   # ================================================================
   build:
     name: 🧱 Build on ${{ matrix.os }}
@@ -35,7 +33,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: ⚙️ Setup Git Identity
+      - name: ⚙️ Setup Git
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -64,19 +62,18 @@ jobs:
           else
             tar -czf dist/r3c-linux.tar.gz build
           fi
-          echo "✅ Artifacts packaged for $RUNNER_OS"
 
-      - name: 💾 Upload artifacts
+      - name: 💾 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: r3c-${{ matrix.os }}
+          name: ${{ matrix.os }}
           path: dist/*
 
   # ================================================================
-  # 🚀 2. Tag + Release + Governance Merge + README Update
+  # 🚀 Release + README Update
   # ================================================================
   release:
-    name: 🚀 Release + README Merge (Governed)
+    name: 🚀 Create Tag + Multi-OS Release + README Update
     runs-on: ubuntu-latest
     needs: build
 
@@ -92,32 +89,23 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 📦 Download all artifacts
+      - name: 📦 Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: merged_artifacts
 
-      - name: 🧾 Generate Changelog
-        id: changelog
-        run: |
-          echo "🧾 Generating changelog..."
-          git log -10 --pretty=format:"- %s (%h)" > CHANGELOG.md
-          echo "✅ Changelog created."
-          echo "log_path=CHANGELOG.md" >> $GITHUB_OUTPUT
-
-      - name: 🏷️ Create Version Tag (governed)
+      - name: 🏷️ Create Unique Tag
         id: tag
         run: |
-          VERSION="v$(date +'%y.%m.%d-%H%M')-${{ github.run_id }}-governed"
-          git tag -a "$VERSION" -m "Governed Auto Stable Release ($VERSION)"
+          VERSION="v$(date +'%y.%m.%d-%H%M')-${{ github.run_id }}-stable"
+          git tag -a "$VERSION" -m "Auto Stable Multi-OS Release ($VERSION)"
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: 🔐 Generate SHA256 Checksums
+      - name: 🔐 Generate SHA256SUMS
         run: |
           cd merged_artifacts
-          find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; > SHA256SUMS.txt
-          echo "✅ SHA256 checksums generated."
+          find . -type f -name "*.zip" -o -name "*.tar.gz" | xargs sha256sum > SHA256SUMS.txt
           cd ..
 
       - name: 🐍 Setup Python + Dependencies
@@ -125,14 +113,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests matplotlib pillow
 
-      - name: 🧠 Merge README Template (Governance + Banner)
+      - name: 🪄 Update README + Graph
         run: |
-          echo "📊 Updating README with banner & governance..."
           python scripts/update_banner.py
-          python scripts/merge_readme_template.py
           echo "\n\n### 🔐 Latest Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n" >> README.md
           git add README.md traffic_graph.png || true
-          git commit -m "🧠 Auto-merge README (governance + traffic)" || echo "No changes"
+          git commit -m "📈 Auto-update README (per-platform artifacts)" || echo "No changes"
           git push
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,22 +127,22 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.version }}
-          name: 🔖 Governed LTS Release — ${{ steps.tag.outputs.version }}
+          name: 🔖 Multi-OS Platform Release — ${{ steps.tag.outputs.version }}
           body: |
-            🏛️ **Governed Multi-OS LTS Release**
+            🔄 **Cross-Platform Stable Release**
             - Repository: ${{ github.repository }}
             - Run ID: ${{ github.run_id }}
             - Platforms: Linux, macOS, Windows
-            - Governance merged from template
-            - Recent Commits:
-            $(cat ${{ steps.changelog.outputs.log_path }})
+            - Checksums: SHA256SUMS.txt
           files: |
-            merged_artifacts/**/*
+            merged_artifacts/**/r3c-linux.tar.gz
+            merged_artifacts/**/r3c-macos.tar.gz
+            merged_artifacts/**/r3c-windows.zip
+            merged_artifacts/**/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: ✅ Summary
         run: |
-          echo "🎉 Governed LTS Release completed successfully!"
-          echo "📦 Tag: ${{ steps.tag.outputs.version }}"
-          echo "🧩 README merged and governance applied."
+          echo "🎉 Multi-OS release completed!"
+          echo "📦 Linux, macOS, Windows artifacts published separately."
