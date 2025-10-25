@@ -1,3 +1,18 @@
+🌸 R3C — Rust Independence Compiler
+Rewrite the base. Build compilers that heal themselves.
+Cross-platform C++ · NASM · Rust transpiler pipeline
+
+### 🔗 Ecosystem Roadmap
+See the full documentation & bootstrap plan here:
+➡️ [**Roadmap for Entire Ecosystem**](https://github.com/r3c-foundation/Roadmap-for-entire-ecosystem)
+
+> *First, choose one Rust standard and compile with R3C. Then bootstrap.*
+
+⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
+🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
+⚖️ License: MIT   🕒 Updated: 2025-10-25 09:16 UTC
+
+![Traffic Graph](traffic_graph.png)
 # 🌸 R3C — Rust Independence Compiler  
 > Rewrite the base. Build compilers that heal themselves.  
 > Cross-platform C++ · NASM · Rust transpiler pipeline  
@@ -118,3 +133,6 @@ yaml
 ---
 
 _Last auto-update: 2025-10-25 01:45 UTC_
+\n\n### 🔐 Latest Checksums\n```\n8d25fee218b909af2506d3920d3f3474391ca1448e7454d698b26d49f6167a8f  ./windows-latest/r3c-windows.zip
+462ed572f29ac8adba47a531f8d06f59b38fa94dce8ccbdd55174db9dd4b7d4b  ./macos-latest/r3c-macos.tar.gz
+e9184c2913fccfb5a9295f429bf6462094d7d217ad98d6214e2637302ba8599e  ./ubuntu-latest/r3c-linux.tar.gz\n```\n
