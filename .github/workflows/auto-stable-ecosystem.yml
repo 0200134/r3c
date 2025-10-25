@@ -1,22 +1,22 @@
-name: 🔖 Auto Stable Multi-OS Release (Final LTS Ecosystem)
+name: 🔖 Auto Stable Multi-OS Release (Final LTS Ecosystem v2)
 
 on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 0 1 1 *"
-    - cron: "0 3 * * 0"
+    - cron: "0 0 1 1 *"    # January 1 → LTS main release
+    - cron: "0 3 * * 0"    # Every Sunday 03:00 → Weekly stable update
   workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
   actions: read
-  id-token: write   # ✅ workflows 제거됨
+  id-token: write
 
 jobs:
   # ================================================================
-  # 🧱 Build per OS
+  # 🧱 Multi-OS Build
   # ================================================================
   build:
     name: 🧱 Build on ${{ matrix.os }}
@@ -31,7 +31,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: ⚙️ Setup Git
+      - name: ⚙️ Setup Git Identity
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
@@ -49,7 +49,7 @@ jobs:
           fi
           echo "✅ Build complete for $RUNNER_OS"
 
-      - name: 📦 Package artifacts
+      - name: 📦 Package Artifacts
         shell: bash
         run: |
           mkdir -p dist
@@ -68,7 +68,7 @@ jobs:
           path: dist/*
 
   # ================================================================
-  # 🚀 Release + README + Traffic Integration
+  # 🚀 Tag + Release + README + Traffic
   # ================================================================
   release:
     name: 🚀 Tag + Release + README + Traffic Update
@@ -86,12 +86,12 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: 📦 Download artifacts
+      - name: 📦 Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: merged_artifacts
 
-      - name: 🏷️ Create Safe Tag
+      - name: 🏷️ Create Tag (Date-based)
         id: tag
         run: |
           git fetch --tags
@@ -101,26 +101,44 @@ jobs:
           git push origin "$VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: 🏷️ Mark Annual LTS (January Release)
+        if: ${{ contains(steps.tag.outputs.version, 'v25.01') }}
+        run: |
+          echo "📌 Marking LTS version for new year..."
+          git tag -f LTS
+          git push origin -f LTS
+
       - name: 🔐 Generate SHA256 Checksums
         run: |
           cd merged_artifacts
           find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; | sort -k2 > SHA256SUMS.txt
           cd ..
 
-      - name: 🧠 Generate Banner Graph
-        run: |
-          python scripts/update_banner.py || echo "⚠️ Banner skipped"
-
-      - name: 📊 Collect Traffic Summary
+      - name: 📊 Collect Traffic Summary (Safe API)
         id: traffic
+        continue-on-error: true
         run: |
-          python scripts/traffic_autolog_full.py || echo "⚠️ Traffic log skipped"
-          echo "views=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/traffic/views | jq '.count')" >> $GITHUB_OUTPUT
-          echo "clones=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/traffic/clones | jq '.count')" >> $GITHUB_OUTPUT
-          echo "stars=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }} | jq '.stargazers_count')" >> $GITHUB_OUTPUT
+          echo "Collecting traffic metrics..."
+          VIEWS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/views | jq '.count // 0')
+          CLONES=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/clones | jq '.count // 0')
+          STARS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }} | jq '.stargazers_count // 0')
+          echo "views=$VIEWS" >> $GITHUB_OUTPUT
+          echo "clones=$CLONES" >> $GITHUB_OUTPUT
+          echo "stars=$STARS" >> $GITHUB_OUTPUT
 
-      - name: 🪄 Update README (Clean Replace Mode)
+      - name: 🧠 Generate Banner Graph (Optional)
         run: |
+          python scripts/update_banner.py || echo "⚠️ Banner generation skipped"
+
+      - name: 🪄 Update README (Auto Append)
+        shell: bash
+        run: |
+          if [[ "$OSTYPE" == "darwin"* ]]; then
+            alias sed="gsed"
+          fi
           sed -i '/^Traffic Graph$/d' README.md
           sed -i '/traffic_graph.png/d' README.md
           echo -e "\nTraffic Graph\n\n![Traffic Graph](traffic_graph.png)\n" >> README.md
@@ -128,7 +146,7 @@ jobs:
           echo -e "\n### 🔐 Latest Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n" >> README.md
           echo -e "\n_Last auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC')_" >> README.md
           git add README.md traffic_graph.png || true
-          git diff --quiet && echo "✅ No doc changes." || (git commit -m "📈 Auto-update README (Graph + Checksum + Traffic)" && git push)
+          git diff --quiet && echo "✅ No README changes." || (git commit -m "📈 Auto-update README (Graph + Checksum + Traffic)" && git push)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -149,7 +167,7 @@ jobs:
             - 🧭 Clones (14d): ${{ steps.traffic.outputs.clones }}
             - ⭐ Stars: ${{ steps.traffic.outputs.stars }}
 
-            _Generated automatically by r3c Foundation CI_
+            _Generated automatically by R3C Foundation CI_
           files: |
             merged_artifacts/**/r3c-linux.tar.gz
             merged_artifacts/**/r3c-macos.tar.gz
@@ -157,4 +175,3 @@ jobs:
             merged_artifacts/**/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
