@@ -5,7 +5,7 @@ Cross-platform C++ · Rust · NASM transpiler pipeline
 ---
 
 <!--AUTO-BANNER-START-->
-(이 영역은 자동으로 덮어써집니다)
+
 <!--AUTO-BANNER-END-->
 
 (These stats auto-update every 24h via GitHub Actions.)
