@@ -12,8 +12,7 @@ permissions:
   contents: write
   packages: write
   actions: read
-  id-token: write
-  workflows: write
+  id-token: write   # ✅ workflows 제거됨
 
 jobs:
   # ================================================================
@@ -112,15 +111,10 @@ jobs:
         run: |
           python scripts/update_banner.py || echo "⚠️ Banner skipped"
 
-      # ============================================================
-      # 🌸 트래픽 + 로그 + 스타 수집 (릴리스 본문에 사용)
-      # ============================================================
       - name: 📊 Collect Traffic Summary
         id: traffic
         run: |
           python scripts/traffic_autolog_full.py || echo "⚠️ Traffic log skipped"
-
-          # 간단한 JSON 요약 (views, clones, stars)
           echo "views=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/traffic/views | jq '.count')" >> $GITHUB_OUTPUT
           echo "clones=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }}/traffic/clones | jq '.count')" >> $GITHUB_OUTPUT
           echo "stars=$(curl -s -H 'Authorization: token ${{ secrets.GITHUB_TOKEN }}' https://api.github.com/repos/${{ github.repository }} | jq '.stargazers_count')" >> $GITHUB_OUTPUT
@@ -130,11 +124,9 @@ jobs:
           sed -i '/^Traffic Graph$/d' README.md
           sed -i '/traffic_graph.png/d' README.md
           echo -e "\nTraffic Graph\n\n![Traffic Graph](traffic_graph.png)\n" >> README.md
-
           sed -i '/^### 🔐 Latest Checksums$/,$d' README.md
           echo -e "\n### 🔐 Latest Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n" >> README.md
           echo -e "\n_Last auto-update: $(date '+%Y-%m-%d %H:%M:%S UTC')_" >> README.md
-
           git add README.md traffic_graph.png || true
           git diff --quiet && echo "✅ No doc changes." || (git commit -m "📈 Auto-update README (Graph + Checksum + Traffic)" && git push)
         env:
@@ -165,3 +157,4 @@ jobs:
             merged_artifacts/**/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
