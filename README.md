@@ -3,11 +3,18 @@
 Rewrite the base. Build compilers that heal themselves.
 Cross-platform C++ · NASM · Rust transpiler pipeline
 
-⭐ Stars: 1 👁️ Views(14d): 0 ⏱️ Clones(14d): 0
-🧑‍💻 Unique Visitors: 0 ↩️ Unique Cloners: 0
-⚖️ License: MIT 🕒 Updated: 2025-10-25 01:33 UTC
+### 🔗 Ecosystem Roadmap
+See the full documentation & bootstrap plan here:
+➡️ [**Roadmap for Entire Ecosystem**](https://github.com/r3c-foundation/Roadmap-for-entire-ecosystem)
+
+> *First, choose one Rust standard and compile with R3C. Then bootstrap.*
+
+⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
+🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
+⚖️ License: MIT   🕒 Updated: 2025-10-25 01:45 UTC
 
 ![Traffic Graph](traffic_graph.png)
+traffic_graph.png)
 
 <!--AUTO-BANNER-END-->
 ---
@@ -92,3 +99,6 @@ d2f4e969a3f6f3f3d01fddc0e5ac98e7100aa27443f1214a1a1534cc36587e56  ./macos-latest
 \n\n### 🔐 Latest Checksums\n```\n56d730f615e5601b2c39ce30ba8b0c7aaf3220ff92bf9723c657db9a4714425c  ./windows-latest/r3c-windows.zip
 c29eb96dc5bffe36183f934d24c30b92d3df31b5f707a9ba226c50313706aff3  ./macos-latest/r3c-macos.tar.gz
 407bb2159178beedfc67e8b848785bf7a3f3cdf1f33f7a3e27dfa0b8ea1f1cb9  ./ubuntu-latest/r3c-linux.tar.gz\n```\n
+\n\n### 🔐 Latest Checksums\n```\na70fe88978771fe861853cdf3b63a6197fdfa3bff33b9dfabfc668f22a2f3897  ./windows-latest/r3c-windows.zip
+4019b40bee21a63be6136ba4b1cf2ea0c257c8e4bcf6146f48c616dc6fb4f724  ./macos-latest/r3c-macos.tar.gz
+2788f675ef58ae7ac19229e3c2476763778dcd95028ad08a05b70ca501a97fcc  ./ubuntu-latest/r3c-linux.tar.gz\n```\n
