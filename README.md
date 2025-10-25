@@ -10,18 +10,11 @@ Cross-platform C++ · NASM · Rust transpiler pipeline
 ![Traffic Graph](traffic_graph.png)
 
 <!--AUTO-BANNER-END-->
-
-# 🌸 R3C — Rust Independence Compiler
-Rewrite the base. Build compilers that heal themselves.  
-Cross-platform C++ · Rust · NASM transpiler pipeline
-
 ---
+🔗 Ecosystem Roadmap
 
-<!--AUTO-BANNER-START-->
-
-<!--AUTO-BANNER-END-->
-
-(These stats auto-update every 24h via GitHub Actions.)
+See the full documentation & bootstrap plan here:
+➡️ Roadmap for Entire Ecosystem
 
 ---
 
