@@ -4,8 +4,8 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "0 0 1 1 *"
-    - cron: "0 3 * * 0"
+    - cron: "0 0 1 1 *"   # 매년 1월 1일 정기 릴리즈
+    - cron: "0 3 * * 0"   # 매주 일요일 새벽 3시
   workflow_dispatch:
 
 permissions:
@@ -105,7 +105,7 @@ jobs:
       - name: 🔐 Generate SHA256SUMS
         run: |
           cd merged_artifacts
-          find . -type f -name "*.zip" -o -name "*.tar.gz" | xargs sha256sum > SHA256SUMS.txt
+          find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; | sort -k2 > SHA256SUMS.txt
           cd ..
 
       - name: 🐍 Setup Python + Dependencies
@@ -113,9 +113,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests matplotlib pillow
 
-      - name: 🪄 Update README + Graph
+      - name: 🪄 Update README + Traffic Graph
         run: |
-          python scripts/update_banner.py
+          python scripts/update_banner.py || echo "⚠️ Banner update skipped"
           echo "\n\n### 🔐 Latest Checksums\n\`\`\`\n$(cat merged_artifacts/SHA256SUMS.txt)\n\`\`\`\n" >> README.md
           git add README.md traffic_graph.png || true
           git commit -m "📈 Auto-update README (per-platform artifacts)" || echo "No changes"
@@ -144,5 +144,7 @@ jobs:
 
       - name: ✅ Summary
         run: |
-          echo "🎉 Multi-OS release completed!"
-          echo "📦 Linux, macOS, Windows artifacts published separately."
+          echo "🎉 Multi-OS release completed successfully!"
+          echo "📦 Artifacts uploaded for Linux, macOS, and Windows."
+          echo "🔖 Tag: ${{ steps.tag.outputs.version }}"
+
