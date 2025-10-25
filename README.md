@@ -3,9 +3,9 @@
 Rewrite the base. Build compilers that heal themselves.
 Cross-platform C++ · NASM · Rust transpiler pipeline
 
-⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
-🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
-⚖️ License: MIT   🕒 Updated: 2025-10-25 00:11 UTC
+⭐ Stars: 1 👁️ Views(14d): 0 ⏱️ Clones(14d): 0
+🧑‍💻 Unique Visitors: 0 ↩️ Unique Cloners: 0
+⚖️ License: MIT 🕒 Updated: 2025-10-25 00:26 UTC
 
 ![Traffic Graph](traffic_graph.png)
 
@@ -90,3 +90,6 @@ This repository features:
 
 
 ### 🔐 Latest Checksums\
+\n\n### 🔐 Latest Checksums\n```\nb53b30e7888a7b011969d08d7e40d1a138707763ffac2b9ed59194a636f10e88  ./r3c-windows-latest/r3c-windows.zip
+5783f2c2cab400368697d5058cc65a1549d4eaba5e6e43c6cddd23633ab67c6d  ./r3c-macos-latest/r3c-macos.tar.gz
+d453108191fcc7a947992769188beab9607b5bb2ccde282befb5569e259089d4  ./r3c-ubuntu-latest/r3c-linux.tar.gz\n```\n
