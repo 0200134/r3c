@@ -1,3 +1,16 @@
+<!--AUTO-BANNER-START-->
+🌸 R3C — Rust Independence Compiler
+Rewrite the base. Build compilers that heal themselves.
+Cross-platform C++ · NASM · Rust transpiler pipeline
+
+⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
+🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
+⚖️ License: MIT   🕒 Updated: 2025-10-25 00:11 UTC
+
+![Traffic Graph](traffic_graph.png)
+
+<!--AUTO-BANNER-END-->
+
 # 🌸 R3C — Rust Independence Compiler
 Rewrite the base. Build compilers that heal themselves.  
 Cross-platform C++ · Rust · NASM transpiler pipeline
