@@ -27,20 +27,6 @@ See the full documentation and bootstrap plan here:
 > First, choose one Rust standard and compile with R3C — then bootstrap.
 
 ---
-
-## 📊 Project Metrics  
-| Metric | Value |
-|--------|--------|
-| ⭐ Stars | 1 |
-| 👁️ Views (14d) | 0 |
-| 🧭 Clones (14d) | 0 |
-| 🧑‍💻 Unique Visitors | 0 |
-| 🔁 Unique Cloners | 0 |
-| ⚖️ License | MIT |
-| 🕒 Last Updated | 2025-10-25 01:45 UTC |
-
-> ![traffic_graph](traffic_graph.png)
-
 ---
 
 ## 🧠 Vision  
