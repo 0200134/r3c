@@ -10,9 +10,10 @@ See the full documentation & bootstrap plan here:
 
 ⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
 🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
-⚖️ License: MIT   🕒 Updated: 2025-10-25 09:16 UTC
+⚖️ License: MIT   🕒 Updated: 2025-10-25 09:18 UTC
 
 ![Traffic Graph](traffic_graph.png)
+traffic_graph.png)
 # 🌸 R3C — Rust Independence Compiler  
 > Rewrite the base. Build compilers that heal themselves.  
 > Cross-platform C++ · NASM · Rust transpiler pipeline  
@@ -136,3 +137,6 @@ _Last auto-update: 2025-10-25 01:45 UTC_
 \n\n### 🔐 Latest Checksums\n```\n8d25fee218b909af2506d3920d3f3474391ca1448e7454d698b26d49f6167a8f  ./windows-latest/r3c-windows.zip
 462ed572f29ac8adba47a531f8d06f59b38fa94dce8ccbdd55174db9dd4b7d4b  ./macos-latest/r3c-macos.tar.gz
 e9184c2913fccfb5a9295f429bf6462094d7d217ad98d6214e2637302ba8599e  ./ubuntu-latest/r3c-linux.tar.gz\n```\n
+\n\n### 🔐 Latest Checksums\n```\n1bca46016f0342052344fe2b74f5867270e83401b5e9cdeacde269293178f5cb  ./macos-latest/r3c-macos.tar.gz
+3a0990811e877ffdb56d711d5fd51b3b9cfb80902756a4a59c78d15fd8aecd79  ./ubuntu-latest/r3c-linux.tar.gz
+6695c5711811e79668512b1fc4193cd4492859fc92188d03f8cb525c021a5b56  ./windows-latest/r3c-windows.zip\n```\n
