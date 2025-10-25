@@ -82,17 +82,6 @@ This repository features:
 
 ---
 
-## 🔐 Latest Checksums  
-(Automatically inserted by CI system)  
-
-b53b30e7888a7b011969d08d7e40d1a138707763ffac2b9ed59194a636f10e88 ./r3c-windows-latest/r3c-windows.zip
-5783f2c2cab400368697d5058cc65a1549d4eaba5e6e43c6cddd23633ab67c6d ./r3c-macos-latest/r3c-macos.tar.gz
-d453108191fcc7a947992769188beab9607b5bb2ccde282befb5569e259089d4 ./r3c-ubuntu-latest/r3c-linux.tar.gz
-
-yaml
-코드 복사
-
----
 
 ## 🤝 Collaboration Notice  
 > The maintainer is currently fulfilling mandatory public service (4th grade).  
@@ -118,6 +107,14 @@ yaml
 | 📦 `cpppm` | Minimal package manager | Distribution layer |
 
 ---
+
+
+## 🔐 Latest Checksums  
+(Automatically inserted by CI system)  
+
+b53b30e7888a7b011969d08d7e40d1a138707763ffac2b9ed59194a636f10e88 ./r3c-windows-latest/r3c-windows.zip
+5783f2c2cab400368697d5058cc65a1549d4eaba5e6e43c6cddd23633ab67c6d ./r3c-macos-latest/r3c-macos.tar.gz
+d453108191fcc7a947992769188beab9607b5bb2ccde282befb5569e259089d4 ./r3c-ubuntu-latest/r3c-linux.tar.gz
 
 _Last auto-update: 2025-10-25 01:45 UTC_
 \n\n### 🔐 Latest Checksums\n```\n8d25fee218b909af2506d3920d3f3474391ca1448e7454d698b26d49f6167a8f  ./windows-latest/r3c-windows.zip
