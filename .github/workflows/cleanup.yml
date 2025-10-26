@@ -2,14 +2,14 @@ name: 🧹 Repository Cleanup (Auto Maintenance)
 
 on:
   schedule:
-    - cron: "0 0 1 * *"     # 매월 1일 00시 UTC
-  workflow_dispatch:
+    - cron: "0 0 1 * *"     # 매월 1일 00시 UTC 실행
+  workflow_dispatch:        # 수동 실행 가능하도록 설정
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     
-    # ✅ Job 수준에서 필요한 권한을 명시합니다.
+    # 🚨 중요: 릴리스 삭제를 위해 'releases: write' 권한이 필수입니다.
     permissions:
       contents: write
       releases: write 
@@ -22,20 +22,21 @@ jobs:
       - name: 🗑️ Delete older releases and associated tags
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
-          # 최신 릴리스 개수는 유지하지 않고 (0), 날짜 기준으로만 삭제합니다.
+          # 개수 기준 유지(keep_latest)는 사용하지 않음
           keep_latest: 0 
-          # 생성된 지 3일 이상(3일 초과)된 릴리스를 삭제합니다.
+          # 생성된 지 3일 초과된 릴리스를 삭제
           delete_expired_data: 3 
-          # 삭제되는 릴리스와 연결된 태그도 함께 삭제합니다.
+          # 삭제되는 릴리스와 연결된 태그도 함께 삭제
           delete_associated_tags: true 
         env:
-          # GITHUB_TOKEN이 삭제 권한을 사용할 수 있도록 합니다.
+          # GITHUB_TOKEN을 사용하여 삭제 권한 부여
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # -----------------------------------
 
       - name: 🧹 Git history garbage collection
         run: |
           echo "Running aggressive git cleanup..."
+          # Git 저장소 최적화 및 불필요한 객체 정리
           git gc --prune=now --aggressive || true
           du -sh .git
 
@@ -43,6 +44,7 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // 7일 이상 접근되지 않은 workflow 캐시를 삭제
             const caches = await github.rest.actions.listCaches({
               owner: context.repo.owner,
               repo: context.repo.repo
@@ -63,8 +65,8 @@ jobs:
       - name: 🧾 Delete artifacts older than 7 days
         uses: geekyeggo/delete-artifact@v5
         with:
+          # 7일보다 오래된 빌드 아티팩트 삭제
           age: '7 days'
 
       - name: ✅ Done
         run: echo "Cleanup complete ✅"
-
