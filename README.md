@@ -110,7 +110,8 @@ This repository features:
 
 ---
 
-
+<!--AUTO_CLEANUP_BADGE_START-->
+<!--AUTO_CLEANUP_BADGE_END-->
 ## 🔐 Latest Checksums  
 (Automatically inserted by CI system)  
 
