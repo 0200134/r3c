@@ -8,12 +8,10 @@ on:
 permissions:
   contents: write
   actions: write
-  caches: write
   packages: write
   discussions: read
   issues: read
   pull-requests: read
-  releases: write
 
 jobs:
   cleanup:
@@ -25,7 +23,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # --- 최신 3개만 남기고 Release/Tag 정리 ---
       - name: 🗑️ Delete older releases and associated tags (Keep 3 Latest)
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
@@ -38,8 +35,6 @@ jobs:
       - name: 🧹 Git history garbage collection
         run: |
           git gc --prune=now --aggressive || true
-          echo "✅ Git GC completed"
-          echo "Current .git size:"
           du -sh .git || true
 
       - name: 🗑️ Delete old workflow caches (7+ days)
@@ -72,7 +67,6 @@ jobs:
         with:
           age: '7 days'
 
-      # --- README 배지 업데이트용 통계 수집 ---
       - name: 📊 Collect cleanup stats
         id: stats
         env:
@@ -80,28 +74,21 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           sudo apt-get update -y && sudo apt-get install -y jq
-          # Repo size (human-readable)
           REPO_SIZE="$(du -sh .git | awk '{print $1}')"
-          # Release count (after cleanup)
           RELEASES=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
             "https://api.github.com/repos/${REPO}/releases?per_page=100" | jq 'length')
-          # Timestamp UTC
           TS="$(date -u +"%Y-%m-%d %H:%M UTC")"
-
           echo "REPO_SIZE=${REPO_SIZE}" >> $GITHUB_ENV
           echo "RELEASES=${RELEASES}" >> $GITHUB_ENV
           echo "TS=${TS}" >> $GITHUB_ENV
           echo "CACHES_DELETED=${{ steps.purge_caches.outputs.deleted }}" >> $GITHUB_ENV
 
-      # --- README 배지 자동 삽입/갱신 ---
       - name: 🏷️ Update README badge
         run: |
           BADGE_LINE="🧹 Auto Cleanup: **Repo** ${REPO} | **.git** ${REPO_SIZE} | **Releases** ${RELEASES} | **Caches purged** ${CACHES_DELETED} | **Last** ${TS}"
           START="<!--AUTO_CLEANUP_BADGE_START-->"
           END="<!--AUTO_CLEANUP_BADGE_END-->"
-
           if ! grep -q "$START" README.md 2>/dev/null; then
-            echo "Badge markers not found. Appending to README.md"
             {
               echo ""
               echo "$START"
@@ -109,7 +96,6 @@ jobs:
               echo "$END"
             } >> README.md
           else
-            # Replace between markers
             awk -v start="$START" -v end="$END" -v line="$BADGE_LINE" '
               BEGIN{inblk=0}
               {
