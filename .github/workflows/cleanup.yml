@@ -1,0 +1,52 @@
+name: 🧹 Repository Cleanup (Auto Maintenance)
+
+on:
+  schedule:
+    - cron: "0 0 1 * *"     # 매월 1일 00시 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧹 Git history garbage collection
+        run: |
+          echo "Running aggressive git cleanup..."
+          git gc --prune=now --aggressive || true
+          du -sh .git
+
+      - name: 🗑️ Delete old workflow caches
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const caches = await github.rest.actions.listCaches({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            for (const cache of caches.data.actions_caches) {
+              const lastAccess = new Date(cache.last_accessed_at);
+              const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+              if (lastAccess < weekAgo) {
+                await github.rest.actions.deleteCacheById({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  cache_id: cache.id
+                });
+                core.info(`🗑️ Deleted old cache: ${cache.key}`);
+              }
+            }
+
+      - name: 🧾 Delete artifacts older than 7 days
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          age: '7 days'
+
+      - name: ✅ Done
+        run: echo "Cleanup complete ✅"
