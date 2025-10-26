@@ -9,7 +9,7 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     
-    # ✅ Job 수준에서 필요한 권한을 명시합니다. (수정된 부분)
+    # ✅ Job 수준에서 필요한 권한을 명시합니다.
     permissions:
       contents: write
       releases: write 
@@ -18,16 +18,18 @@ jobs:
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
 
-      # --- 🗑️ 오래된 Release 및 Tag 삭제 ---
+      # --- 🗑️ 3일 이상된 Release 및 Tag 삭제 ---
       - name: 🗑️ Delete older releases and associated tags
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
-          # 최신 3개의 릴리스는 유지합니다. (0으로 설정하면 모두 삭제)
-          keep_latest: 3 
-          # 오래된 릴리스와 연결된 태그도 함께 삭제합니다.
+          # 최신 릴리스 개수는 유지하지 않고 (0), 날짜 기준으로만 삭제합니다.
+          keep_latest: 0 
+          # 생성된 지 3일 이상(3일 초과)된 릴리스를 삭제합니다.
+          delete_expired_data: 3 
+          # 삭제되는 릴리스와 연결된 태그도 함께 삭제합니다.
           delete_associated_tags: true 
         env:
-          # 토큰이 있어야 삭제 권한이 작동합니다.
+          # GITHUB_TOKEN이 삭제 권한을 사용할 수 있도록 합니다.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       # -----------------------------------
 
@@ -65,3 +67,4 @@ jobs:
 
       - name: ✅ Done
         run: echo "Cleanup complete ✅"
+
