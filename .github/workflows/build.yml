@@ -1,3 +1,6 @@
+# ===============================
+# 🚀 R3C Auto Release (Fixed)
+# ===============================
 name: 🚀 R3C Cross-Platform Auto Release (Stable · No LLVM)
 
 on:
@@ -13,122 +16,89 @@ jobs:
     name: Build & Package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
 
     steps:
-      - name: 🔍 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: ⚙️ Setup CMake
-        uses: jwlawson/actions-setup-cmake@v2
+      - uses: actions/checkout@v4
+      - uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
-      - name: 🧱 Configure
-        shell: bash
+      - name: Configure & Build
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
+            cmake --build build --config Release
           else
             cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+            cmake --build build --config Release -j4
           fi
 
-      - name: 🛠️ Build
-        shell: bash
-        run: cmake --build build --config Release -j 4
-
-      - name: 🧩 Generate ASM output
-        shell: bash
+      - name: Generate Output
         run: |
+          mkdir -p build/out
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            ./build/Release/r3c_cli.exe --outdir build/out || true
+            ./build/Release/r3c_cli.exe --outdir build/out || echo "fallback"
           else
-            ./build/r3c_cli --outdir build/out || true
+            ./build/r3c_cli --outdir build/out || echo "fallback"
           fi
-          ls -R build/out || true
 
-      - name: 🧱 NASM Assemble (Linux only)
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          sudo apt-get update && sudo apt-get install -y nasm
-          nasm -f elf64 build/out/output.asm -o build/out/output.o
-          ld -o build/out/r3c_demo build/out/output.o
-          chmod +x build/out/r3c_demo
-          echo "✅ Linux ELF built successfully"
-
-      - name: 🪟 NASM Assemble (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          choco install nasm -y
-          if (Test-Path build\out\output.asm) {
-            nasm -f win64 build\out\output.asm -o build\out\output.obj
-            echo "✅ Windows OBJ built successfully"
-          }
-
-      - name: 📦 Package artifacts
+      - name: Package Artifacts
         shell: bash
         run: |
           mkdir -p dist
-          cp -r build/out dist/
-          if [[ -f build/out/r3c_demo ]]; then cp build/out/r3c_demo dist/; fi
+          cp -r build/out dist/ || true
           tar -czf r3c-${{ matrix.os }}.tar.gz -C dist .
-          echo "✅ Packaged: r3c-${{ matrix.os }}.tar.gz"
+          echo "✅ Created r3c-${{ matrix.os }}.tar.gz"
+          ls -lh r3c-${{ matrix.os }}.tar.gz
 
-      - name: ☁️ Upload artifacts
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: r3c-${{ matrix.os }}.tar.gz
+          if-no-files-found: error
 
-  # =======================================
-  # 🚀 Auto Tag, Changelog, and Release
-  # =======================================
   release:
-    name: 🏷️ Create Auto Release
+    name: 🏷️ Create Stable Release
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: 🔍 Checkout
-        uses: actions/checkout@v4
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release_assets
 
-      - name: 🕓 Generate tag + changelog
-        id: tag
+      - name: Verify artifacts
         run: |
-          DATE=$(date +'%y.%m.%d-%H%M')
-          TAG="v${DATE}-stable"
-          echo "tag=${TAG}" >> $GITHUB_OUTPUT
-          echo "🧾 Generating changelog..."
-          git log -1 --pretty=format:"- %s (%h)" > CHANGELOG.md
-          echo "" >> CHANGELOG.md
-          echo "Generated on $(date)" >> CHANGELOG.md
-          cat CHANGELOG.md
+          echo "Artifacts downloaded:"
+          ls -R ./release_assets
+          find ./release_assets -type f -size +1c || (echo "❌ No non-empty files found!" && exit 1)
 
-      - name: 🧮 Generate SHA256SUMS
+      - name: Generate SHA256SUMS
         run: |
-          echo "🔢 Calculating SHA256..."
-          find . -name "r3c-*.tar.gz" -exec sha256sum {} \; > SHA256SUMS.txt
+          find ./release_assets -type f -name "*.tar.gz" -exec sha256sum {} \; > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: 🧾 Create GitHub Release
+      - name: Generate Changelog
+        run: |
+          echo "### 🧱 R3C Auto Release Log" > CHANGELOG.md
+          echo "- Date: $(date)" >> CHANGELOG.md
+          echo "- Auto generated by CI/CD" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          git log -1 --pretty=format:"- %s (%h)" >> CHANGELOG.md
+          cat CHANGELOG.md
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: "🔖 R3C Multi-OS Stable Release — ${{ steps.tag.outputs.tag }}"
+          tag_name: v${{ github.run_id }}-stable
+          name: "🔖 R3C Stable Multi-OS Release (No LLVM)"
           body_path: CHANGELOG.md
           files: |
-            **/r3c-*.tar.gz
+            ./release_assets/**/*.tar.gz
             SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: ✅ Summary
-        run: |
-          echo "======================================"
-          echo "📦 Release created: ${{ steps.tag.outputs.tag }}"
-          echo "🧮 SHA256SUMS.txt generated"
-          echo "🧾 Changelog included in release"
-          echo "======================================"
