@@ -1,24 +1,23 @@
 #pragma once
 #include <string>
+#include <filesystem>
 
 namespace r3c {
 
 struct TranspileOptions {
-  std::string input_path;
-  std::string out_dir = "build/out";
-  bool emit_asm = false;
-  bool emit_rust = false;
+    std::string input_path;
+    std::string out_dir = "build/out";
+    bool emit_asm = true;
+    bool emit_rust = true;
 };
 
 class Transpiler {
 public:
-  int run(const TranspileOptions& opt);
+    int run(const TranspileOptions& opt);
 
 private:
-  int ensure_out_dir(const std::string& outdir);
-  int write_text(const std::string& path, const std::string& content);
-  std::string toy_rust_stub();
-  std::string toy_linux_x64_nasm();
+    bool emit_rust_stub(const std::filesystem::path& input, const std::filesystem::path& out_dir);
+    bool emit_nasm_stub(const std::filesystem::path& input, const std::filesystem::path& out_dir);
 };
 
 } // namespace r3c
