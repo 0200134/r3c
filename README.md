@@ -1,5 +1,7 @@
-🌸 R3C — Rust Independence Compiler
-Rewrite the base. Build compilers that heal themselves.
+# 🌸 R3C — LLVM-Zero Ecosystem
+
+🌍 Clones: 0  |  👥 Unique Cloners: 0  |  👁️ Views: 0  |  🔸 Unique Visitors: 0
+
 Cross-platform C++ · NASM · Rust transpiler pipeline
 
 ### 🔗 Ecosystem Roadmap
