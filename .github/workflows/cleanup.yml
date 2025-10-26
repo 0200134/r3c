@@ -5,14 +5,17 @@ on:
     - cron: "0 0 1 * *"     # 매월 1일 00시 UTC 실행
   workflow_dispatch:        # 수동 실행 가능하도록 설정
 
+# 🚨 최상위 레벨 권한 설정: 권한 오류를 해결하는 가장 안정적인 방법입니다.
+permissions:
+  contents: write
+  actions: write
+  caches: write
+  releases: write 
+
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     
-    permissions:
-      contents: write
-      releases: write 
-
     steps:
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
@@ -21,11 +24,8 @@ jobs:
       - name: 🗑️ Delete older releases and associated tags (Keep 3 Latest)
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
-          # ✅ 최신 3개의 릴리스는 유지합니다. (2개로 변경하고 싶다면 2로 수정)
           keep_latest: 3 
-          # 날짜 기준은 사용하지 않기 위해 0으로 설정
           delete_expired_data: 0
-          # 연결된 태그도 함께 삭제합니다.
           delete_associated_tags: true 
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
