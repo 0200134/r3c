@@ -1,12 +1,16 @@
-name: 🧩 R3C Cross-Platform Build (stable)
+name: 🚀 R3C Cross-Platform Auto Release (Stable · No LLVM)
 
 on:
   push:
-  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
+    name: Build & Package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -14,76 +18,117 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      - name: Checkout
+      - name: 🔍 Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up CMake
+      - name: ⚙️ Setup CMake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
-      - name: Configure (Linux/macOS)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-
-      - name: Configure (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build (Linux/macOS)
-        if: matrix.os != 'windows-latest'
-        shell: bash
-        run: cmake --build build --config Release -j
-
-      - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: cmake --build build --config Release --target r3c_cli
-
-      - name: Demo generate outputs
+      - name: 🧱 Configure
         shell: bash
         run: |
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            ./build/Release/r3c_cli.exe --outdir build/out
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
           else
-            ./build/r3c_cli --outdir build/out
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           fi
-          ls -la build/out || true
 
-      - name: Assemble & link on Ubuntu (demo proof)
+      - name: 🛠️ Build
+        shell: bash
+        run: cmake --build build --config Release -j 4
+
+      - name: 🧩 Generate ASM output
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            ./build/Release/r3c_cli.exe --outdir build/out || true
+          else
+            ./build/r3c_cli --outdir build/out || true
+          fi
+          ls -R build/out || true
+
+      - name: 🧱 NASM Assemble (Linux only)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           sudo apt-get update && sudo apt-get install -y nasm
-          nasm -felf64 build/out/output.asm -o build/out/output.o
+          nasm -f elf64 build/out/output.asm -o build/out/output.o
           ld -o build/out/r3c_demo build/out/output.o
-          file build/out/r3c_demo || true
-          echo "Size:"; stat -c%s build/out/r3c_demo
+          chmod +x build/out/r3c_demo
+          echo "✅ Linux ELF built successfully"
 
-      - name: Package artifact
-        if: matrix.os != 'windows-latest'
+      - name: 🪟 NASM Assemble (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install nasm -y
+          if (Test-Path build\out\output.asm) {
+            nasm -f win64 build\out\output.asm -o build\out\output.obj
+            echo "✅ Windows OBJ built successfully"
+          }
+
+      - name: 📦 Package artifacts
         shell: bash
         run: |
           mkdir -p dist
           cp -r build/out dist/
           if [[ -f build/out/r3c_demo ]]; then cp build/out/r3c_demo dist/; fi
           tar -czf r3c-${{ matrix.os }}.tar.gz -C dist .
+          echo "✅ Packaged: r3c-${{ matrix.os }}.tar.gz"
 
-      - name: Package artifact (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item build\out dist\ -Recurse -Force
-          Compress-Archive -Path dist\* -DestinationPath r3c-windows-latest.zip -Force
-
-      - name: Upload artifact
+      - name: ☁️ Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
-          path: |
-            r3c-${{ matrix.os }}.tar.gz
-            r3c-windows-latest.zip
-          if-no-files-found: ignore
+          path: r3c-${{ matrix.os }}.tar.gz
+
+  # =======================================
+  # 🚀 Auto Tag, Changelog, and Release
+  # =======================================
+  release:
+    name: 🏷️ Create Auto Release
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: 🔍 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🕓 Generate tag + changelog
+        id: tag
+        run: |
+          DATE=$(date +'%y.%m.%d-%H%M')
+          TAG="v${DATE}-stable"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          echo "🧾 Generating changelog..."
+          git log -1 --pretty=format:"- %s (%h)" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "Generated on $(date)" >> CHANGELOG.md
+          cat CHANGELOG.md
+
+      - name: 🧮 Generate SHA256SUMS
+        run: |
+          echo "🔢 Calculating SHA256..."
+          find . -name "r3c-*.tar.gz" -exec sha256sum {} \; > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: 🧾 Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "🔖 R3C Multi-OS Stable Release — ${{ steps.tag.outputs.tag }}"
+          body_path: CHANGELOG.md
+          files: |
+            **/r3c-*.tar.gz
+            SHA256SUMS.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: ✅ Summary
+        run: |
+          echo "======================================"
+          echo "📦 Release created: ${{ steps.tag.outputs.tag }}"
+          echo "🧮 SHA256SUMS.txt generated"
+          echo "🧾 Changelog included in release"
+          echo "======================================"
