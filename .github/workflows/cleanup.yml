@@ -1,67 +1,138 @@
-name: 🧹 Repository Cleanup (Auto Maintenance)
+name: 🧹 Repository Cleanup (Daily + README badge)
 
 on:
   schedule:
-    - cron: "0 0 1 * *"     # 매월 1일 00시 UTC 실행
-  workflow_dispatch:        # 수동 실행 가능하도록 설정
+    - cron: "0 0 * * *"     # 매일 00:00 UTC (KST 09:00)
+  workflow_dispatch:
 
-# 🚨 최상위 레벨 권한 설정: 권한 오류를 해결하는 가장 안정적인 방법입니다.
 permissions:
   contents: write
   actions: write
   caches: write
-  releases: write 
+  packages: write
+  discussions: read
+  issues: read
+  pull-requests: read
+  releases: write
 
 jobs:
   cleanup:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # --- 🗑️ 최신 3개만 남기고 Release 및 Tag 삭제 ---
+      # --- 최신 3개만 남기고 Release/Tag 정리 ---
       - name: 🗑️ Delete older releases and associated tags (Keep 3 Latest)
         uses: dev-drprasad/delete-older-releases@v0.3.4
         with:
-          keep_latest: 3 
+          keep_latest: 3
           delete_expired_data: 0
-          delete_associated_tags: true 
+          delete_associated_tags: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      # -----------------------------------
 
       - name: 🧹 Git history garbage collection
         run: |
-          echo "Running aggressive git cleanup..."
           git gc --prune=now --aggressive || true
-          du -sh .git
+          echo "✅ Git GC completed"
+          echo "Current .git size:"
+          du -sh .git || true
 
-      - name: 🗑️ Delete old workflow caches
+      - name: 🗑️ Delete old workflow caches (7+ days)
+        id: purge_caches
         uses: actions/github-script@v7
         with:
           script: |
-            const caches = await github.rest.actions.listCaches({
+            const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const res = await github.rest.actions.listCaches({
               owner: context.repo.owner,
               repo: context.repo.repo
             });
-            for (const cache of caches.data.actions_caches) {
-              const lastAccess = new Date(cache.last_accessed_at);
-              const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-              if (lastAccess < weekAgo) {
+            let deleted = 0;
+            for (const c of res.data.actions_caches || []) {
+              const last = new Date(c.last_accessed_at);
+              if (last < weekAgo) {
                 await github.rest.actions.deleteCacheById({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  cache_id: cache.id
+                  cache_id: c.id
                 });
-                core.info(`🗑️ Deleted old cache: ${cache.key}`);
+                deleted++;
+                core.info(`🗑️ Deleted cache: ${c.key}`);
               }
             }
+            core.setOutput('deleted', String(deleted));
 
       - name: 🧾 Delete artifacts older than 7 days
         uses: geekyeggo/delete-artifact@v5
         with:
           age: '7 days'
 
+      # --- README 배지 업데이트용 통계 수집 ---
+      - name: 📊 Collect cleanup stats
+        id: stats
+        env:
+          REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y jq
+          # Repo size (human-readable)
+          REPO_SIZE="$(du -sh .git | awk '{print $1}')"
+          # Release count (after cleanup)
+          RELEASES=$(curl -fsSL -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/${REPO}/releases?per_page=100" | jq 'length')
+          # Timestamp UTC
+          TS="$(date -u +"%Y-%m-%d %H:%M UTC")"
+
+          echo "REPO_SIZE=${REPO_SIZE}" >> $GITHUB_ENV
+          echo "RELEASES=${RELEASES}" >> $GITHUB_ENV
+          echo "TS=${TS}" >> $GITHUB_ENV
+          echo "CACHES_DELETED=${{ steps.purge_caches.outputs.deleted }}" >> $GITHUB_ENV
+
+      # --- README 배지 자동 삽입/갱신 ---
+      - name: 🏷️ Update README badge
+        run: |
+          BADGE_LINE="🧹 Auto Cleanup: **Repo** ${REPO} | **.git** ${REPO_SIZE} | **Releases** ${RELEASES} | **Caches purged** ${CACHES_DELETED} | **Last** ${TS}"
+          START="<!--AUTO_CLEANUP_BADGE_START-->"
+          END="<!--AUTO_CLEANUP_BADGE_END-->"
+
+          if ! grep -q "$START" README.md 2>/dev/null; then
+            echo "Badge markers not found. Appending to README.md"
+            {
+              echo ""
+              echo "$START"
+              echo "$BADGE_LINE"
+              echo "$END"
+            } >> README.md
+          else
+            # Replace between markers
+            awk -v start="$START" -v end="$END" -v line="$BADGE_LINE" '
+              BEGIN{inblk=0}
+              {
+                if ($0 ~ start) {print; print line; inblk=1; next}
+                if ($0 ~ end) {print; inblk=0; next}
+                if (inblk==0) print
+              }' README.md > README.md.tmp && mv README.md.tmp README.md
+          fi
+
+      - name: 💾 Commit README if changed
+        env:
+          GIT_AUTHOR_NAME: github-actions
+          GIT_AUTHOR_EMAIL: actions@users.noreply.github.com
+          GIT_COMMITTER_NAME: github-actions
+          GIT_COMMITTER_EMAIL: actions@users.noreply.github.com
+        run: |
+          if ! git diff --quiet -- README.md; then
+            git add README.md
+            git commit -m "chore: update cleanup badge (daily) [skip ci]"
+            git push
+          else
+            echo "No README changes to commit."
+          fi
+
       - name: ✅ Done
-        run: echo "Cleanup complete ✅"
+        run: echo "Daily cleanup complete ✅"
