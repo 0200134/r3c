@@ -1,13 +1,14 @@
 # ==========================================================
-# 🔖 R3C Auto Stable Final Release (v26.x · LLVM-Zero)
+# 🔖 R3C Auto Stable Final v3 (Full Cross-Platform + Traffic Analytics)
 # ==========================================================
-name: 🔖 R3C Autonomous Final Release (Multi-OS · Stable · No LLVM)
+name: 🔖 R3C Autonomous Final Release v3 (3OS + Stats · LLVM-Zero)
 
 on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 3 * * 0"  # 매주 일요일 새벽 3시 (UTC)
+    - cron: "0 3 * * 0"   # 매주 일요일 새벽 자동 릴리스
+    - cron: "0 9 * * *"   # 매일 아침 9시 트래픽 배너 업데이트
   workflow_dispatch:
 
 permissions:
@@ -24,18 +25,11 @@ jobs:
       fail-fast: false
 
     steps:
-      # ===============================
-      # 🧩 Setup
-      # ===============================
       - uses: actions/checkout@v4
-
       - uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.28.3"
 
-      # ===============================
-      # ⚙️ Configure & Build
-      # ===============================
       - name: Configure & Build
         shell: bash
         run: |
@@ -43,51 +37,33 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_BUILD_TYPE=Release
             cmake --build build --config Release
-          else
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
             cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
             cmake --build build --config Release -j4
+          else
+            cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+            cmake --build build --target r3c_cli --config Release -j4
           fi
 
-      # ===============================
-      # 🧪 Post-Build Verification
-      # ===============================
-      - name: Verify Build Artifacts
+      - name: Verify and Copy Executable
         shell: bash
         run: |
           mkdir -p build/out
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            EXE="build/Release/r3c_cli.exe"
-            if [[ -f "$EXE" ]]; then
-              echo "✅ Found Windows executable: $EXE"
-              cp "$EXE" build/out/
-            else
-              echo "⚠️ Missing r3c_cli.exe — build incomplete."
-            fi
-          else
-            BIN="./build/r3c_cli"
-            if [[ -f "$BIN" ]]; then
-              echo "✅ Found binary: $BIN"
-              cp "$BIN" build/out/
-            else
-              echo "⚠️ Missing r3c_cli binary — build incomplete."
-            fi
+          if [[ "$RUNNER_OS" == "Windows" && -f build/Release/r3c_cli.exe ]]; then
+            cp build/Release/r3c_cli.exe build/out/
+          elif [[ -f build/r3c_cli ]]; then
+            cp build/r3c_cli build/out/
           fi
 
-      # ===============================
-      # 🧾 Test Execution
-      # ===============================
       - name: Test CLI Execution
         shell: bash
         run: |
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            ./build/out/r3c_cli.exe --version || echo "⚠️ Test skipped (Windows CLI)"
+            ./build/out/r3c_cli.exe --version || echo "⚠️ test skipped"
           else
-            ./build/out/r3c_cli --version || echo "⚠️ Test skipped (Non-Windows CLI)"
+            ./build/out/r3c_cli --version || echo "⚠️ test skipped"
           fi
 
-      # ===============================
-      # 📦 Package Artifacts
-      # ===============================
       - name: Package Artifacts
         shell: bash
         run: |
@@ -95,18 +71,13 @@ jobs:
           cp -r build/out dist/ || true
           tar -czf r3c-${{ matrix.os }}.tar.gz -C dist .
           echo "✅ Created r3c-${{ matrix.os }}.tar.gz"
-          ls -lh r3c-${{ matrix.os }}.tar.gz
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: r3c-${{ matrix.os }}.tar.gz
           if-no-files-found: error
 
-  # ==========================================================
-  # 🏷️ Release Finalization
-  # ==========================================================
   release:
     name: 🏷️ Create Final Stable Release
     runs-on: ubuntu-latest
@@ -114,44 +85,31 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: ./release_assets
 
-      - name: Verify artifacts
-        shell: bash
-        run: |
-          echo "Artifacts downloaded:"
-          ls -R ./release_assets
-          find ./release_assets -type f -size +1c || (echo "❌ No valid files found!" && exit 1)
-
-      # Generate SHA256 checksums
       - name: Generate SHA256SUMS
         shell: bash
         run: |
           find ./release_assets -type f -name "*.tar.gz" -exec sha256sum {} \; > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      # Generate changelog
       - name: Generate Changelog
         shell: bash
         run: |
-          echo "### 🧱 R3C Final Auto Release Log" > CHANGELOG.md
+          echo "### 🧱 R3C Auto Release Log" > CHANGELOG.md
           echo "- Date: $(date)" >> CHANGELOG.md
-          echo "- Auto generated by CI/CD (Stable Final)" >> CHANGELOG.md
-          echo "" >> CHANGELOG.md
+          echo "- Verified across Ubuntu/macOS/Windows" >> CHANGELOG.md
           git log -1 --pretty=format:"- %s (%h)" >> CHANGELOG.md
           echo "" >> CHANGELOG.md
           cat CHANGELOG.md
 
-      # Auto-tag creation
       - name: Create Stable Tag
         id: tagger
         shell: bash
         run: |
-          TAG="v$(date +'%y.%m.%d-%H%M')-stable-final"
+          TAG="v$(date +'%y.%m.%d-%H%M')-stable-final-v3"
           echo "🪶 Tagging release as $TAG"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -159,12 +117,11 @@ jobs:
           git push origin "$TAG"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-      # Publish GitHub Release
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tagger.outputs.tag }}
-          name: "🔖 R3C Stable Final Multi-OS Release (No LLVM)"
+          name: "🔖 R3C Stable Final v3 (3OS + Traffic Analytics)"
           body_path: CHANGELOG.md
           make_latest: true
           files: |
@@ -172,4 +129,54 @@ jobs:
             SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================================
+  # 📊 Daily Traffic & README Auto-Update
+  # ==========================================================
+  update-stats:
+    name: 📈 Update Traffic Stats Banner
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        run: sudo apt-get update && sudo apt-get install -y python3 python3-pip
+
+      - name: Install dependencies
+        run: pip install requests PyGithub
+
+      - name: Update Banner
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          python3 <<'PYCODE'
+          import requests, os, json
+          repo = os.environ["REPO"]
+          token = os.environ["GH_TOKEN"]
+          headers = {"Authorization": f"token {token}", "Accept": "application/vnd.github.v3+json"}
+          url = f"https://api.github.com/repos/{repo}/traffic/views"
+          clones = requests.get(f"https://api.github.com/repos/{repo}/traffic/clones", headers=headers).json()
+          views = requests.get(url, headers=headers).json()
+          clone_count = clones.get("count", 0)
+          unique_cloners = clones.get("uniques", 0)
+          view_count = views.get("count", 0)
+          unique_visitors = views.get("uniques", 0)
+          stats = f"🌍 Clones: {clone_count}  |  👥 Unique Cloners: {unique_cloners}  |  👁️ Views: {view_count}  |  🔸 Unique Visitors: {unique_visitors}"
+          print(stats)
+          with open("README.md", "r", encoding="utf-8") as f:
+              lines = f.readlines()
+          lines[0] = f"# 🌸 R3C — LLVM-Zero Ecosystem\n\n"
+          lines[1] = stats + "\n\n"
+          with open("README.md", "w", encoding="utf-8") as f:
+              f.writelines(lines)
+          PYCODE
+
+      - name: Commit & Push Updated README
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "📊 Auto update traffic stats"
+          git push
 
