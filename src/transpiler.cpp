@@ -29,14 +29,29 @@ bool Transpiler::emit_nasm_stub(const fs::path& input, const fs::path& out_dir) 
     try {
         fs::path out = fs::absolute(out_dir / (input.empty() ? "output.asm" : input.stem().string() + ".asm"));
         std::ofstream f(out);
+
         f << "; [R3C] Auto-generated NASM stub\n";
         f << "; Input: " << (input.empty() ? "(none)" : input.filename().string()) << "\n\n";
+
+        #if defined(_WIN32) || defined(_WIN64)
+        f << "section .text\n";
+        f << "global main\n";
+        f << "extern ExitProcess\n\n";
+        f << "main:\n";
+        f << "    sub rsp, 40           ; shadow space\n";
+        f << "    xor ecx, ecx          ; return code 0\n";
+        f << "    call ExitProcess\n";
+        f << "    add rsp, 40\n";
+        f << "    ret\n";
+        #else
         f << "section .text\n";
         f << "global _start\n\n";
         f << "_start:\n";
-        f << "    mov rax, 60\n";
-        f << "    xor rdi, rdi\n";
+        f << "    mov rax, 60           ; syscall: exit\n";
+        f << "    xor rdi, rdi          ; exit code = 0\n";
         f << "    syscall\n";
+        #endif
+
         f.close();
         std::cout << "⚙️ NASM stub emitted → " << out << "\n";
         return true;
