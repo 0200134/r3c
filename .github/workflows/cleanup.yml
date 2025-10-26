@@ -5,14 +5,11 @@ on:
     - cron: "0 0 1 * *"     # 매월 1일 00시 UTC
   workflow_dispatch:
 
-# Top-level permissions 블록은 제거하고,
-# 모든 권한을 job 레벨로 옮깁니다.
-
 jobs:
   cleanup:
     runs-on: ubuntu-latest
     
-    # ✅ Job 수준에서 필요한 권한을 명시합니다.
+    # ✅ Job 수준에서 필요한 권한을 명시합니다. (수정된 부분)
     permissions:
       contents: write
       releases: write 
@@ -68,4 +65,3 @@ jobs:
 
       - name: ✅ Done
         run: echo "Cleanup complete ✅"
-
