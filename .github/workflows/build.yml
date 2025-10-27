@@ -5,6 +5,8 @@ on:
     branches: [ main ]
     paths-ignore:
       - '.github/workflows/**'
+  schedule:
+    - cron: "0 0 * * *"   # ✅ 매일 00:00 UTC에 자동 실행
   workflow_dispatch:
 
 permissions:
