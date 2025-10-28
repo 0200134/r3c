@@ -1,6 +1,12 @@
 # 🌸 R3C — LLVM-Zero Ecosystem
 
-🌍 Clones: 0  |  👥 Unique Cloners: 0  |  👁️ Views: 0  |  🔸 Unique Visitors: 0
+## 💖 Support R3C Foundation
+You can support the long-term R3C ecosystem development through:
+
+- [OpenCollective](https://opencollective.com/r3c-foundation)
+- [Patreon](https://patreon.com/r3cfoundation)
+- [Ko-fi](https://ko-fi.com/r3cfoundation)
+- [Buy Me a Coffee](https://buymeacoffee.com/r3cfoundation)
 
 Cross-platform C++ · NASM · Rust transpiler pipeline
 
