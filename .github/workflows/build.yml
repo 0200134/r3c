@@ -1,4 +1,4 @@
-name: 🔖 R3C 3OS Autonomous Stable Release v5 (PAT + SHA Verified)
+name: 🔖 R3C Autonomous Stable Release v6 (3OS + Funding Report)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"   # 매일 00:00 UTC 자동 실행
+    - cron: "0 0 * * *"   # 매일 00:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -18,13 +18,13 @@ concurrency:
 
 jobs:
   build-and-release:
-    name: "R3C 3OS Build & Release"
+    name: "3OS Build"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v5
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v6
 
     steps:
       - name: 🧭 Checkout
@@ -32,27 +32,20 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: ⚙️ Setup Git user
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@users.noreply.github.com"
-
-      - name: 🧱 Build R3C (auto-detect)
+      - name: 🧱 Build R3C
         shell: bash
         run: |
-          echo "🔧 Building on ${{ matrix.os }}..."
           mkdir -p build
           if [ -f Cargo.toml ]; then
             cargo build --release
-            cp target/release/r3c build/ || cp target/release/r3c.exe build/ || true
+            cp target/release/r3c* build/ || true
           elif [ -f CMakeLists.txt ]; then
             cmake -B build -DCMAKE_BUILD_TYPE=Release
             cmake --build build --config Release
           else
-            echo "❌ No recognized build system (Cargo.toml or CMakeLists.txt missing)."
+            echo "❌ No build system found."
             exit 1
           fi
-          echo "✅ Build finished successfully."
 
       - name: 📦 Package build
         shell: bash
@@ -61,74 +54,95 @@ jobs:
           tar -czf dist/r3c-${{ matrix.os }}.tar.gz -C build .
           cd dist
           sha256sum r3c-${{ matrix.os }}.tar.gz > SHA256SUMS-${{ matrix.os }}.txt
-          echo "✅ Packaged artifact and SHA256 hash."
+          echo "✅ Packaged and hashed."
 
-      - name: 💾 Upload build artifacts
+      - name: 💾 Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: dist/
 
-  release:
-    name: "🔖 Aggregate & Release"
+  release-and-report:
+    name: "📊 Release + Funding Report"
     runs-on: ubuntu-latest
     needs: build-and-release
 
     steps:
-      - name: 📦 Download all build artifacts
+      - name: 📥 Download build artifacts
         uses: actions/download-artifact@v4
         with:
           path: release_dist
 
-      - name: 🧮 Combine SHA256 files
+      - name: 🧮 Combine hashes
         run: |
           cat release_dist/**/SHA256SUMS-*.txt > release_dist/SHA256SUMS.txt
-          echo "✅ Combined SHA256SUMS.txt"
+          echo "✅ SHA256SUMS combined."
 
-      - name: 🔍 Verify all artifacts exist
+      - name: 🔍 Verify artifacts
         run: |
           ls -lh release_dist/**/r3c-*.tar.gz || exit 1
 
-      - name: 🔍 Generate unified release tag
+      - name: 🪶 Generate release tag
         id: tag
         run: |
-          TAG="v$(date +'%y.%m.%d-%H%M')-stable-final-v5"
+          TAG="v$(date +'%y.%m.%d-%H%M')-stable-final-v6"
           echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "🪶 Tagging release as $TAG"
 
-      - name: 💾 Configure remote with PAT
+      - name: 💾 Configure remote
         run: |
           git remote set-url origin https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}.git
 
-      - name: 🪶 Create and push tag using PAT
+      - name: 🪶 Push tag
         run: |
-          git tag -a "${TAG}" -m "Stable Final v5 (3OS)"
+          git tag -a "${TAG}" -m "Stable Final v6 (3OS + Funding)"
           git push origin "${TAG}"
 
-      - name: 🧱 Create GitHub Release
+      - name: 🧱 Create Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${TAG} (3OS Stable Release)"
+          name: "R3C ${TAG} (3OS + Funding Report)"
           body: |
-            🧱 R3C 3OS Autonomous Stable Release (v5)
-            ✅ Verified builds for Ubuntu, macOS, Windows
-            📦 Auto-packaged and SHA256 verified
+            🧱 R3C 3OS Autonomous Release (v6)
+            ✅ Verified builds for Ubuntu/macOS/Windows
+            📊 Includes automatic funding status and SHA256 report.
             Date: $(date -u)
           files: |
             release_dist/**/r3c-*.tar.gz
             release_dist/SHA256SUMS.txt
 
-      - name: 🧩 Verify Release Creation
+      - name: 📊 Fetch OpenCollective Funding Data
+        id: funding
         run: |
-          if ! gh release view "${TAG}" >/dev/null 2>&1; then
-            echo "❌ Release creation failed!"
-            exit 1
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+          echo "📡 Fetching OpenCollective funding info..."
+          curl -s https://opencollective.com/r3c-foundation.json > funding.json
+          total=$(jq '.balance / 100' funding.json)
+          backers=$(jq '.backersCount' funding.json)
+          echo "total=$total" >> $GITHUB_ENV
+          echo "backers=$backers" >> $GITHUB_ENV
+          echo "✅ Funding data: ${total} USD, ${backers} backers"
+
+      - name: 🧾 Update README (funding + latest release)
+        run: |
+          echo "📄 Updating README with funding info..."
+          sed -i '/^### ❤️ Support R3C Ecosystem/,$d' README.md || true
+          {
+            echo "### ❤️ Support R3C Ecosystem"
+            echo ""
+            echo "Latest Release: **${TAG}**  "
+            echo "Total Funding: **$${{ env.total }} USD**  "
+            echo "Active Supporters: **${{ env.backers }}**"
+            echo ""
+            echo "[![OpenCollective](https://img.shields.io/badge/OpenCollective-r3c--foundation-2ea44f?logo=opencollective)](https://opencollective.com/r3c-foundation)"
+            echo "[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-via%20GitHub-orange?logo=github)](https://github.com/sponsors/r3c-foundation)"
+            echo ""
+            echo "_Autonomously updated by GitHub Actions (v6)._"
+          } >> README.md
+          git add README.md
+          git commit -m "🧾 Auto-update README with funding data"
+          git push
 
       - name: ✅ Done
-        run: echo "3OS Stable Release complete ✅"
+        run: echo "R3C v6 Autonomous Release + Funding Report complete ✅"
