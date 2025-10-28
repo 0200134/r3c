@@ -27,10 +27,10 @@ jobs:
       TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v6
 
     steps:
-      - name: 🧭 Checkout
+      - name: 🧭 Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0   # ✅ .git 포함 (필수)
 
       - name: 🧱 Build R3C
         shell: bash
@@ -68,6 +68,11 @@ jobs:
     needs: build-and-release
 
     steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: 📥 Download build artifacts
         uses: actions/download-artifact@v4
         with:
@@ -88,8 +93,10 @@ jobs:
           TAG="v$(date +'%y.%m.%d-%H%M')-stable-final-v6"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
-      - name: 💾 Configure remote
+      - name: 💾 Configure remote with PAT
         run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}.git
 
       - name: 🪶 Push tag
@@ -105,8 +112,8 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: "R3C ${TAG} (3OS + Funding Report)"
           body: |
-            🧱 R3C 3OS Autonomous Release (v6)
-            ✅ Verified builds for Ubuntu/macOS/Windows
+            🧱 **R3C 3OS Autonomous Release (v6)**
+            ✅ Verified builds for Ubuntu, macOS, and Windows.
             📊 Includes automatic funding status and SHA256 report.
             Date: $(date -u)
           files: |
