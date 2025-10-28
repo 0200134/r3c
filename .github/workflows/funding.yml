@@ -1,0 +1,75 @@
+name: 💰 R3C Foundation Funding Auto-Update
+
+on:
+  schedule:
+    - cron: "0 0 * * *"    # 매일 00:00 UTC 자동 실행
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  funding-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📡 Fetch OpenCollective funding info
+        env:
+          OC_TOKEN: ${{ secrets.OPENCOLLECTIVE_TOKEN }}
+          OC_SLUG: "r3x-foundation"
+        run: |
+          echo "📡 Fetching funding info for $OC_SLUG..."
+
+          response=$(curl -s -H "Content-Type: application/json" \
+            -H "Api-Key: $OC_TOKEN" \
+            -d "{\"query\": \"{ account(slug: \\\"$OC_SLUG\\\") { name balance currency } }\"}" \
+            https://opencollective.com/api/graphql)
+
+          if echo "$response" | jq empty 2>/dev/null; then
+            echo "✅ Valid JSON received"
+          else
+            echo "⚠️ Invalid JSON (Collective might still be pending approval)"
+            echo "$response"
+            exit 0
+          fi
+
+          balance=$(echo "$response" | jq -r '.data.account.balance.value // 0')
+          currency=$(echo "$response" | jq -r '.data.account.currency // "USD"')
+
+          echo "💰 Current funding balance: $balance $currency"
+
+          mkdir -p reports
+          echo "$response" > reports/funding.json
+
+          echo "BALANCE=$balance" >> $GITHUB_ENV
+          echo "CURRENCY=$currency" >> $GITHUB_ENV
+
+      - name: 🧾 Update README with current funding info
+        run: |
+          echo "📄 Updating README.md..."
+          BAL="$BALANCE"
+          CUR="$CURRENCY"
+
+          # 기존 섹션 제거 후 새로 삽입
+          sed -i '/^## 💰 Current Funding/,$d' README.md
+          {
+            echo "## 💰 Current Funding"
+            echo ""
+            echo "- **Total Balance:** ${BAL} ${CUR}"
+            echo "- **Updated:** $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo ""
+            echo "![Funding Chart](https://img.shields.io/badge/Funding-${BAL}%20${CUR}-blue?style=for-the-badge)"
+          } >> README.md
+
+      - name: 💾 Commit and push updates
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@users.noreply.github.com"
+          git add README.md reports/funding.json
+          git commit -m "💰 Auto-update funding info: ${BALANCE} ${CURRENCY}" || echo "No changes to commit"
+          git push
