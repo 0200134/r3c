@@ -6,11 +6,15 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"   # ✅ 매일 00:00 UTC에 자동 실행
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: stable-release
+  cancel-in-progress: false
 
 jobs:
   release:
@@ -43,13 +47,20 @@ jobs:
           git tag -a "${TAG}" -m "Stable Final v4"
           git push origin "${TAG}"
 
+      - name: 🔍 Check release assets
+        run: |
+          if [ -z "$(ls **/r3c-*.tar.gz 2>/dev/null)" ]; then
+            echo "❌ No build artifacts found."
+            exit 1
+          fi
+
       - name: 🧱 Create GitHub Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: R3C Stable Final v4
+          name: "R3C ${TAG} (Auto Stable Release)"
           body: |
             🧱 R3C 3OS Auto Release Log
             Date: $(date -u)
@@ -57,6 +68,15 @@ jobs:
           files: |
             **/r3c-*.tar.gz
             SHA256SUMS.txt
+
+      - name: 🧩 Verify Release Creation
+        run: |
+          if ! gh release view "${TAG}" >/dev/null 2>&1; then
+            echo "❌ Release creation failed!"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
 
       - name: ✅ Done
         run: echo "Stable Release complete ✅"
