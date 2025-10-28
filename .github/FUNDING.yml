@@ -1,4 +1,8 @@
-# FUNDING.yml — R3C (r3c-foundation)
-github: r3c-foundation
+# .github/FUNDING.yml
+patreon: yourPatreonName
 open_collective: r3c-foundation
-custom: ["https://opencollective.com/r3c-foundation"]
+ko_fi: yourKoFiName
+buy_me_a_coffee: yourname
+custom:
+  - https://opencollective.com/r3c-foundation
+  - https://buymeacoffee.com/yourname
