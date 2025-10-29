@@ -86,7 +86,14 @@ This repository features:
 > R3C Foundation — *From dependency to sovereignty.*
 
 ---
-
+> ⚖️ Legal Notice  
+> The R3C Foundation currently operates as a **non-profit open-source initiative**.  
+> All funding channels (GitHub Sponsors, OpenCollective, Patreon, Ko-fi, etc.)  
+> are registered **for transparency and future sustainability only**.  
+> No funds are personally received or withdrawn until  
+> the completion of public service
+>  
+> All accounts remain in “frozen state” until official foundation establishment.
 
 ## 🤝 Collaboration Notice  
 > The maintainer is currently fulfilling mandatory public service (4th grade).  
