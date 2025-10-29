@@ -30,30 +30,42 @@ jobs:
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # ✅ .git 포함 (필수)
+          fetch-depth: 0
 
       - name: 🧱 Build R3C
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p build
           if [ -f Cargo.toml ]; then
             cargo build --release
-            cp target/release/r3c* build/ || true
+            cp -f target/release/r3c* build/ || true
           elif [ -f CMakeLists.txt ]; then
             cmake -B build -DCMAKE_BUILD_TYPE=Release
             cmake --build build --config Release
           else
-            echo "❌ No build system found."
+            echo "❌ No build system found (Cargo.toml or CMakeLists.txt missing)."
             exit 1
           fi
+          ls -lah build || true
 
-      - name: 📦 Package build
+      - name: 📦 Package & Hash (cross-platform via Python)
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p dist
-          tar -czf dist/r3c-${{ matrix.os }}.tar.gz -C build .
-          cd dist
-          sha256sum r3c-${{ matrix.os }}.tar.gz > SHA256SUMS-${{ matrix.os }}.txt
+          ARCHIVE="r3c-${{ matrix.os }}.tar.gz"
+          tar -czf "dist/$ARCHIVE" -C build .
+          python3 - << 'PY'
+import hashlib,sys,os
+p = "dist/" + os.environ.get("ARCHIVE","archive.tar.gz")
+h = hashlib.sha256()
+with open(p,"rb") as f:
+    for b in iter(lambda:f.read(1024*1024), b""):
+        h.update(b)
+print(f"{h.hexdigest()}  {os.path.basename(p)}")
+open(f"dist/SHA256SUMS-${{ matrix.os }}.txt","w").write(f"{h.hexdigest()}  {os.path.basename(p)}\n")
+PY
           echo "✅ Packaged and hashed."
 
       - name: 💾 Upload artifacts
@@ -61,6 +73,8 @@ jobs:
         with:
           name: r3c-${{ matrix.os }}
           path: dist/
+          if-no-files-found: error
+          retention-days: 7
 
   release-and-report:
     name: "📊 Release + Funding Report"
@@ -73,66 +87,95 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: 📥 Download build artifacts
+      - name: 📥 Download all build artifacts
         uses: actions/download-artifact@v4
         with:
           path: release_dist
 
-      - name: 🧮 Combine hashes
+      - name: 🧮 Combine hashes (portable)
+        shell: bash
         run: |
-          cat release_dist/**/SHA256SUMS-*.txt > release_dist/SHA256SUMS.txt
-          echo "✅ SHA256SUMS combined."
+          set -euo pipefail
+          find release_dist -type f -name "SHA256SUMS-*.txt" -exec cat {} + > release_dist/SHA256SUMS.txt
+          echo "✅ SHA256SUMS combined:"
+          cat release_dist/SHA256SUMS.txt
 
-      - name: 🔍 Verify artifacts
+      - name: 🔍 Verify artifacts exist
+        shell: bash
         run: |
-          ls -lh release_dist/**/r3c-*.tar.gz || exit 1
+          set -euo pipefail
+          find release_dist -type f -name "r3c-*.tar.gz" -ls | wc -l
+          find release_dist -type f -name "r3c-*.tar.gz" -ls
 
       - name: 🪶 Generate release tag
         id: tag
+        shell: bash
         run: |
-          TAG="v$(date +'%y.%m.%d-%H%M')-stable-final-v6"
+          set -euo pipefail
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-stable-final-v6"
           echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: 💾 Configure remote with PAT
+        shell: bash
         run: |
+          set -euo pipefail
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}.git
 
       - name: 🪶 Push tag
+        shell: bash
         run: |
+          set -euo pipefail
           git tag -a "${TAG}" -m "Stable Final v6 (3OS + Funding)"
           git push origin "${TAG}"
 
-      - name: 🧱 Create Release
+      - name: 🧱 Create GitHub Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${TAG} (3OS + Funding Report)"
+          name: "R3C ${{ env.TAG }} (3OS + Funding Report)"
           body: |
             🧱 **R3C 3OS Autonomous Release (v6)**
             ✅ Verified builds for Ubuntu, macOS, and Windows.
             📊 Includes automatic funding status and SHA256 report.
-            Date: $(date -u)
+            Date (UTC): $(date -u)
           files: |
             release_dist/**/r3c-*.tar.gz
             release_dist/SHA256SUMS.txt
 
-      - name: 📊 Fetch OpenCollective Funding Data
+      - name: 📊 Fetch OpenCollective Funding Data (robust)
         id: funding
+        shell: bash
         run: |
+          set -euo pipefail
           echo "📡 Fetching OpenCollective funding info..."
-          curl -s https://opencollective.com/r3c-foundation.json > funding.json
-          total=$(jq '.balance / 100' funding.json)
-          backers=$(jq '.backersCount' funding.json)
+          curl -fsSL -H 'Accept: application/json' https://opencollective.com/r3c-foundation.json -o funding.json || echo '{}' > funding.json
+          # 여러 필드 경로 시도 (JSON 스키마 변동 대비)
+          total=$(
+            jq -r '
+              (.balance // .collective.stats.balance // .stats.balance // 0) / 100
+            ' funding.json 2>/dev/null || echo 0
+          )
+          backers=$(
+            jq -r '
+              (.backersCount // .collective.stats.backersCount // .stats.backersCount // 0)
+            ' funding.json 2>/dev/null || echo 0
+          )
+          # NaN/비정상 값 방지
+          [[ "$total" =~ ^[0-9]+(\.[0-9]+)?$ ]] || total=0
+          [[ "$backers" =~ ^[0-9]+$ ]] || backers=0
           echo "total=$total" >> $GITHUB_ENV
           echo "backers=$backers" >> $GITHUB_ENV
           echo "✅ Funding data: ${total} USD, ${backers} backers"
 
       - name: 🧾 Update README (funding + latest release)
+        shell: bash
         run: |
+          set -euo pipefail
           echo "📄 Updating README with funding info..."
           sed -i '/^### ❤️ Support R3C Ecosystem/,$d' README.md || true
           {
@@ -152,4 +195,5 @@ jobs:
           git push
 
       - name: ✅ Done
+        shell: bash
         run: echo "R3C v6 Autonomous Release + Funding Report complete ✅"
