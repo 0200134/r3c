@@ -132,3 +132,9 @@ e9184c2913fccfb5a9295f429bf6462094d7d217ad98d6214e2637302ba8599e  ./ubuntu-lates
 \n\n### 🔐 Latest Checksums\n```\n1bca46016f0342052344fe2b74f5867270e83401b5e9cdeacde269293178f5cb  ./macos-latest/r3c-macos.tar.gz
 3a0990811e877ffdb56d711d5fd51b3b9cfb80902756a4a59c78d15fd8aecd79  ./ubuntu-latest/r3c-linux.tar.gz
 6695c5711811e79668512b1fc4193cd4492859fc92188d03f8cb525c021a5b56  ./windows-latest/r3c-windows.zip\n```\n
+## 💰 Current Funding
+
+- **Total Balance:** 0 USD
+- **Updated:** 2025-10-29 01:51 UTC
+
+![Funding Chart](https://img.shields.io/badge/Funding-0%20USD-blue?style=for-the-badge)

@@ -1,0 +1,1 @@
+{"errors":[{"message":"Cannot query field \"balance\" on type \"Account\".","locations":[{"line":1,"column":42}],"extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}
