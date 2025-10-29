@@ -4,7 +4,19 @@ Cross-platform **C++ → Rust → NASM** transpiler pipeline
 *Rewrite the base. Build compilers that heal themselves.*
 
 ---
+## 👥 Contributors
 
+Thanks goes to these wonderful people:
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+This project follows the [all-contributors](https://allcontributors.org) specification.  
+Contributions of any kind are welcome!
 ## 💖 Support R3C Foundation
 
 You can support long-term ecosystem sustainability through:
