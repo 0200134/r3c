@@ -1,19 +1,44 @@
 {
   "projectName": "r3c",
-  "projectOwner": "0200134",
+  "projectOwner": "r3c-foundation",
   "repoType": "github",
   "repoHost": "https://github.com",
   "files": ["README.md"],
   "imageSize": 80,
-  "commit": false,
+  "commit": true,
+  "commitConvention": "angular",
+  "contributorsPerLine": 5,
   "contributors": [
     {
       "login": "0200134",
-      "name": "0200134",
+      "name": "Jinhee Han",
       "avatar_url": "https://avatars.githubusercontent.com/u/0200134?v=4",
       "profile": "https://github.com/0200134",
-      "contributions": ["code", "maintenance", "doc"]
+      "contributions": [
+        "code",
+        "design",
+        "doc",
+        "infra",
+        "maintenance",
+        "review",
+        "ideas"
+      ]
+    },
+    {
+      "login": "github-actions[bot]",
+      "name": "GitHub Actions",
+      "avatar_url": "https://avatars.githubusercontent.com/in/15368?v=4",
+      "profile": "https://github.com/github-actions[bot]",
+      "contributions": ["automation"]
+    },
+    {
+      "login": "actions-user",
+      "name": "Actions User",
+      "avatar_url": "https://avatars.githubusercontent.com/u/65916846?v=4",
+      "profile": "https://github.com/actions-user",
+      "contributions": ["infra", "test"]
     }
   ],
-  "contributorsPerLine": 7
+  "skipCi": true,
+  "contributorsSortAlphabetically": false
 }
