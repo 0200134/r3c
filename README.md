@@ -1,144 +1,124 @@
 # 🌸 R3C — LLVM-Zero Ecosystem
 
+Cross-platform **C++ → Rust → NASM** transpiler pipeline  
+*Rewrite the base. Build compilers that heal themselves.*
+
+---
+
 ## 💖 Support R3C Foundation
-You can support the long-term R3C ecosystem development through:
 
-- [OpenCollective](https://opencollective.com/r3c-foundation)
-- [Patreon](https://patreon.com/r3cfoundation)
-- [Ko-fi](https://ko-fi.com/r3cfoundation)
-- [Buy Me a Coffee](https://buymeacoffee.com/r3cfoundation)
+You can support long-term ecosystem sustainability through:
 
-Cross-platform C++ · NASM · Rust transpiler pipeline
-
-
-> *First, choose one Rust standard and compile with R3C. Then bootstrap.*
-
-⭐ Stars: 1   👁️ Views(14d): 0   🧭 Clones(14d): 0
-🧑‍💻 Unique Visitors: 0   🔁 Unique Cloners: 0
-⚖️ License: MIT   🕒 Updated: 2025-10-25 09:18 UTC
-
-![Traffic Graph](traffic_graph.png)
-traffic_graph.png)
-# 🌸 R3C — Rust Independence Compiler  
-> Rewrite the base. Build compilers that heal themselves.  
-> Cross-platform C++ · NASM · Rust transpiler pipeline  
+[![OpenCollective](https://img.shields.io/badge/OpenCollective-R3C-blue)](https://opencollective.com/r3c)
+[![Patreon](https://img.shields.io/badge/Patreon-r3c__foundation-orange)](https://patreon.com/r3c_foundation)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-r3c__foundation-pink)](https://ko-fi.com/r3c_foundation)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-r3c__foundation-yellow)](https://buymeacoffee.com/r3c_foundation)
 
 ---
 
-## 🔗 Ecosystem Roadmap  
-See the full documentation and bootstrap plan here:  
-➡️ [Roadmap for Entire Ecosystem](https://github.com/r3c-foundation/roadmap-for-entire-ecosystem)
+## 🧠 Vision
 
-> First, choose one Rust standard and compile with R3C — then bootstrap.
-
----
----
-
-## 🧠 Vision  
 R3C redefines compiler autonomy — not to reject LLVM,  
-but to **prove that modern compilers can evolve beyond it.**
+but to prove that modern compilers can evolve beyond it.
 
-> ⚙️ From legacy to safety, from safety to metal.  
-> 🧩 From dependency to sovereignty.
+> “We are not escaping LLVM — we are transcending it.”
+
+From **legacy → safety → metal.**  
+From **dependency → sovereignty.**
 
 ---
 
-## ⚖️ Governance & Neutral Position  
+## ⚖️ Governance & Neutral Position
+
 R3C is an **independent Rust compiler experiment**,  
-studying how Rust can sustain itself *beyond LLVM*  
+studying how Rust can sustain itself beyond LLVM  
 without losing compatibility or transparency.
 
-It’s **not anti-LLVM**, but a *resilience architecture* —  
-a **Plan-B** for compiler continuity.
+It’s not anti-LLVM — it’s a **resilience architecture**,  
+a *Plan-B* for compiler continuity.
 
 ---
 
-## 🧩 Respect for LLVM and Rust Foundation  
-- No redistribution of LLVM, Apple, or Rust code.  
-- MIT license compliant, transparent research only.  
-- Full respect to LLVM and Rust Foundation intellectual property.
+## 🧩 Respect for LLVM and Rust Foundation
+
+- No redistribution of LLVM, Apple, or Rust source code  
+- MIT-license compliant and transparent research only  
+- Full respect to LLVM and Rust Foundation IP
+
+📧 Contact: **0200134hjh@gmail.com**
 
 ---
 
-## 🧠 Open Dialogue Policy  
-If any organization (LLVM, Rust Foundation, or others)  
-has questions about references or usage,  
-please open an Issue or contact 📧 **0200134hjh@gmail.com**.  
+## 🏛️ Transparency & Legal Notice
+
+All commits, CI logs, and release pipelines are **public**.  
+Issues and PRs are fully traceable for research transparency.
+
+The R3C Foundation currently operates as a **non-profit open-source initiative**.  
+All funding channels (GitHub Sponsors, OpenCollective, Patreon, Ko-fi, etc.)  
+are registered for transparency and long-term sustainability.  
+No funds are personally received or withdrawn until completion of public service.  
+All accounts remain in a **frozen state** until official foundation establishment.
 
 ---
 
-## 🏛️ Transparent Research  
-All commits, CI logs, and release pipelines are public.  
-Issues and PRs are recorded for traceability.
+## 🤝 Collaboration Notice
 
-> “We are not escaping LLVM — we are transcending it.”  
-> Coexistence through autonomy, not separation through conflict.
+The maintainer is currently fulfilling **mandatory public service (4th grade)**.  
+Commercial collaboration, consulting, or paid contributions are **not accepted** at this time.  
+For research or non-commercial collaboration — please open an **Issue**.
 
 ---
 
-## 🧩 Automated Release System  
-This repository features:  
+## 🧩 Automated Release System
+
 - 🔁 Auto multi-OS build (Linux / macOS / Windows)  
 - 🧾 SHA256 + PGP signing verification  
 - 🧱 Dynamic banner & metrics update  
 - 🧩 Self-healing CI / workflow recovery  
 
-> R3C Foundation — *From dependency to sovereignty.*
-
----
-> ⚖️ Legal Notice  
-> The R3C Foundation currently operates as a **non-profit open-source initiative**.  
-> All funding channels (GitHub Sponsors, OpenCollective, Patreon, Ko-fi, etc.)  
-> are registered **for transparency and future sustainability only**.  
-> No funds are personally received or withdrawn until  
-> the completion of public service
->  
-> All accounts remain in “frozen state” until official foundation establishment.
-
-## 🤝 Collaboration Notice  
-> The maintainer is currently fulfilling mandatory public service (4th grade).  
-> Commercial collaboration, consulting, or paid contributions  
-> are not accepted at this time.  
->  
-> For research or non-commercial collaboration: open an Issue.
-
----
-
-## 📜 License  
-**MIT License © 2025 r3c-foundation**  
-
----
-
-### 🧩 Ecosystem  
-| Layer | Repository | Role |
-|--------|-------------|------|
-| 🪶 `r3c` | Core compiler pipeline | Base layer |
-| 🦀 `rust-ltss` | Long-term Rust sustain system | LTS layer |
-| ⚙️ `post-nasm` | NASM-free backend evolution | Backend layer |
-| 🧱 `beyond-llvm` | Compiler philosophy / research | Vision layer |
-| 📦 `cpppm` | Minimal package manager | Distribution layer |
-
----
-
-<!--AUTO_CLEANUP_BADGE_START-->
-<!--AUTO_CLEANUP_BADGE_END-->
-## 🔐 Latest Checksums  
-(Automatically inserted by CI system)  
-
-b53b30e7888a7b011969d08d7e40d1a138707763ffac2b9ed59194a636f10e88 ./r3c-windows-latest/r3c-windows.zip
-5783f2c2cab400368697d5058cc65a1549d4eaba5e6e43c6cddd23633ab67c6d ./r3c-macos-latest/r3c-macos.tar.gz
-d453108191fcc7a947992769188beab9607b5bb2ccde282befb5569e259089d4 ./r3c-ubuntu-latest/r3c-linux.tar.gz
+### 🔐 Latest Checksums
 
 _Last auto-update: 2025-10-25 01:45 UTC_
-\n\n### 🔐 Latest Checksums\n```\n8d25fee218b909af2506d3920d3f3474391ca1448e7454d698b26d49f6167a8f  ./windows-latest/r3c-windows.zip
-462ed572f29ac8adba47a531f8d06f59b38fa94dce8ccbdd55174db9dd4b7d4b  ./macos-latest/r3c-macos.tar.gz
-e9184c2913fccfb5a9295f429bf6462094d7d217ad98d6214e2637302ba8599e  ./ubuntu-latest/r3c-linux.tar.gz\n```\n
-\n\n### 🔐 Latest Checksums\n```\n1bca46016f0342052344fe2b74f5867270e83401b5e9cdeacde269293178f5cb  ./macos-latest/r3c-macos.tar.gz
-3a0990811e877ffdb56d711d5fd51b3b9cfb80902756a4a59c78d15fd8aecd79  ./ubuntu-latest/r3c-linux.tar.gz
-6695c5711811e79668512b1fc4193cd4492859fc92188d03f8cb525c021a5b56  ./windows-latest/r3c-windows.zip\n```\n
-## 💰 Current Funding
 
-- **Total Balance:** 0 USD
-- **Updated:** 2025-10-29 01:51 UTC
+---
 
-![Funding Chart](https://img.shields.io/badge/Funding-0%20USD-blue?style=for-the-badge)
+## 📊 GitHub Metrics
+
+![Traffic Graph](./traffic_graph.png)
+
+| Metric | 14-day Value |
+|--------|---------------|
+| ⭐ Stars | 1 |
+| 👁️ Views | 0 |
+| 🔁 Clones | 0 |
+| 🧑‍💻 Unique Visitors | 0 |
+| 🔂 Unique Cloners | 0 |
+
+*(auto-updated by CI)*
+
+---
+
+## 💰 Funding Status
+
+**Total Balance:** 0 USD  
+_Updated: 2025-10-29 01:51 UTC_  
+*(Frozen until official foundation establishment)*
+
+---
+
+## 🧩 Ecosystem Overview
+
+| Layer | Repository | Role |
+|-------|-------------|------|
+| 🪶 Core | [r3c](https://github.com/r3c-foundation/r3c) | Base compiler pipeline |
+| 🦀 LTS | [rust-ltss](https://github.com/r3c-foundation/rust-ltss) | Long-term Rust sustain system |
+| ⚙️ Backend | [post-nasm](https://github.com/r3c-foundation/post-nasm) | NASM-free backend evolution |
+| 🧱 Vision | [beyond-llvm](https://github.com/r3c-foundation/beyond-llvm) | Compiler philosophy / research |
+| 📦 Distribution | [cpppm](https://github.com/r3c-foundation/cpppm) | Minimal package manager |
+
+---
+
+## 📜 License
+
+**MIT License © 2025 r3c-foundation**
