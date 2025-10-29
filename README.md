@@ -10,9 +10,6 @@ You can support the long-term R3C ecosystem development through:
 
 Cross-platform C++ · NASM · Rust transpiler pipeline
 
-### 🔗 Ecosystem Roadmap
-See the full documentation & bootstrap plan here:
-➡️ [**Roadmap for Entire Ecosystem**](https://github.com/r3c-foundation/Roadmap-for-entire-ecosystem)
 
 > *First, choose one Rust standard and compile with R3C. Then bootstrap.*
 
