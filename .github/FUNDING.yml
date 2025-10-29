@@ -1,15 +1,9 @@
-# .github/FUNDING.yml
-# 🏛️ R3C Foundation — Unified Sponsor Configuration
-# (This file powers the "Sponsor this project" panel on GitHub)
-
 github: 0200134
 open_collective: r3c-foundation
+patreon: r3cfoundation
+ko_fi: r3cfoundation
+buy_me_a_coffee: r3cfoundation
 
-patreon: r3cfoundation          # (있으면 실제 ID로 교체)
-ko_fi: r3cfoundation            # (있으면 실제 ID로 교체)
-buy_me_a_coffee: r3cfoundation  # (있으면 실제 ID로 교체)
-
-# Optional external links (for platforms GitHub doesn’t natively support)
 custom:
   - https://opencollective.com/r3c-foundation
   - https://buymeacoffee.com/r3cfoundation
