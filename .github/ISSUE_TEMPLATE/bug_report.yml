@@ -17,6 +17,8 @@ body:
       label: "문제 설명"
       description: "무슨 일이 일어났는지 자세히 설명해주세요."
       placeholder: "예: NASM 변환 시 레지스터 값이 잘못됩니다."
+    validations:
+      required: true
 
   - type: textarea
     id: reproduce
@@ -28,11 +30,14 @@ body:
         2. `cmake --build build`
         3. `.\build\r3c.exe --emit-asm-from-rust`
         4. 오류 발생
+    validations:
+      required: true
 
   - type: textarea
     id: log
     attributes:
       label: "빌드 로그 또는 출력"
+      description: "오류 로그 또는 터미널 출력 내용을 붙여넣어주세요."
       render: shell
       placeholder: |
         [STEP] Running pipeline...
