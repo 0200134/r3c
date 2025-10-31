@@ -8,15 +8,23 @@ namespace fs = std::filesystem;
 
 namespace r3c {
 
-// ---- Rust 버전 감지 ----
+// ---- Rust 버전 감지 (Windows/Linux/macOS 호환) ----
 std::string Transpiler::detect_rust_version() {
     try {
+        std::string result;
+        char buf[128];
+
+#if defined(_WIN32)
+        FILE* pipe = _popen("rustc --version", "r");
+        if (!pipe) return "unknown";
+        while (fgets(buf, sizeof(buf), pipe)) result += buf;
+        _pclose(pipe);
+#else
         FILE* pipe = popen("rustc --version", "r");
         if (!pipe) return "unknown";
-        char buf[128];
-        std::string result;
         while (fgets(buf, sizeof(buf), pipe)) result += buf;
         pclose(pipe);
+#endif
 
         std::regex re("rustc ([0-9]+)\\.([0-9]+)");
         std::smatch m;
@@ -71,7 +79,7 @@ bool Transpiler::emit_nasm_stub(const fs::path& input, const fs::path& out_dir) 
         f << "; Compatible with Rust 1.70 relaxed asm! ordering\n";
         f << "; Input: " << (input.empty() ? "(none)" : input.filename().string()) << "\n\n";
 
-    #if defined(_WIN32) || defined(_WIN64)
+#if defined(_WIN32) || defined(_WIN64)
         f << "section .text\n"
           << "global main\n"
           << "extern ExitProcess\n\n"
@@ -81,14 +89,14 @@ bool Transpiler::emit_nasm_stub(const fs::path& input, const fs::path& out_dir) 
           << "    call ExitProcess\n"
           << "    add rsp, 40\n"
           << "    ret\n";
-    #else
+#else
         f << "section .text\n"
           << "global _start\n\n"
           << "_start:\n"
           << "    mov rax, 60\n"
           << "    xor rdi, rdi\n"
           << "    syscall\n";
-    #endif
+#endif
 
         std::cout << "⚙️ NASM stub emitted → " << out << "\n";
         return true;
