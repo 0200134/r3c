@@ -37,12 +37,18 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p build
+          echo "⚙️ Building on ${{ matrix.os }}..."
           if [ -f Cargo.toml ]; then
             cargo build --release
             cp -f target/release/r3c* build/ || true
           elif [ -f CMakeLists.txt ]; then
             cmake -B build -DCMAKE_BUILD_TYPE=Release
             cmake --build build --config Release
+            # ✅ Windows 빌드 경로 대응 (Release 폴더에서 복사)
+            if [ -d build/Release ]; then
+              cp -f build/Release/r3c_cli.exe build/ 2>/dev/null || true
+              cp -f build/Release/r3c.exe build/ 2>/dev/null || true
+            fi
           else
             echo "❌ No build system found."
             exit 1
@@ -53,10 +59,10 @@ jobs:
         shell: bash
         run: |
           echo "⚙️ Smoke test running..."
-          if [ -f build/r3c_cli ]; then
-            ./build/r3c_cli --version || echo "⚠️ CLI test skipped."
-          elif [ -f build/r3c_cli.exe ]; then
-            ./build/r3c_cli.exe || echo "⚠️ CLI test skipped."
+          exe=$(find build -type f \( -name "r3c_cli" -o -name "r3c_cli.exe" \) | head -n1 || true)
+          if [ -n "$exe" ]; then
+            echo "✅ Found binary: $exe"
+            "$exe" --version || echo "⚠️ CLI test skipped."
           else
             echo "⚠️ r3c_cli not found in build directory."
           fi
