@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 project(r3c LANGUAGES C CXX)
 
-# ==========================================================
-# 🧭 Global Build Settings
-# ==========================================================
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -12,70 +9,41 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-option(R3C_BUILD_DEMOS "Build demo CLI and example pipeline" ON)
-
 # ==========================================================
-# 🚫 Enforce Pure GCC Environment
+# 🚫 Pure GCC Enforcement
 # ==========================================================
-if(MSVC OR CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  message(FATAL_ERROR "❌ Only pure GCC compilers are allowed. (No MSVC / No Clang / No LLVM)")
+if(MSVC)
+  message(FATAL_ERROR "❌ MSVC not allowed (Pure GCC only).")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message(FATAL_ERROR "❌ LLVM/Clang/AppleClang toolchains are not allowed in Pure GCC mode.")
+elseif(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  message(FATAL_ERROR "❌ Unsupported compiler. Use GCC only.")
 endif()
 
-message(STATUS "✅ GCC detected: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "✅ Pure GCC detected: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # ==========================================================
-# Sources / Includes
+# Build core library
 # ==========================================================
-add_library(r3c STATIC
-  src/transpiler.cpp
-)
+add_library(r3c STATIC src/transpiler.cpp)
+target_include_directories(r3c PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-target_include_directories(r3c PUBLIC
-  ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
-
-# ==========================================================
-# ⚙️ Platform-Specific Linking
-# ==========================================================
 if(WIN32)
   message(STATUS "🔧 Building for Windows (MinGW / GCC mode)")
   target_compile_definitions(r3c PUBLIC R3C_WINDOWS)
   target_link_libraries(r3c PRIVATE ws2_32)
 elseif(APPLE)
-  message(STATUS "🔧 Building for macOS (Homebrew GCC mode)")
+  message(STATUS "🔧 Building for macOS (Pure GCC mode)")
   target_compile_definitions(r3c PUBLIC R3C_MACOS)
   target_link_libraries(r3c PRIVATE m)
 elseif(UNIX)
-  message(STATUS "🔧 Building for Linux (Pure GCC)")
+  message(STATUS "🔧 Building for Linux (Pure GCC mode)")
   target_compile_definitions(r3c PUBLIC R3C_LINUX)
   target_link_libraries(r3c PRIVATE pthread dl m)
 endif()
 
 # ==========================================================
-# 🧩 Optional Demo CLI (r3c_cli)
+# Demo CLI
 # ==========================================================
-if(R3C_BUILD_DEMOS)
-  add_executable(r3c_cli src/main.cpp)
-  target_link_libraries(r3c_cli PRIVATE r3c)
-
-  if(WIN32)
-    set_target_properties(r3c_cli PROPERTIES
-      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-      OUTPUT_NAME "r3c_cli"
-    )
-  endif()
-endif()
-
-# ==========================================================
-# 📦 Install Rules
-# ==========================================================
-include(GNUInstallDirs)
-install(TARGETS r3c
-        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
-
-if(R3C_BUILD_DEMOS)
-  install(TARGETS r3c_cli
-          RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
-endif()
-
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+add_executable(r3c_cli src/main.cpp)
+target_link_libraries(r3c_cli PRIVATE r3c)
