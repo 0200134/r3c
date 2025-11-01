@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"   # 매일 자정 자동 빌드
   workflow_dispatch:
 
 permissions:
@@ -42,7 +42,6 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          # 경로 자동 감지 (Intel = /usr/local, ARM = /opt/homebrew)
           if [ -d "/opt/homebrew/opt/gcc" ]; then
             GCC_PREFIX="/opt/homebrew/opt/gcc"
           elif [ -d "/usr/local/opt/gcc" ]; then
@@ -50,18 +49,13 @@ jobs:
           else
             GCC_PREFIX=$(brew --prefix gcc)
           fi
-
           GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
           GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
-
           echo "✅ GCC prefix: $GCC_PREFIX"
           echo "Detected binaries: $GCC_BIN / $GPP_BIN"
-
           echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
           echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
           echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
-
-          which ${GCC_PREFIX}/bin/${GCC_BIN} || true
           ${GCC_PREFIX}/bin/${GCC_BIN} --version
 
       - name: 🧱 Install GCC (Windows)
@@ -84,20 +78,24 @@ jobs:
           set -e
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
-          echo "Using CC=$CC"
-          echo "Using CXX=$CXX"
-          which $CC || true
-          $CC --version || true
 
           if [ "$RUNNER_OS" = "macOS" ]; then
             echo "⚙️ Forcing Pure GCC on macOS"
+            if [ -d "/opt/homebrew/opt/gcc" ]; then
+              GCC_PREFIX="/opt/homebrew/opt/gcc"
+            elif [ -d "/usr/local/opt/gcc" ]; then
+              GCC_PREFIX="/usr/local/opt/gcc"
+            else
+              GCC_PREFIX=$(brew --prefix gcc)
+            fi
+            GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
+            GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
+            echo "Using GCC: ${GCC_PREFIX}/bin/${GCC_BIN}"
+            ${GCC_PREFIX}/bin/${GCC_BIN} --version
             cmake -B build -G "Unix Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_SYSTEM_NAME=Darwin \
-              -DCMAKE_C_COMPILER="$CC" \
-              -DCMAKE_CXX_COMPILER="$CXX" \
-              -DCMAKE_C_COMPILER_WORKS=TRUE \
-              -DCMAKE_CXX_COMPILER_WORKS=TRUE \
+              -DCMAKE_C_COMPILER="${GCC_PREFIX}/bin/${GCC_BIN}" \
+              -DCMAKE_CXX_COMPILER="${GCC_PREFIX}/bin/${GPP_BIN}" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           elif [ "$RUNNER_OS" = "Windows" ]; then
             cmake -B build -G "MinGW Makefiles" \
