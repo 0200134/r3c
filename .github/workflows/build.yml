@@ -1,10 +1,10 @@
-name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.3.2 Final)
+name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.3.3 Final Self-Healing)
 
 on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"  # 매일 자정 자동 실행
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -27,33 +27,11 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      # ============================================================
-      # 🧭 Checkout
-      # ============================================================
       - name: 🧭 Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ============================================================
-      # 🧩 Ensure Version Header Template (Absolute Path Fix)
-      # ============================================================
-      - name: 🧩 Ensure Version Header Template
-        shell: bash
-        run: |
-          mkdir -p "$GITHUB_WORKSPACE/include"
-          cat > "$GITHUB_WORKSPACE/include/r3c_version.h.in" <<'EOF'
-          #pragma once
-          #define R3C_VERSION_HASH      "@GIT_HASH@"
-          #define R3C_BUILD_DATE        "@BUILD_DATE@"
-          #define R3C_PLATFORM_NAME     "@PLATFORM_NAME@"
-          #define R3C_LTS_VERSION       "@LTS_VERSION@"
-          EOF
-          echo "✅ Generated $GITHUB_WORKSPACE/include/r3c_version.h.in"
-
-      # ============================================================
-      # 🧱 Install GCC (Linux)
-      # ============================================================
       - name: 🧱 Install GCC (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -61,9 +39,6 @@ jobs:
           sudo apt-get install -y build-essential gcc g++
           gcc --version && g++ --version
 
-      # ============================================================
-      # 🧱 Install GCC (macOS)
-      # ============================================================
       - name: 🧱 Install GCC (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -73,9 +48,6 @@ jobs:
           ${GCC_PREFIX}/bin/gcc-14 --version || true
           ${GCC_PREFIX}/bin/g++-14 --version || true
 
-      # ============================================================
-      # 🧱 Install and Configure MinGW (Windows)
-      # ============================================================
       - name: 🧱 Install and Configure MinGW (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
@@ -98,9 +70,6 @@ jobs:
           & "$mingwPath\\gcc.exe" --version
           & "$mingwPath\\g++.exe" --version
 
-      # ============================================================
-      # 🧩 Create macOS Toolchain File
-      # ============================================================
       - name: 🧩 Create macOS Toolchain File
         if: runner.os == 'macOS'
         run: |
@@ -121,10 +90,7 @@ jobs:
           endif()
           EOF
 
-      # ============================================================
-      # 🏗️ Build (Pure GCC only)
-      # ============================================================
-      - name: 🏗️ Build R3C
+      - name: 🏗️ Build R3C (Pure GCC)
         shell: bash
         run: |
           set -e
@@ -140,9 +106,6 @@ jobs:
           cmake --build build --config Release -j$(nproc || sysctl -n hw.ncpu || echo 4)
           ls -lah build || true
 
-      # ============================================================
-      # 📦 Package Artifacts
-      # ============================================================
       - name: 📦 Package Artifacts
         shell: bash
         run: |
@@ -159,9 +122,6 @@ jobs:
           path: dist/
           retention-days: 7
 
-  # ============================================================
-  # 🏷️ Auto Tag & Release
-  # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
@@ -213,9 +173,9 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "R3C Foundation Stable Release (${{ steps.tag.outputs.tag }})"
           body: |
-            🌍 **R3C LTS Foundation Ecosystem v3.3.2 Final**
-            ✅ Absolute Path Fix for Header + Pure GCC Multi-OS Builds
-            🧠 Self-Healing Compiler Pipeline | LTSS 2025–2030
+            🌍 **R3C LTS Foundation Ecosystem v3.3.3 Final Self-Healing**
+            ✅ Auto-Header Recovery + Pure GCC Multi-OS Builds
+            🧠 Fully Autonomous LTSS 2025–2030
           files: |
             release-assets/**/*.tar.gz
             release-assets/SHA256SUMS_ALL.txt
