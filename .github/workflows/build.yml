@@ -1,10 +1,10 @@
-name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.2 Final)
+name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.3 Final)
 
 on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"  # 매일 자정 자동 실행
   workflow_dispatch:
 
 permissions:
@@ -34,6 +34,21 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # ============================================================
+      # 🧩 Ensure Version Header Template
+      # ============================================================
+      - name: 🧩 Ensure Version Header Template
+        run: |
+          mkdir -p include
+          cat <<'EOF' > include/r3c_version.h.in
+          #pragma once
+          #define R3C_VERSION_HASH      "@GIT_HASH@"
+          #define R3C_BUILD_DATE        "@BUILD_DATE@"
+          #define R3C_PLATFORM_NAME     "@PLATFORM_NAME@"
+          #define R3C_LTS_VERSION       "@LTS_VERSION@"
+          EOF
+          echo "✅ Version header template created."
 
       # ============================================================
       # 🧱 Install GCC (Linux)
@@ -67,11 +82,12 @@ jobs:
           Write-Host "🚫 Removing MSVC paths..."
           $env:Path = ($env:Path.Split(';') | Where-Object {$_ -notmatch 'Microsoft Visual Studio'}) -join ';'
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
+          Write-Host "🔄 Refreshing environment..."
+          $env:Path = "C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin;$env:Path"
 
           $paths = @(
-            "C:\\ProgramData\\mingw64\\bin",
             "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin",
-            "$env:ChocolateyInstall\\lib\\mingw\\tools\\install\\mingw64\\bin",
+            "C:\\ProgramData\\mingw64\\bin",
             "C:\\tools\\mingw64\\bin"
           )
           $mingwPath = $paths | Where-Object { Test-Path "$_\\gcc.exe" } | Select-Object -First 1
@@ -118,22 +134,13 @@ jobs:
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
           if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "⚙️ Forcing MinGW Makefiles (MSVC blocked)"
-            cmake -B build -G "MinGW Makefiles" \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" \
-              -DCMAKE_CXX_COMPILER="$CXX" \
-              -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY || true
+            cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX"
           elif [ "$RUNNER_OS" = "macOS" ]; then
-            echo "⚙️ Using macOS GCC Toolchain"
-            cmake -B build -G "Unix Makefiles" \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" || true
+            cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake"
           else
-            cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ || true
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
           fi
-          cmake --build build --config Release -j$(nproc || sysctl -n hw.ncpu || echo 4) || true
+          cmake --build build --config Release -j$(nproc || sysctl -n hw.ncpu || echo 4)
           ls -lah build || true
 
       # ============================================================
@@ -209,7 +216,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "R3C Foundation Stable Release (${{ steps.tag.outputs.tag }})"
           body: |
-            🌍 **R3C LTS Foundation Ecosystem v3.2 Final**
+            🌍 **R3C LTS Foundation Ecosystem v3.3 Final**
             ✅ Pure GCC Multi-OS Builds + Auto Tag + Funding Report + LTS Badge
             🧠 Self-Healing Compiler Pipeline | LTSS 2025–2030
           files: |
