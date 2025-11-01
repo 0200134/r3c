@@ -1,9 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 project(r3c LANGUAGES C CXX)
 
-# ==========================================================
-# 🧱 Global Configuration
-# ==========================================================
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -76,9 +73,6 @@ target_link_libraries(r3c PRIVATE ${EXTRA_LIBS})
 add_executable(r3c_cli src/main.cpp)
 target_link_libraries(r3c_cli PRIVATE r3c)
 
-# ==========================================================
-# 🧾 Build Summary
-# ==========================================================
 message(STATUS "📦 Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "📁 Output dir: ${CMAKE_BINARY_DIR}")
 message(STATUS "--------------------------------------------------")
