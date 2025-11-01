@@ -41,14 +41,15 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          echo "export CC=gcc-14" >> $GITHUB_ENV
-          echo "export CXX=g++-14" >> $GITHUB_ENV
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
 
       - name: 🧱 Install GCC (Windows)
         if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          echo "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin" >> $GITHUB_PATH
+          echo "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin" >> $env:GITHUB_PATH
           echo "CC=gcc" >> $env:GITHUB_ENV
           echo "CXX=g++" >> $env:GITHUB_ENV
 
@@ -62,8 +63,9 @@ jobs:
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX"
-          cmake --build build --config Release
+            -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_VERBOSE_MAKEFILE=ON
+          cmake --build build --config Release -v
           ls -lah build
 
       # ============================================================
@@ -98,3 +100,15 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
+
+      # ============================================================
+      # 🚀 Auto Release (optional)
+      # ============================================================
+      - name: 🚀 Auto Release
+        if: github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/r3c-${{ matrix.os }}-gcc.tar.gz
+          tag_name: auto-gcc-${{ github.run_number }}
+          name: "🔖 R3C Pure GCC v${{ github.run_number }}"
+          body: "Automated Pure GCC build for ${{ matrix.os }}"
