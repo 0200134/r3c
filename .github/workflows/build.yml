@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"   # 매일 자정 자동 빌드
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -50,18 +50,18 @@ jobs:
           else
             GCC_PREFIX=$(brew --prefix gcc)
           fi
-          echo "✅ GCC prefix: $GCC_PREFIX"
 
-          # 버전 자동 감지 (gcc-13, gcc-14 등)
           GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
           GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
+
+          echo "✅ GCC prefix: $GCC_PREFIX"
           echo "Detected binaries: $GCC_BIN / $GPP_BIN"
 
           echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
           echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
           echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
 
-          echo "Using ${GCC_PREFIX}/bin/${GCC_BIN}"
+          which ${GCC_PREFIX}/bin/${GCC_BIN} || true
           ${GCC_PREFIX}/bin/${GCC_BIN} --version
 
       - name: 🧱 Install GCC (Windows)
@@ -90,6 +90,7 @@ jobs:
           $CC --version || true
 
           if [ "$RUNNER_OS" = "macOS" ]; then
+            echo "⚙️ Forcing Pure GCC on macOS"
             cmake -B build -G "Unix Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_SYSTEM_NAME=Darwin \
