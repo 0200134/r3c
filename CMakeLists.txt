@@ -22,7 +22,7 @@ if(DEFINED ENV{CC} AND DEFINED ENV{CXX})
 endif()
 
 # ==========================================================
-# 🚫 Enforce Pure GCC (with macOS Fallback)
+# 🚫 Enforce Pure GCC (macOS fallback allowed)
 # ==========================================================
 message(STATUS "--------------------------------------------------")
 message(STATUS "🔍 Compiler Info:")
@@ -34,7 +34,7 @@ message(STATUS "  CMAKE_CXX_COMPILER_VERSION = ${CMAKE_CXX_COMPILER_VERSION}")
 if(MSVC)
   message(FATAL_ERROR "❌ MSVC not allowed (Pure GCC only).")
 elseif(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
-  message(WARNING "⚠️ AppleClang detected — GCC not found on macOS runner, fallback mode enabled.")
+  message(WARNING "⚠️ AppleClang detected — GCC fallback mode enabled on macOS.")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|LLVM")
   message(FATAL_ERROR "❌ LLVM/Clang toolchains are not allowed in Pure GCC mode.")
 elseif(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU")
