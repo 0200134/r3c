@@ -1,4 +1,4 @@
-name: 🔖 R3C v8.0 Pure GCC Autonomous Release (3OS + LTSS + Integrity)
+name: 🔖 R3C v8.1 — Pure GCC 3OS Autonomous Release (LTSS + Integrity)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *"  # 매일 00:00 UTC 자동 빌드
   workflow_dispatch:
 
 permissions:
@@ -18,26 +18,31 @@ concurrency:
 
 jobs:
   build:
-    name: "Pure GCC 3OS Build"
+    name: "🔧 Pure GCC 3OS Build"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+
     steps:
+      # ==========================================================
+      # 🧭 Checkout Repository
+      # ==========================================================
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ======================================================
-      # 🧱 GCC Setup for Each OS
-      # ======================================================
+      # ==========================================================
+      # ⚙️ Setup Pure GCC Environment
+      # ==========================================================
       - name: ⚙️ Setup Pure GCC Environment
         shell: bash
         run: |
           echo "🔧 Setting up GCC on ${{ matrix.os }}..."
 
           if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "🪟 Installing MinGW (GCC)..."
             choco install mingw -y
             export PATH="/c/tools/mingw64/bin:/c/ProgramData/chocolatey/bin:$PATH"
             which gcc || { echo "❌ GCC not found!"; exit 1; }
@@ -46,53 +51,116 @@ jobs:
             echo "✅ MSVC removed. Pure GCC only."
 
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            echo "🍎 Installing Homebrew GCC..."
+            brew update
             brew install gcc || true
-            export CC=gcc-13
-            export CXX=g++-13
-            echo "✅ Using $(gcc-13 --version | head -n1)"
+            ln -sf "$(brew --prefix)/bin/gcc-13" /usr/local/bin/gcc
+            ln -sf "$(brew --prefix)/bin/g++-13" /usr/local/bin/g++
+            export CC=gcc
+            export CXX=g++
+            gcc --version
+            echo "✅ macOS Pure GCC environment ready."
 
           elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            echo "🐧 Installing GCC..."
             sudo apt-get update -y
             sudo apt-get install -y build-essential
+            gcc --version
             echo "✅ Linux GCC OK"
           fi
 
-      # ======================================================
-      # 🧩 Build
-      # ======================================================
-      - name: 🧱 Build R3C
+      # ==========================================================
+      # 🧱 Build R3C (Pure GCC)
+      # ==========================================================
+      - name: 🧱 Build R3C (Pure GCC)
         shell: bash
         run: |
+          echo "🏗️ Building R3C..."
           mkdir -p build
           cmake -E env CC=gcc CXX=g++ cmake -B build -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
           cmake --build build --target r3c_cli
           ls -lah build
 
-      # ======================================================
-      # 🔎 Test & Archive
-      # ======================================================
+      # ==========================================================
+      # 🔎 Smoke Test
+      # ==========================================================
       - name: 🔎 Smoke Test
         shell: bash
         run: |
-          echo "⚙️ Smoke test..."
           exe=$(find build -type f -name "r3c_cli*" | head -n1)
           if [ -n "$exe" ]; then
-            "$exe" --version || echo "⚠️ CLI version check skipped."
+            echo "✅ Found binary: $exe"
+            "$exe" --version || echo "⚠️ CLI version test skipped."
           else
             echo "❌ r3c_cli not found!"
             exit 1
           fi
 
-      - name: 📦 Package
+      # ==========================================================
+      # 📦 Package
+      # ==========================================================
+      - name: 📦 Package Build
         shell: bash
         run: |
           mkdir -p dist
           tar -czf "dist/r3c-${{ matrix.os }}.tar.gz" -C build .
           echo "✅ Packaged build for ${{ matrix.os }}"
 
-      - name: 💾 Upload
+      # ==========================================================
+      # 💾 Upload
+      # ==========================================================
+      - name: 💾 Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: dist/
           retention-days: 7
+
+  # ==============================================================
+  # 📊 Unified Release (Optional)
+  # ==============================================================
+  release:
+    name: "📊 Pure GCC Release Publish"
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: 🧭 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📥 Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_dist
+
+      - name: 🧮 Combine Hashes
+        run: |
+          find release_dist -type f -name "*.tar.gz" -exec sha256sum {} + > release_dist/SHA256SUMS.txt
+          cat release_dist/SHA256SUMS.txt
+
+      - name: 🪶 Generate tag
+        run: |
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-stable-v8.1"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "Generated tag: $TAG"
+
+      - name: 🧱 Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
+        with:
+          tag_name: ${{ env.TAG }}
+          name: "R3C ${{ env.TAG }} (Pure GCC 3OS Stable)"
+          body: |
+            ### R3C v8.1 — Pure GCC Autonomous Stable Build
+            ✅ Verified 3OS Build (No LLVM / No Clang / No MSVC)
+            🧭 GCC-only Sovereign Toolchain
+            📦 SHA256 Checksums:
+            ```
+            $(cat release_dist/SHA256SUMS.txt)
+            ```
+          files: |
+            release_dist/**/*.tar.gz
+            release_dist/SHA256SUMS.txt
