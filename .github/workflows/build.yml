@@ -1,4 +1,4 @@
-name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3)
+name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3 Final)
 
 on:
   push:
@@ -27,13 +27,16 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
+      # ============================================================
+      # 🧭 Checkout Repository
+      # ============================================================
       - name: 🧭 Checkout Repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       # ============================================================
-      # 🧩 Install GCC (Linux)
+      # 🧱 Install GCC (Linux)
       # ============================================================
       - name: 🧱 Install GCC (Linux)
         if: runner.os == 'Linux'
@@ -44,7 +47,7 @@ jobs:
           g++ --version
 
       # ============================================================
-      # 🧩 Install GCC (macOS)
+      # 🧱 Install GCC (macOS)
       # ============================================================
       - name: 🧱 Install GCC (macOS)
         if: runner.os == 'macOS'
@@ -56,7 +59,7 @@ jobs:
           ${GCC_PREFIX}/bin/g++-14 --version || true
 
       # ============================================================
-      # 🧩 Install and Configure MinGW (Windows)
+      # 🧱 Install and Configure MinGW (Windows)
       # ============================================================
       - name: 🧱 Install and Configure MinGW (Windows)
         if: runner.os == 'Windows'
@@ -109,7 +112,7 @@ jobs:
             set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/g++-14")
           elseif(EXISTS "/usr/local/opt/gcc/bin/gcc-14")
             set(CMAKE_C_COMPILER "/usr/local/opt/gcc/bin/gcc-14")
-            set(CMAKE_CXX_COMPILER "/usr/local/opt/g++-14")
+            set(CMAKE_CXX_COMPILER "/usr/local/opt/gcc/bin/g++-14")
           else()
             set(CMAKE_C_COMPILER "gcc")
             set(CMAKE_CXX_COMPILER "g++")
@@ -126,18 +129,12 @@ jobs:
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
           if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "⚙️ Forcing pure MinGW GCC build (disable Visual Studio generator)"
+            echo "⚙️ Forcing pure MinGW GCC build"
             export PATH="$(cygpath -u "$CC" | xargs dirname):$PATH"
-            export CMAKE_GENERATOR="MinGW Makefiles"
-            export CMAKE_SYSTEM_VERSION="10.0"
-            export CMAKE_TRY_COMPILE_TARGET_TYPE="STATIC_LIBRARY"
-
             cmake -B build -G "MinGW Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER="$CC" \
               -DCMAKE_CXX_COMPILER="$CXX" \
-              -DCMAKE_C_COMPILER_ID=GNU \
-              -DCMAKE_CXX_COMPILER_ID=GNU \
               -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           elif [ "$RUNNER_OS" = "macOS" ]; then
@@ -174,12 +171,21 @@ jobs:
           path: dist/
           retention-days: 7
 
+  # ============================================================
+  # 🏷️ Auto Tag & Release Job
+  # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: 🧭 Checkout
         uses: actions/checkout@v4
+
+      # ⚙️ Git identity 설정 (필수)
+      - name: ⚙️ Configure Git Identity
+        run: |
+          git config --global user.name "r3c-foundation-bot"
+          git config --global user.email "bot@r3c.foundation"
 
       - name: 💾 Download Artifacts
         uses: actions/download-artifact@v4
