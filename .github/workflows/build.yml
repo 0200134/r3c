@@ -1,4 +1,4 @@
-name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.3.1 Final)
+name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.3.2 Final)
 
 on:
   push:
@@ -36,18 +36,20 @@ jobs:
           fetch-depth: 0
 
       # ============================================================
-      # 🧩 Ensure Version Header Template
+      # 🧩 Ensure Version Header Template (Absolute Path Fix)
       # ============================================================
       - name: 🧩 Ensure Version Header Template
         shell: bash
         run: |
-          mkdir -p include
-          echo "#pragma once" > include/r3c_version.h.in
-          echo "#define R3C_VERSION_HASH      \"@GIT_HASH@\"" >> include/r3c_version.h.in
-          echo "#define R3C_BUILD_DATE        \"@BUILD_DATE@\"" >> include/r3c_version.h.in
-          echo "#define R3C_PLATFORM_NAME     \"@PLATFORM_NAME@\"" >> include/r3c_version.h.in
-          echo "#define R3C_LTS_VERSION       \"@LTS_VERSION@\"" >> include/r3c_version.h.in
-          echo "✅ Generated include/r3c_version.h.in"
+          mkdir -p "$GITHUB_WORKSPACE/include"
+          cat > "$GITHUB_WORKSPACE/include/r3c_version.h.in" <<'EOF'
+          #pragma once
+          #define R3C_VERSION_HASH      "@GIT_HASH@"
+          #define R3C_BUILD_DATE        "@BUILD_DATE@"
+          #define R3C_PLATFORM_NAME     "@PLATFORM_NAME@"
+          #define R3C_LTS_VERSION       "@LTS_VERSION@"
+          EOF
+          echo "✅ Generated $GITHUB_WORKSPACE/include/r3c_version.h.in"
 
       # ============================================================
       # 🧱 Install GCC (Linux)
@@ -211,8 +213,8 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "R3C Foundation Stable Release (${{ steps.tag.outputs.tag }})"
           body: |
-            🌍 **R3C LTS Foundation Ecosystem v3.3.1 Final**
-            ✅ Pure GCC Multi-OS Builds + Auto Tag + Funding Report + LTS Badge
+            🌍 **R3C LTS Foundation Ecosystem v3.3.2 Final**
+            ✅ Absolute Path Fix for Header + Pure GCC Multi-OS Builds
             🧠 Self-Healing Compiler Pipeline | LTSS 2025–2030
           files: |
             release-assets/**/*.tar.gz
