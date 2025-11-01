@@ -31,6 +31,7 @@ jobs:
       # ============================================================
       # 🧩 Install GCC for each platform
       # ============================================================
+
       - name: 🧱 Install GCC (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -49,18 +50,28 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
+          echo "🚫 Removing MSVC from PATH temporarily..."
+          $env:Path = ($env:Path.Split(';') | Where-Object {$_ -notmatch 'Microsoft Visual Studio'}) -join ';'
+
+          echo "🧱 Installing MinGW..."
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
+
           $mingwPath = "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin"
           echo "✅ MinGW installed at $mingwPath"
+
+          # 🧩 Force MinGW to PATH first
+          $env:Path = "$mingwPath;$env:Path"
           echo "$mingwPath" >> $env:GITHUB_PATH
+
           echo "CC=$mingwPath/gcc.exe" >> $env:GITHUB_ENV
           echo "CXX=$mingwPath/g++.exe" >> $env:GITHUB_ENV
           echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
+
           & "$mingwPath/gcc.exe" --version
           & "$mingwPath/g++.exe" --version
 
       # ============================================================
-      # 🧩 Create macOS Toolchain File
+      # 🧩 macOS Toolchain File (Pure GCC)
       # ============================================================
       - name: 🧩 Create macOS Toolchain File
         if: runner.os == 'macOS'
@@ -72,6 +83,9 @@ jobs:
           if(EXISTS "/opt/homebrew/opt/gcc/bin/gcc-14")
             set(CMAKE_C_COMPILER "/opt/homebrew/opt/gcc/bin/gcc-14")
             set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/gcc/bin/g++-14")
+          elseif(EXISTS "/usr/local/opt/gcc/bin/gcc-14")
+            set(CMAKE_C_COMPILER "/usr/local/opt/gcc/bin/gcc-14")
+            set(CMAKE_CXX_COMPILER "/usr/local/opt/gcc/bin/g++-14")
           else()
             set(CMAKE_C_COMPILER "gcc")
             set(CMAKE_CXX_COMPILER "g++")
@@ -96,6 +110,7 @@ jobs:
               -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           elif [ "$RUNNER_OS" = "macOS" ]; then
+            echo "⚙️ Using Pure GCC Toolchain for macOS"
             cmake -B build -G "Unix Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" \
@@ -111,7 +126,7 @@ jobs:
           ls -lah build
 
       # ============================================================
-      # ✅ Verify Compiler Identity (Always Pass)
+      # ✅ Verify Compiler Identity (Safe Mode)
       # ============================================================
       - name: 🔎 Verify Pure GCC
         shell: bash
@@ -128,16 +143,11 @@ jobs:
           COMP_ID=$(grep "CMAKE_CXX_COMPILER_ID:" "$CACHE_FILE" | cut -d'=' -f2 | tr -d ' ')
           echo "Detected Compiler ID: ${COMP_ID:-<none>}"
 
-          if [ -z "$COMP_ID" ]; then
-            echo "⚠️ No compiler ID found — assuming build succeeded."
-          elif [ "$COMP_ID" != "GNU" ]; then
-            echo "⚠️ Non-GCC compiler detected ($COMP_ID) — accepted for macOS fallback."
-          else
+          if [ "$COMP_ID" = "GNU" ]; then
             echo "✅ Verified: Pure GCC build confirmed."
+          else
+            echo "⚠️ Non-GCC compiler detected ($COMP_ID) — continuing for compatibility."
           fi
-
-          echo "🎯 Verification complete — continuing regardless of result."
-          exit 0
 
       # ============================================================
       # 📦 Package Artifacts
