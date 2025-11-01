@@ -1,4 +1,4 @@
-name: 🔖 R3C Autonomous Stable Release v8.8.3 (Pure GCC Final 3OS Fix)
+name: 🔖 R3C Autonomous Stable Release v8.8.4 (Pure GCC Final 3OS Fix)
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-pure-gcc-v8.8.3
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-pure-gcc-v8.8.4
 
     steps:
       - name: 🧭 Checkout repository
@@ -66,7 +66,6 @@ jobs:
           echo "✅ Using GCC: $($GCC_PATH --version | head -n 1)"
           which $GCC_PATH || true
           which $GXX_PATH || true
-          echo "✅ PATH: $PATH"
 
       # =====================================================
       # 🐧 Linux
@@ -80,7 +79,7 @@ jobs:
           gcc --version
 
       # =====================================================
-      # 🧱 Build with Pure GCC (explicit compilers)
+      # 🧱 Build with Pure GCC (Explicit Compiler Path)
       # =====================================================
       - name: 🧱 Build R3C
         shell: bash
@@ -88,10 +87,25 @@ jobs:
           set -euo pipefail
           mkdir -p build
           echo "🏗️ Building on ${{ matrix.os }} (Pure GCC Only)..."
-          cmake -G Ninja -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER=$CC \
-            -DCMAKE_CXX_COMPILER=$CXX
+
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            GCC_PATH=$(brew --prefix gcc)/bin/gcc-14
+            GXX_PATH=$(brew --prefix gcc)/bin/g++-14
+            echo "🔧 Forcing Homebrew GCC compiler..."
+            cmake -G Ninja -B build \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=$GCC_PATH \
+              -DCMAKE_CXX_COMPILER=$GXX_PATH
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            cmake -G Ninja -B build \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER=gcc \
+              -DCMAKE_CXX_COMPILER=g++
+          else
+            cmake -G Ninja -B build \
+              -DCMAKE_BUILD_TYPE=Release
+          fi
+
           cmake --build build
           ls -lah build
 
@@ -176,7 +190,7 @@ PY
 
       - name: 🪶 Generate tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.8.3"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.8.4"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: 💾 Configure remote
@@ -187,13 +201,13 @@ PY
 
       - name: 🪶 Push tag
         run: |
-          git tag -a "${TAG}" -m "Pure GCC v8.8.3 (3OS AutoBuild)"
+          git tag -a "${TAG}" -m "Pure GCC v8.8.4 (3OS AutoBuild)"
           git push origin "${TAG}"
 
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### 🧱 R3C v8.8.3 — Pure GCC 3OS Integration (Final Fix)"
+            echo "### 🧱 R3C v8.8.4 — Pure GCC 3OS Integration (Final Fix)"
             echo ""
             echo "✅ Verified Pure GCC (GNU 14.x) on macOS / Windows / Linux"
             echo "📅 AutoBuild: 03:00 UTC"
@@ -217,4 +231,4 @@ PY
             release_dist/SHA256SUMS.txt
 
       - name: ✅ Done
-        run: echo "R3C v8.8.3 Pure GCC 3OS Integration complete ✅"
+        run: echo "R3C v8.8.4 Pure GCC 3OS Integration complete ✅"
