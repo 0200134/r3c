@@ -10,6 +10,19 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # ==========================================================
+# 🩹 Self-Heal: Missing Version Header
+# ==========================================================
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/include/r3c_version.h.in")
+  message(WARNING "⚠️ Missing include/r3c_version.h.in — auto-generating fallback.")
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/include/r3c_version.h.in" "#pragma once\n")
+  file(APPEND "${CMAKE_CURRENT_SOURCE_DIR}/include/r3c_version.h.in" "#define R3C_VERSION_HASH      \"@GIT_HASH@\"\n")
+  file(APPEND "${CMAKE_CURRENT_SOURCE_DIR}/include/r3c_version.h.in" "#define R3C_BUILD_DATE        \"@BUILD_DATE@\"\n")
+  file(APPEND "${CMAKE_CURRENT_SOURCE_DIR}/include/r3c_version.h.in" "#define R3C_PLATFORM_NAME     \"@PLATFORM_NAME@\"\n")
+  file(APPEND "${CMAKE_CURRENT_SOURCE_DIR}/include/r3c_version.h.in" "#define R3C_LTS_VERSION       \"@LTS_VERSION@\"\n")
+endif()
+
+# ==========================================================
 # 🔧 CI Environment Override
 # ==========================================================
 if(DEFINED ENV{CC} AND DEFINED ENV{CXX})
@@ -83,7 +96,6 @@ endif()
 # ==========================================================
 # 🧠 Embedded Build Metadata
 # ==========================================================
-# ⏰ 자동 버전·커밋·플랫폼 정보를 바이너리에 삽입
 execute_process(COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE GIT_HASH OUTPUT_STRIP_TRAILING_WHITESPACE)
 string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
 set(LTS_VERSION "2025–2030 LTSS")
