@@ -1,4 +1,4 @@
-name: 🔖 R3C Autonomous Stable Release v7.6 (3OS + PureGCC + AutoFunding + Integrity)
+name: 🔖 R3C Autonomous Stable Release v7.7 (3OS + PureGCC + macOS Fix + Funding)
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-auto-v7.6
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-auto-v7.7
 
     steps:
       - name: 🧭 Checkout repository
@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       # ==========================================================
-      # 🪟 Windows (MinGW GCC)
+      # 🪟 Windows (Pure MinGW)
       # ==========================================================
       - name: 🧱 Build on Windows (Pure MinGW)
         if: runner.os == 'Windows'
@@ -62,7 +62,7 @@ jobs:
           ls -lah build
 
       # ==========================================================
-      # 🍎 macOS (Homebrew GCC)
+      # 🍎 macOS (Homebrew GNU GCC) — ✅ AppleClang 완전 차단
       # ==========================================================
       - name: 🧱 Build on macOS (GNU GCC)
         if: runner.os == 'macOS'
@@ -70,12 +70,14 @@ jobs:
           echo "🏗️ Building on macOS with GNU GCC..."
           brew update
           brew install gcc
-          export CC=$(brew --prefix)/bin/gcc-13
-          export CXX=$(brew --prefix)/bin/g++-13
-          echo "✅ Using compiler: $CXX"
-          $CXX --version
-          cmake -E env CC=$CC CXX=$CXX cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target r3c_cli
+          GCC_PATH=$(brew --prefix gcc)
+          export CC="${GCC_PATH}/bin/gcc-13"
+          export CXX="${GCC_PATH}/bin/g++-13"
+          echo "✅ Using compiler: $($CXX --version | head -n1)"
+          which $CXX
+          # 👇 AppleClang 차단 + GCC 강제 지정
+          env CC=$CC CXX=$CXX cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX
+          cmake --build build --target r3c_cli --config Release
           ls -lah build
 
       # ==========================================================
@@ -145,7 +147,7 @@ PY
       - name: 🪶 Generate tag
         id: tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-v7.6"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-v7.7"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: 📊 Fetch OpenCollective Funding Data
@@ -163,7 +165,7 @@ PY
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### R3C v7.6 Autonomous LLVM-Free + Funding Release"
+            echo "### R3C v7.7 Autonomous LLVM-Free + Funding Release"
             echo ""
             echo "✅ 3OS Pure GCC (No LLVM / No Clang / No MSVC)"
             echo "💰 Total Funding: $${total} USD"
@@ -195,8 +197,8 @@ PY
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add README.md
-          git commit -m "🧾 Auto-update README funding (v7.6)"
+          git commit -m "🧾 Auto-update README funding (v7.7)"
           git push
 
       - name: ✅ Done
-        run: echo "R3C v7.6 GCC + Funding release complete ✅"
+        run: echo "R3C v7.7 GCC + macOS Fix + Funding complete ✅"
