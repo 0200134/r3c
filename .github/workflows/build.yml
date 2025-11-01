@@ -66,17 +66,20 @@ jobs:
           echo "🧱 Installing MinGW..."
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
 
-          $paths = @(
-            "$env:ChocolateyInstall\\lib\\mingw\\tools\\install\\mingw64\\bin",
-            "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\bin",
+          # 🔍 다양한 구조 대응 (Chocolatey / ProgramData mingw64)
+          $possiblePaths = @(
+            "C:\\ProgramData\\mingw64\\mingw64\\bin",
+            "C:\\ProgramData\\mingw64\\bin",
             "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin",
+            "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\bin",
+            "$env:ChocolateyInstall\\lib\\mingw\\tools\\install\\mingw64\\bin",
             "C:\\tools\\mingw64\\bin"
           )
-          foreach ($p in $paths) {
-            if (Test-Path "$p\\gcc.exe") { $mingwPath = $p; break }
-          }
+
+          $mingwPath = $possiblePaths | Where-Object { Test-Path "$_\\gcc.exe" } | Select-Object -First 1
+
           if (-not $mingwPath) {
-            Write-Host "❌ MinGW not found — build cannot continue."
+            Write-Host "❌ MinGW not found — checked paths:`n$($possiblePaths -join "`n")"
             exit 1
           }
 
@@ -121,6 +124,7 @@ jobs:
           set -e
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
+
           if [ "$RUNNER_OS" = "Windows" ]; then
             echo "⚙️ Forcing MinGW GCC build"
             cmake -B build -G "MinGW Makefiles" \
@@ -136,9 +140,11 @@ jobs:
               -DCMAKE_VERBOSE_MAKEFILE=ON
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ \
+              -DCMAKE_C_COMPILER=gcc \
+              -DCMAKE_CXX_COMPILER=g++ \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           fi
+
           cmake --build build --config Release -j$(nproc || sysctl -n hw.ncpu || echo 4) -v
           ls -lah build || true
 
