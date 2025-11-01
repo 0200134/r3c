@@ -97,6 +97,14 @@ jobs:
           & "$mingwPath\\g++.exe" --version
 
       # ============================================================
+      # 🧩 Force MinGW Generator (Prevent MSVC)
+      # ============================================================
+      - name: 🧩 Force MinGW as Default Generator
+        if: runner.os == 'Windows'
+        run: |
+          echo "setx CMAKE_GENERATOR 'MinGW Makefiles'"
+
+      # ============================================================
       # 🧩 Create macOS Toolchain File
       # ============================================================
       - name: 🧩 Create macOS Toolchain File
@@ -112,7 +120,7 @@ jobs:
             set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/g++-14")
           elseif(EXISTS "/usr/local/opt/gcc/bin/gcc-14")
             set(CMAKE_C_COMPILER "/usr/local/opt/gcc/bin/gcc-14")
-            set(CMAKE_CXX_COMPILER "/usr/local/opt/gcc/bin/g++-14")
+            set(CMAKE_CXX_COMPILER "/usr/local/opt/g++-14")
           else()
             set(CMAKE_C_COMPILER "gcc")
             set(CMAKE_CXX_COMPILER "g++")
@@ -161,8 +169,8 @@ jobs:
           mkdir -p dist
           VERSION=$(date +"%Y%m%d")-$(git rev-parse --short HEAD)
           tar -czf dist/r3c-${{ matrix.os }}-${VERSION}.tar.gz -C build .
-          sha256sum dist/* > dist/SHA256SUMS.txt
-          cat dist/SHA256SUMS.txt
+          sha256sum dist/* > dist/SHA256SUMS-${{ matrix.os }}.txt
+          cat dist/SHA256SUMS-${{ matrix.os }}.txt
 
       - name: 💾 Upload Artifacts
         uses: actions/upload-artifact@v4
@@ -231,5 +239,6 @@ jobs:
             release-assets/**/*
             reports/FUNDING.md
             badges/LTS_STATUS.txt
+            release-assets/**/SHA256SUMS-*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
