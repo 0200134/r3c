@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"
+    - cron: "0 0 * * *" # 매일 자정 자동 빌드
   workflow_dispatch:
 
 permissions:
@@ -41,21 +41,31 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          GCC_PREFIX=$(brew --prefix gcc)
-          echo "✅ GCC installed under: $GCC_PREFIX"
-          echo "${GCC_PREFIX}/bin" >> $GITHUB_PATH
+          # 실제 경로 감지 (Intel = /usr/local, ARM = /opt/homebrew)
+          if [ -d "/opt/homebrew/opt/gcc" ]; then
+            GCC_PREFIX="/opt/homebrew/opt/gcc"
+          elif [ -d "/usr/local/opt/gcc" ]; then
+            GCC_PREFIX="/usr/local/opt/gcc"
+          else
+            GCC_PREFIX=$(brew --prefix gcc)
+          fi
 
-          # gcc 바이너리 실제 이름 자동 감지 (gcc-14, gcc-13 등)
+          echo "✅ GCC prefix: $GCC_PREFIX"
+
+          # 버전 자동 감지 (gcc-13, gcc-14 등)
           GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
           GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
+          echo "Detected binaries: $GCC_BIN / $GPP_BIN"
+
+          # PATH 우선순위 최상단으로 올리기
+          echo "${GCC_PREFIX}/bin" >> $GITHUB_PATH
+          export PATH="${GCC_PREFIX}/bin:$PATH"
 
           echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
           echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
           echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
 
-          echo "Detected GCC binary: ${GCC_BIN}"
-          echo "Detected G++ binary: ${GPP_BIN}"
-
+          # 로깅
           which gcc || true
           gcc --version || true
 
