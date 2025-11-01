@@ -1,4 +1,4 @@
-name: 🔖 R3C Autonomous Stable Release v7.7 (3OS + PureGCC + macOS Fix + Funding)
+name: 🔖 R3C Autonomous Stable Release v7.8 (3OS + PureGCC + macOS Toolchain + Funding + Metrics)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"  # 매일 오전 9시 (KST)
+    - cron: "0 0 * * *"   # 매일 오전 9시 (KST)
   workflow_dispatch:
 
 permissions:
@@ -18,13 +18,13 @@ concurrency:
 
 jobs:
   build-and-release:
-    name: "3OS Build (Pure GCC / No LLVM)"
+    name: "3OS Pure GCC Build"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-auto-v7.7
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-auto-v7.8
 
     steps:
       - name: 🧭 Checkout repository
@@ -33,13 +33,13 @@ jobs:
           fetch-depth: 0
 
       # ==========================================================
-      # 🪟 Windows (Pure MinGW)
+      # 🪟 Windows — MinGW GCC
       # ==========================================================
       - name: 🧱 Build on Windows (Pure MinGW)
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          echo "🏗️ Building on Windows (Pure MinGW)..."
+          echo "🏗️ Building on Windows with MinGW..."
           choco install mingw -y
           export PATH="/c/ProgramData/chocolatey/bin:/c/tools/mingw64/bin:$PATH"
           which g++
@@ -50,7 +50,7 @@ jobs:
           ls -lah build
 
       # ==========================================================
-      # 🐧 Linux (Native GCC)
+      # 🐧 Linux — Native GCC
       # ==========================================================
       - name: 🧱 Build on Linux
         if: runner.os == 'Linux'
@@ -62,21 +62,32 @@ jobs:
           ls -lah build
 
       # ==========================================================
-      # 🍎 macOS (Homebrew GNU GCC) — ✅ AppleClang 완전 차단
+      # 🍎 macOS — Homebrew GNU GCC + Toolchain File (Clang 완전 차단)
       # ==========================================================
-      - name: 🧱 Build on macOS (GNU GCC)
+      - name: 🧱 Build on macOS (GNU GCC Toolchain)
         if: runner.os == 'macOS'
         run: |
-          echo "🏗️ Building on macOS with GNU GCC..."
+          echo "🏗️ Building on macOS with GNU GCC Toolchain..."
           brew update
           brew install gcc
           GCC_PATH=$(brew --prefix gcc)
           export CC="${GCC_PATH}/bin/gcc-13"
           export CXX="${GCC_PATH}/bin/g++-13"
           echo "✅ Using compiler: $($CXX --version | head -n1)"
-          which $CXX
-          # 👇 AppleClang 차단 + GCC 강제 지정
-          env CC=$CC CXX=$CXX cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX
+          echo "🔧 Forcing CMake to ignore AppleClang..."
+
+          cat > gcc-toolchain.cmake <<'EOF'
+          set(CMAKE_SYSTEM_NAME Darwin)
+          set(CMAKE_C_COMPILER /usr/local/bin/gcc-13)
+          set(CMAKE_CXX_COMPILER /usr/local/bin/g++-13)
+          set(CMAKE_C_COMPILER_ID GNU)
+          set(CMAKE_CXX_COMPILER_ID GNU)
+          set(CMAKE_C_COMPILER_FORCED TRUE)
+          set(CMAKE_CXX_COMPILER_FORCED TRUE)
+          set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
+          EOF
+
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=gcc-toolchain.cmake
           cmake --build build --target r3c_cli --config Release
           ls -lah build
 
@@ -123,10 +134,10 @@ PY
           retention-days: 7
 
   # ==========================================================
-  # 📊 Release + Funding Integration
+  # 📊 Release + Funding + Metrics
   # ==========================================================
   release-and-report:
-    name: "📊 Release + Auto Funding Report"
+    name: "📊 Release + Auto Funding + Metrics"
     runs-on: ubuntu-latest
     needs: build-and-release
 
@@ -147,7 +158,7 @@ PY
       - name: 🪶 Generate tag
         id: tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-v7.7"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-v7.8"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: 📊 Fetch OpenCollective Funding Data
@@ -162,14 +173,27 @@ PY
           echo "backers=$backers" >> $GITHUB_ENV
           echo "✅ Total funding: $${total}, Backers: ${backers}"
 
+      - name: 📈 GitHub Traffic Metrics
+        run: |
+          echo "📊 Gathering traffic metrics..."
+          curl -s -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.WORKFLOW_PAT }}" \
+            https://api.github.com/repos/${{ github.repository }}/traffic/views > traffic.json
+          views=$(jq -r '.count // 0' traffic.json)
+          uniques=$(jq -r '.uniques // 0' traffic.json)
+          echo "views=$views" >> $GITHUB_ENV
+          echo "uniques=$uniques" >> $GITHUB_ENV
+          echo "✅ Traffic: ${views} views (${uniques} unique)"
+
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### R3C v7.7 Autonomous LLVM-Free + Funding Release"
+            echo "### R3C v7.8 Pure GCC + macOS Toolchain + Metrics"
             echo ""
             echo "✅ 3OS Pure GCC (No LLVM / No Clang / No MSVC)"
             echo "💰 Total Funding: $${total} USD"
             echo "👥 Active Supporters: ${backers}"
+            echo "📊 Traffic (14d): ${views} views, ${uniques} unique"
             echo "🕘 Daily Auto-Build (09:00 KST)"
             echo ""
             echo "📦 SHA256 checksums:"
@@ -184,21 +208,21 @@ PY
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Pure GCC + AutoFunding)"
+          name: "R3C ${{ env.TAG }} (Pure GCC + macOS Toolchain + Funding + Metrics)"
           body_path: release_dist/RELEASE_NOTE.txt
           files: |
             release_dist/**/r3c-*.tar.gz
             release_dist/SHA256SUMS.txt
 
-      - name: 🧾 Auto-update README Funding Section
+      - name: 🧾 Update README with Metrics
         run: |
-          echo "📄 Updating README.md funding block..."
-          awk '/<!-- FUNDING-SECTION-START -->/{flag=1;print;print "";print "### ❤️ Support the R3C Ecosystem";print "";next}/<!-- FUNDING-SECTION-END -->/{flag=0;print "";print "Latest Release: **'${TAG}'**";print 'Total Funding: **$'${total}' USD**';print 'Active Supporters: **'${backers}'**';print '';print '[![OpenCollective](https://img.shields.io/badge/OpenCollective-r3c--foundation-2ea44f?logo=opencollective)](https://opencollective.com/r3c-foundation)';print '[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-via%20GitHub-orange?logo=github)](https://github.com/sponsors/r3c-foundation)';print "";flag=0}flag==0' README.md > tmp && mv tmp README.md
+          echo "📄 Updating README.md metrics..."
+          awk '/<!-- FUNDING-SECTION-START -->/{flag=1;print;print "";print "### ❤️ Support the R3C Ecosystem";print "";next}/<!-- FUNDING-SECTION-END -->/{flag=0;print "";print "Latest Release: **'${TAG}'**";print 'Total Funding: **$'${total}' USD**';print 'Active Supporters: **'${backers}'**';print 'Traffic (14d): **'${views}' views / ' ${uniques} ' unique**';print '';print '[![OpenCollective](https://img.shields.io/badge/OpenCollective-r3c--foundation-2ea44f?logo=opencollective)](https://opencollective.com/r3c-foundation)';print '[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-via%20GitHub-orange?logo=github)](https://github.com/sponsors/r3c-foundation)';print "";flag=0}flag==0' README.md > tmp && mv tmp README.md
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
           git add README.md
-          git commit -m "🧾 Auto-update README funding (v7.7)"
+          git commit -m "📊 Auto-update README with funding + traffic metrics (v7.8)"
           git push
 
       - name: ✅ Done
-        run: echo "R3C v7.7 GCC + macOS Fix + Funding complete ✅"
+        run: echo "R3C v7.8 GCC + macOS Toolchain + Funding + Metrics complete ✅"
