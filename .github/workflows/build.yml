@@ -31,6 +31,7 @@ jobs:
       # ============================================================
       # 🧩 Install GCC for each platform
       # ============================================================
+
       - name: 🧱 Install GCC (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -41,7 +42,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          # 실제 경로 감지 (Intel = /usr/local, ARM = /opt/homebrew)
+          # 경로 자동 감지 (Intel = /usr/local, ARM = /opt/homebrew)
           if [ -d "/opt/homebrew/opt/gcc" ]; then
             GCC_PREFIX="/opt/homebrew/opt/gcc"
           elif [ -d "/usr/local/opt/gcc" ]; then
@@ -49,7 +50,6 @@ jobs:
           else
             GCC_PREFIX=$(brew --prefix gcc)
           fi
-
           echo "✅ GCC prefix: $GCC_PREFIX"
 
           # 버전 자동 감지 (gcc-13, gcc-14 등)
@@ -65,7 +65,6 @@ jobs:
           echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
           echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
 
-          # 로깅
           which gcc || true
           gcc --version || true
 
@@ -77,10 +76,12 @@ jobs:
           echo "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin" >> $env:GITHUB_PATH
           echo "CC=gcc" >> $env:GITHUB_ENV
           echo "CXX=g++" >> $env:GITHUB_ENV
+          echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
 
       # ============================================================
       # 🏗️ Build with Pure GCC
       # ============================================================
+
       - name: 🏗️ Build R3C (Pure GCC)
         shell: bash
         run: |
@@ -91,16 +92,24 @@ jobs:
           echo "Using CXX=$CXX"
           which $CC || true
           $CC --version || true
-          cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="$CC" \
-            -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_VERBOSE_MAKEFILE=ON
+
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_VERBOSE_MAKEFILE=ON
+          else
+            cmake -B build -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_VERBOSE_MAKEFILE=ON
+          fi
+
           cmake --build build --config Release -v
           ls -lah build
 
       # ============================================================
       # ✅ Verify Compiler Identity
       # ============================================================
+
       - name: 🔎 Verify Pure GCC
         shell: bash
         run: |
@@ -115,6 +124,7 @@ jobs:
       # ============================================================
       # 📦 Package Artifacts
       # ============================================================
+
       - name: 📦 Package Artifacts
         shell: bash
         run: |
@@ -134,6 +144,7 @@ jobs:
       # ============================================================
       # 🚀 Auto Release (optional)
       # ============================================================
+
       - name: 🚀 Auto Release
         if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
