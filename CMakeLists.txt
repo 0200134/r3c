@@ -15,17 +15,13 @@ endif()
 option(R3C_BUILD_DEMOS "Build demo CLI and example pipeline" ON)
 
 # ==========================================================
-# 🧰 Toolchain Enforcement (No MSVC / No LLVM)
+# 🚫 Enforce Pure GCC Environment
 # ==========================================================
-if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-  message(FATAL_ERROR "❌ MSVC compiler detected — only pure MinGW/GCC is allowed.")
+if(MSVC OR CMAKE_C_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message(FATAL_ERROR "❌ Only pure GCC compilers are allowed. (No MSVC / No Clang / No LLVM)")
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "LLVM")
-  message(FATAL_ERROR "❌ LLVM/Clang toolchains are not allowed in pure GCC mode.")
-endif()
-
-message(STATUS "✅ Using compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "✅ GCC detected: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # ==========================================================
 # Sources / Includes
@@ -42,15 +38,15 @@ target_include_directories(r3c PUBLIC
 # ⚙️ Platform-Specific Linking
 # ==========================================================
 if(WIN32)
-  message(STATUS "Configuring for Windows (Pure MinGW)...")
+  message(STATUS "🔧 Building for Windows (MinGW / GCC mode)")
   target_compile_definitions(r3c PUBLIC R3C_WINDOWS)
   target_link_libraries(r3c PRIVATE ws2_32)
 elseif(APPLE)
-  message(STATUS "Configuring for macOS...")
+  message(STATUS "🔧 Building for macOS (Homebrew GCC mode)")
   target_compile_definitions(r3c PUBLIC R3C_MACOS)
   target_link_libraries(r3c PRIVATE m)
 elseif(UNIX)
-  message(STATUS "Configuring for Linux/Unix...")
+  message(STATUS "🔧 Building for Linux (Pure GCC)")
   target_compile_definitions(r3c PUBLIC R3C_LINUX)
   target_link_libraries(r3c PRIVATE pthread dl m)
 endif()
@@ -63,7 +59,6 @@ if(R3C_BUILD_DEMOS)
   target_link_libraries(r3c_cli PRIVATE r3c)
 
   if(WIN32)
-    # ✅ Windows 결과물 경로 통일
     set_target_properties(r3c_cli PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
       OUTPUT_NAME "r3c_cli"
