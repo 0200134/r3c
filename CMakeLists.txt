@@ -12,6 +12,12 @@ endif()
 # ==========================================================
 # 🚫 Pure GCC Enforcement
 # ==========================================================
+message(STATUS "🔍 Compiler Info:")
+message(STATUS "  CMAKE_C_COMPILER       = ${CMAKE_C_COMPILER}")
+message(STATUS "  CMAKE_CXX_COMPILER     = ${CMAKE_CXX_COMPILER}")
+message(STATUS "  CMAKE_CXX_COMPILER_ID  = ${CMAKE_CXX_COMPILER_ID}")
+message(STATUS "  CMAKE_CXX_COMPILER_VERSION = ${CMAKE_CXX_COMPILER_VERSION}")
+
 if(MSVC)
   message(FATAL_ERROR "❌ MSVC not allowed (Pure GCC only).")
 elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -47,3 +53,10 @@ endif()
 # ==========================================================
 add_executable(r3c_cli src/main.cpp)
 target_link_libraries(r3c_cli PRIVATE r3c)
+
+# ==========================================================
+# Extra info for build log clarity
+# ==========================================================
+message(STATUS "📦 Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "📁 Output dir: ${CMAKE_BINARY_DIR}")
+message(STATUS "--------------------------------------------------")
