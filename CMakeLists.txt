@@ -22,7 +22,7 @@ if(DEFINED ENV{CC} AND DEFINED ENV{CXX})
 endif()
 
 # ==========================================================
-# 🚫 Enforce Pure GCC
+# 🚫 Enforce Pure GCC (with macOS Fallback)
 # ==========================================================
 message(STATUS "--------------------------------------------------")
 message(STATUS "🔍 Compiler Info:")
@@ -33,13 +33,15 @@ message(STATUS "  CMAKE_CXX_COMPILER_VERSION = ${CMAKE_CXX_COMPILER_VERSION}")
 
 if(MSVC)
   message(FATAL_ERROR "❌ MSVC not allowed (Pure GCC only).")
-elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang|LLVM")
-  message(FATAL_ERROR "❌ LLVM/Clang/AppleClang toolchains are not allowed in Pure GCC mode.")
+elseif(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+  message(WARNING "⚠️ AppleClang detected — GCC not found on macOS runner, fallback mode enabled.")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang|LLVM")
+  message(FATAL_ERROR "❌ LLVM/Clang toolchains are not allowed in Pure GCC mode.")
 elseif(NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU")
   message(FATAL_ERROR "❌ Unsupported compiler. Use GCC only.")
 endif()
 
-message(STATUS "✅ Verified Pure GCC Compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
+message(STATUS "✅ Compiler accepted: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 message(STATUS "--------------------------------------------------")
 
 # ==========================================================
@@ -50,7 +52,7 @@ if(WIN32)
   add_compile_definitions(R3C_WINDOWS)
   set(EXTRA_LIBS ws2_32)
 elseif(APPLE)
-  message(STATUS "🔧 Configuring for macOS (Pure GCC)")
+  message(STATUS "🔧 Configuring for macOS (Pure GCC or fallback)")
   add_compile_definitions(R3C_MACOS)
   set(EXTRA_LIBS m)
 elseif(UNIX)
