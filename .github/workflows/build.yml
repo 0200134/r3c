@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"    # 매일 자정 자동 실행
+    - cron: "0 0 * * *"  # 매일 자정 자동 실행
   workflow_dispatch:
 
 permissions:
@@ -36,9 +36,8 @@ jobs:
           fetch-depth: 0
 
       # ============================================================
-      # 🧩 Install GCC per Platform
+      # 🧩 Install GCC (Linux)
       # ============================================================
-
       - name: 🧱 Install GCC (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -47,6 +46,9 @@ jobs:
           gcc --version
           g++ --version
 
+      # ============================================================
+      # 🧩 Install GCC (macOS)
+      # ============================================================
       - name: 🧱 Install GCC (macOS)
         if: runner.os == 'macOS'
         run: |
@@ -56,17 +58,20 @@ jobs:
           ${GCC_PREFIX}/bin/gcc-14 --version || true
           ${GCC_PREFIX}/bin/g++-14 --version || true
 
+      # ============================================================
+      # 🧩 Install and Configure MinGW (Windows)
+      # ============================================================
       - name: 🧱 Install and Configure MinGW (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          echo "🚫 Removing MSVC from PATH..."
+          Write-Host "🚫 Removing MSVC-related paths..."
           $env:Path = ($env:Path.Split(';') | Where-Object {$_ -notmatch 'Microsoft Visual Studio'}) -join ';'
 
-          echo "🧱 Installing MinGW..."
+          Write-Host "🧱 Installing MinGW..."
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
 
-          # 🔍 다양한 설치 경로 자동 탐색 (새/구 구조 모두)
+          # 다양한 설치 경로 자동 탐색
           $possiblePaths = @(
             "C:\\ProgramData\\mingw64\\mingw64\\bin",
             "C:\\ProgramData\\mingw64\\bin",
@@ -78,12 +83,17 @@ jobs:
 
           $mingwPath = $possiblePaths | Where-Object { Test-Path "$_\\gcc.exe" } | Select-Object -First 1
           if (-not $mingwPath) {
-            Write-Host "❌ MinGW not found — checked paths:`n$($possiblePaths -join "`n")"
+            Write-Host "❌ MinGW not found — checked:`n$($possiblePaths -join "`n")"
             exit 1
           }
 
-          echo "✅ MinGW detected at $mingwPath"
+          Write-Host "✅ MinGW detected at $mingwPath"
+
+          # PATH 완전 재설정 — MSVC 제거 및 MinGW 우선순위 적용
+          $env:Path = "$mingwPath;$($env:SystemRoot)\\system32;$($env:SystemRoot);"
           echo "$mingwPath" >> $env:GITHUB_PATH
+
+          # 환경 변수 지정
           echo "CC=$mingwPath\\gcc.exe" >> $env:GITHUB_ENV
           echo "CXX=$mingwPath\\g++.exe" >> $env:GITHUB_ENV
           echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
@@ -107,7 +117,7 @@ jobs:
             set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/g++-14")
           elseif(EXISTS "/usr/local/opt/gcc/bin/gcc-14")
             set(CMAKE_C_COMPILER "/usr/local/opt/gcc/bin/gcc-14")
-            set(CMAKE_CXX_COMPILER "/usr/local/opt/gcc/bin/g++-14")
+            set(CMAKE_CXX_COMPILER "/usr/local/opt/g++-14")
           else()
             set(CMAKE_C_COMPILER "gcc")
             set(CMAKE_CXX_COMPILER "g++")
