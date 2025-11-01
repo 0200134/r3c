@@ -1,4 +1,4 @@
-name: 🔖 R3C Autonomous Stable Release v8.7 (Pure GCC Universal 3OS + AutoBuild + Integrity)
+name: 🔖 R3C Autonomous Stable Release v8.8 (Pure GCC Full Integration + 3OS + AutoBuild)
 
 on:
   push:
@@ -24,7 +24,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v8.7
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v8.8
 
     steps:
       - name: 🧭 Checkout repository
@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       # =====================================================
-      # 🪟 Windows: Install MinGW-w64 GCC
+      # 🪟 Windows: Install MinGW-w64 GCC (avoid MSVC)
       # =====================================================
       - name: 🪟 Setup Pure GCC on Windows
         if: matrix.os == 'windows-latest'
@@ -45,7 +45,8 @@ jobs:
           echo "C:\\ProgramData\\chocolatey\\bin" >> $GITHUB_PATH
           echo "CC=gcc" >> $GITHUB_ENV
           echo "CXX=g++" >> $GITHUB_ENV
-          gcc --version || echo "⚠️ GCC not found yet."
+          echo "✅ GCC installed:"
+          gcc --version
 
       # =====================================================
       # 🍎 macOS: Install Homebrew GCC (avoid AppleClang)
@@ -56,20 +57,20 @@ jobs:
         run: |
           echo "🍎 Installing Homebrew GCC..."
           brew install gcc || true
-          echo "🔧 Switching to Homebrew GCC..."
+          echo "🔧 Switching CC/CXX to Homebrew GCC..."
           echo "CC=gcc-14" >> $GITHUB_ENV
           echo "CXX=g++-14" >> $GITHUB_ENV
           gcc-14 --version
 
       # =====================================================
-      # 🧱 Build
+      # 🧱 Build (Pure GCC Only)
       # =====================================================
-      - name: 🧱 Build R3C (Pure GCC)
+      - name: 🧱 Build R3C
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build
-          echo "🏗️ Building on ${{ matrix.os }} (Pure GCC mode)..."
+          echo "🏗️ Building on ${{ matrix.os }} with Pure GCC..."
 
           if [ "$RUNNER_OS" = "Windows" ]; then
             cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release
@@ -96,7 +97,7 @@ jobs:
           fi
 
       # =====================================================
-      # 📦 Package & Hash
+      # 📦 Packaging & SHA256
       # =====================================================
       - name: 📦 Package & Hash
         shell: bash
@@ -154,7 +155,7 @@ PY
 
       - name: 🪶 Generate tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.7"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.8"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: 💾 Configure remote
@@ -165,16 +166,16 @@ PY
 
       - name: 🪶 Push tag
         run: |
-          git tag -a "${TAG}" -m "Pure GCC Stable Release v8.7 (3OS + AutoBuild)"
+          git tag -a "${TAG}" -m "Pure GCC Full Integration v8.8 (3OS + AutoBuild)"
           git push origin "${TAG}"
 
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### 🧱 R3C v8.7 Pure GCC Universal Autonomous Release"
+            echo "### 🧱 R3C v8.8 Pure GCC Full Integration Release"
             echo ""
-            echo "✅ 3OS Verified Build (MinGW / GCC / GCC)"
-            echo "📅 Daily AutoBuild: 03:00 UTC"
+            echo "✅ Verified Pure GCC Build (MinGW / Homebrew / System)"
+            echo "📅 AutoBuild Schedule: 03:00 UTC"
             echo "📦 SHA256 Checksums:"
             cat release_dist/SHA256SUMS.txt
             echo ""
@@ -187,7 +188,7 @@ PY
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Pure GCC Universal 3OS)"
+          name: "R3C ${{ env.TAG }} (Pure GCC Full Integration 3OS)"
           body_path: release_dist/RELEASE_NOTE.txt
           files: |
             release_dist/**/r3c-*.tar.gz
@@ -195,4 +196,4 @@ PY
             release_dist/SHA256SUMS.txt
 
       - name: ✅ Done
-        run: echo "R3C v8.7 Pure GCC Universal Build complete ✅"
+        run: echo "R3C v8.8 Pure GCC Full Integration Build complete ✅"
