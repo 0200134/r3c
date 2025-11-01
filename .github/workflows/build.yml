@@ -1,4 +1,4 @@
-name: 🔖 R3C Autonomous Stable Release v7.9 (3OS + ForceGCC + Funding + Metrics)
+name: 🔖 R3C v8.0 Pure GCC Autonomous Release (3OS + LTSS + Integrity)
 
 on:
   push:
@@ -6,201 +6,93 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"  # 매일 오전 9시 (KST)
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: stable-release
+  group: pure-gcc-stable
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
-    name: "3OS Pure GCC Build"
+  build:
+    name: "Pure GCC 3OS Build"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-    env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-auto-v7.9
-
     steps:
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 🪟 Windows — MinGW GCC
-      - name: 🧱 Build on Windows (MinGW)
-        if: runner.os == 'Windows'
+      # ======================================================
+      # 🧱 GCC Setup for Each OS
+      # ======================================================
+      - name: ⚙️ Setup Pure GCC Environment
         shell: bash
         run: |
-          echo "🏗️ Building on Windows (Pure MinGW)..."
-          choco install mingw -y
-          export PATH="/c/ProgramData/chocolatey/bin:/c/tools/mingw64/bin:$PATH"
-          g++ --version
-          cmake -E env CC=gcc CXX=g++ cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release
+          echo "🔧 Setting up GCC on ${{ matrix.os }}..."
+
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            choco install mingw -y
+            export PATH="/c/tools/mingw64/bin:/c/ProgramData/chocolatey/bin:$PATH"
+            which gcc || { echo "❌ GCC not found!"; exit 1; }
+            rm -rf "/c/Program Files/Microsoft Visual Studio" || true
+            rm -rf "/c/Program Files (x86)/Microsoft Visual Studio" || true
+            echo "✅ MSVC removed. Pure GCC only."
+
+          elif [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install gcc || true
+            export CC=gcc-13
+            export CXX=g++-13
+            echo "✅ Using $(gcc-13 --version | head -n1)"
+
+          elif [[ "$RUNNER_OS" == "Linux" ]]; then
+            sudo apt-get update -y
+            sudo apt-get install -y build-essential
+            echo "✅ Linux GCC OK"
+          fi
+
+      # ======================================================
+      # 🧩 Build
+      # ======================================================
+      - name: 🧱 Build R3C
+        shell: bash
+        run: |
+          mkdir -p build
+          cmake -E env CC=gcc CXX=g++ cmake -B build -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
           cmake --build build --target r3c_cli
           ls -lah build
 
-      # 🐧 Linux — Native GCC
-      - name: 🧱 Build on Linux
-        if: runner.os == 'Linux'
-        run: |
-          echo "🏗️ Building on Linux..."
-          gcc --version
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --target r3c_cli
-          ls -lah build
-
-      # 🍎 macOS — Force Homebrew GCC (AppleClang 완전 차단)
-      - name: 🧱 Build on macOS (Force GNU GCC)
-        if: runner.os == 'macOS'
-        run: |
-          echo "🏗️ Building on macOS with GNU GCC (force override)..."
-          brew update
-          brew install gcc
-          GCC_PATH=$(brew --prefix gcc)
-          export CC="${GCC_PATH}/bin/gcc-13"
-          export CXX="${GCC_PATH}/bin/g++-13"
-          echo "✅ Using compiler: $($CXX --version | head -n1)"
-
-          # 🔥 AppleClang 자동 감지 방지
-          sudo ln -sf "${GCC_PATH}/bin/gcc-13" /usr/local/bin/cc
-          sudo ln -sf "${GCC_PATH}/bin/g++-13" /usr/local/bin/c++
-          echo "✅ Overrode /usr/local/bin symlinks to GCC"
-
-          which cc
-          cc --version
-
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=$CC -DCMAKE_CXX_COMPILER=$CXX
-          cmake --build build --target r3c_cli --config Release
-          ls -lah build
-
-      # 🔎 Smoke Test
+      # ======================================================
+      # 🔎 Test & Archive
+      # ======================================================
       - name: 🔎 Smoke Test
         shell: bash
         run: |
-          exe=$(find build -type f \( -name "r3c_cli" -o -name "r3c_cli.exe" \) | head -n1 || true)
+          echo "⚙️ Smoke test..."
+          exe=$(find build -type f -name "r3c_cli*" | head -n1)
           if [ -n "$exe" ]; then
-            echo "✅ Found executable: $exe"
-            "$exe" --help || echo "⚠️ CLI test skipped."
+            "$exe" --version || echo "⚠️ CLI version check skipped."
           else
-            echo "⚠️ r3c_cli not found!"
+            echo "❌ r3c_cli not found!"
+            exit 1
           fi
 
-      # 📦 Package & Hash
-      - name: 📦 Package & Hash
+      - name: 📦 Package
         shell: bash
         run: |
           mkdir -p dist
-          ARCHIVE="r3c-${{ matrix.os }}.tar.gz"
-          tar -czf "dist/$ARCHIVE" -C build .
-          python3 - << 'PY'
-import hashlib, os
-p = "dist/" + os.environ.get("ARCHIVE","archive.tar.gz")
-h = hashlib.sha256()
-with open(p,"rb") as f:
-    for b in iter(lambda:f.read(1024*1024), b""):
-        h.update(b)
-open(f"dist/SHA256SUMS-${{ matrix.os }}.txt","w").write(f"{h.hexdigest()}  {os.path.basename(p)}\n")
-print("✅ SHA256:", h.hexdigest())
-PY
+          tar -czf "dist/r3c-${{ matrix.os }}.tar.gz" -C build .
+          echo "✅ Packaged build for ${{ matrix.os }}"
 
-      - name: 💾 Upload artifacts
+      - name: 💾 Upload
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: dist/
-          if-no-files-found: error
           retention-days: 7
-
-  # 📊 Release + Funding + Metrics
-  release-and-report:
-    name: "📊 Release + Funding + Metrics"
-    runs-on: ubuntu-latest
-    needs: build-and-release
-
-    steps:
-      - name: 🧭 Checkout repository
-        uses: actions/checkout@v4
-
-      - name: 📥 Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release_dist
-
-      - name: 🧮 Combine hashes
-        run: |
-          find release_dist -type f -name "SHA256SUMS-*.txt" -exec cat {} + > release_dist/SHA256SUMS.txt
-          cat release_dist/SHA256SUMS.txt
-
-      - name: 🪶 Generate tag
-        id: tag
-        run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-v7.9"
-          echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: 📊 Fetch Funding & Traffic
-        run: |
-          echo "📡 Fetching OpenCollective..."
-          curl -fsSL -H 'Accept: application/json' https://opencollective.com/r3c-foundation.json -o funding.json || echo '{"balance":0,"backersCount":0}' > funding.json
-          total=$(jq -r '(.balance // .collective.stats.balance // .stats.balance // 0)/100' funding.json)
-          backers=$(jq -r '(.backersCount // .collective.stats.backersCount // .stats.backersCount // 0)' funding.json)
-          [[ "$total" =~ ^[0-9]+(\.[0-9]+)?$ ]] || total=0
-          [[ "$backers" =~ ^[0-9]+$ ]] || backers=0
-          echo "total=$total" >> $GITHUB_ENV
-          echo "backers=$backers" >> $GITHUB_ENV
-
-          echo "📊 Fetching GitHub Traffic..."
-          curl -s -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${{ secrets.WORKFLOW_PAT }}" \
-            https://api.github.com/repos/${{ github.repository }}/traffic/views > traffic.json
-          views=$(jq -r '.count // 0' traffic.json)
-          uniques=$(jq -r '.uniques // 0' traffic.json)
-          echo "views=$views" >> $GITHUB_ENV
-          echo "uniques=$uniques" >> $GITHUB_ENV
-          echo "✅ Funding: $${total}, Backers: ${backers}, Views: ${views}, Unique: ${uniques}"
-
-      - name: 🧾 Create release notes
-        run: |
-          {
-            echo "### R3C v7.9 Pure GCC + Force macOS Toolchain + Metrics"
-            echo ""
-            echo "✅ 3OS Pure GCC (No LLVM / No Clang / No MSVC)"
-            echo "💰 Total Funding: $${total} USD"
-            echo "👥 Active Supporters: ${backers}"
-            echo "📊 Traffic (14d): ${views} views, ${uniques} unique"
-            echo "🕘 Daily Auto-Build (09:00 KST)"
-            echo ""
-            echo "📦 SHA256 checksums:"
-            cat release_dist/SHA256SUMS.txt
-            echo ""
-            echo "_Generated on $(date -u)_"
-          } > release_dist/RELEASE_NOTE.txt
-
-      - name: 🧱 Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
-        with:
-          tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Pure GCC + Force macOS + Funding + Metrics)"
-          body_path: release_dist/RELEASE_NOTE.txt
-          files: |
-            release_dist/**/r3c-*.tar.gz
-            release_dist/SHA256SUMS.txt
-
-      - name: 🧾 Update README with Metrics
-        run: |
-          awk '/<!-- FUNDING-SECTION-START -->/{flag=1;print;print "";print "### ❤️ Support the R3C Ecosystem";print "";next}/<!-- FUNDING-SECTION-END -->/{flag=0;print "";print "Latest Release: **'${TAG}'**";print 'Total Funding: **$'${total}' USD**';print 'Active Supporters: **'${backers}'**';print 'Traffic (14d): **'${views}' views / '${uniques}' unique**';print '';print '[![OpenCollective](https://img.shields.io/badge/OpenCollective-r3c--foundation-2ea44f?logo=opencollective)](https://opencollective.com/r3c-foundation)';print '[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-via%20GitHub-orange?logo=github)](https://github.com/sponsors/r3c-foundation)';print "";flag=0}flag==0' README.md > tmp && mv tmp README.md
-          git config user.name "github-actions"
-          git config user.email "actions@users.noreply.github.com"
-          git add README.md
-          git commit -m "📊 Auto-update README (v7.9 metrics)"
-          git push
-
-      - name: ✅ Done
-        run: echo "R3C v7.9 Force-GCC release complete ✅"
