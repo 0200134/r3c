@@ -50,10 +50,14 @@ jobs:
         shell: pwsh
         run: |
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
-          echo "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin" >> $env:GITHUB_PATH
-          echo "CC=C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin/gcc.exe" >> $env:GITHUB_ENV
-          echo "CXX=C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin/g++.exe" >> $env:GITHUB_ENV
+          $mingwPath = "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin"
+          echo "✅ MinGW installed at $mingwPath"
+          echo "$mingwPath" >> $env:GITHUB_PATH
+          echo "CC=$mingwPath/gcc.exe" >> $env:GITHUB_ENV
+          echo "CXX=$mingwPath/g++.exe" >> $env:GITHUB_ENV
           echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
+          & "$mingwPath/gcc.exe" --version
+          & "$mingwPath/g++.exe" --version
 
       # ============================================================
       # 🧩 Create macOS Toolchain File
@@ -84,16 +88,17 @@ jobs:
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
 
-          if [ "$RUNNER_OS" = "macOS" ]; then
-            cmake -B build -G "Unix Makefiles" \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" \
-              -DCMAKE_VERBOSE_MAKEFILE=ON
-          elif [ "$RUNNER_OS" = "Windows" ]; then
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            echo "⚙️ Forcing MinGW GCC build"
             cmake -B build -G "MinGW Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER="$CC" \
               -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_VERBOSE_MAKEFILE=ON
+          elif [ "$RUNNER_OS" = "macOS" ]; then
+            cmake -B build -G "Unix Makefiles" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
@@ -110,7 +115,7 @@ jobs:
       # ============================================================
       - name: 🔎 Verify Pure GCC
         shell: bash
-        continue-on-error: true   # ✅ 절대 실패로 안침
+        continue-on-error: true
         run: |
           echo "🔎 Verifying GCC identity..."
           CACHE_FILE="build/CMakeCache.txt"
