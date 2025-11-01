@@ -41,14 +41,23 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          GCC_PATH=$(brew --prefix gcc)
-          echo "✅ Installed GCC at: ${GCC_PATH}"
-          echo "${GCC_PATH}/bin" >> $GITHUB_PATH
-          echo "CC=${GCC_PATH}/bin/gcc-14" >> $GITHUB_ENV
-          echo "CXX=${GCC_PATH}/bin/g++-14" >> $GITHUB_ENV
-          echo "GCC_PATH=${GCC_PATH}" >> $GITHUB_ENV
+          GCC_PREFIX=$(brew --prefix gcc)
+          echo "✅ GCC installed under: $GCC_PREFIX"
+          echo "${GCC_PREFIX}/bin" >> $GITHUB_PATH
+
+          # gcc 바이너리 실제 이름 자동 감지 (gcc-14, gcc-13 등)
+          GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
+          GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
+
+          echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
+          echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
+          echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
+
+          echo "Detected GCC binary: ${GCC_BIN}"
+          echo "Detected G++ binary: ${GPP_BIN}"
+
           which gcc || true
-          gcc-14 --version || true
+          gcc --version || true
 
       - name: 🧱 Install GCC (Windows)
         if: runner.os == 'Windows'
@@ -75,10 +84,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER="$CC" \
             -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_VERBOSE_MAKEFILE=ON \
-            -DCMAKE_C_COMPILER_AR="${GCC_PATH}/bin/gcc-ar-14" \
-            -DCMAKE_C_COMPILER_RANLIB="${GCC_PATH}/bin/gcc-ranlib-14" \
-            -DCMAKE_FIND_ROOT_PATH="${GCC_PATH}"
+            -DCMAKE_VERBOSE_MAKEFILE=ON
           cmake --build build --config Release -v
           ls -lah build
 
