@@ -27,9 +27,6 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-      # ============================================================
-      # 🧭 Checkout Repository
-      # ============================================================
       - name: 🧭 Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -88,12 +85,8 @@ jobs:
           }
 
           Write-Host "✅ MinGW detected at $mingwPath"
-
-          # PATH 완전 재설정 — MSVC 제거 및 MinGW 우선순위 적용
           $env:Path = "$mingwPath;$($env:SystemRoot)\\system32;$($env:SystemRoot);"
           echo "$mingwPath" >> $env:GITHUB_PATH
-
-          # 환경 변수 지정
           echo "CC=$mingwPath\\gcc.exe" >> $env:GITHUB_ENV
           echo "CXX=$mingwPath\\g++.exe" >> $env:GITHUB_ENV
           echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
@@ -134,11 +127,14 @@ jobs:
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
           if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "⚙️ Forcing MinGW GCC build"
+            echo "⚙️ Forcing MinGW GCC build (no MSVC fallback)"
             cmake -B build -G "MinGW Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER="$CC" \
               -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER_ID=GNU \
+              -DCMAKE_CXX_COMPILER_ID=GNU \
+              -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           elif [ "$RUNNER_OS" = "macOS" ]; then
             echo "⚙️ Using Pure GCC Toolchain for macOS"
@@ -174,9 +170,6 @@ jobs:
           path: dist/
           retention-days: 7
 
-  # ============================================================
-  # 🏷️ Auto Tag & Release Job
-  # ============================================================
   release:
     needs: build
     runs-on: ubuntu-latest
