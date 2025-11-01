@@ -1,4 +1,4 @@
-name: 🔖 R3C Autonomous Stable Release v8.6 (Pure GCC 3OS + Daily AutoBuild + Integrity)
+name: 🔖 R3C Autonomous Stable Release v8.7 (Pure GCC Universal 3OS + AutoBuild + Integrity)
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
     paths-ignore:
       - '.github/workflows/**'
   schedule:
-    - cron: "0 3 * * *"   # ⏰ 매일 03:00 UTC = 한국 시간 오전 12시(정각)
+    - cron: "0 3 * * *"   # ⏰ 매일 03:00 UTC = 한국 시간 정오
   workflow_dispatch:
 
 permissions:
@@ -24,7 +24,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v8.6
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-final-v8.7
 
     steps:
       - name: 🧭 Checkout repository
@@ -33,7 +33,7 @@ jobs:
           fetch-depth: 0
 
       # =====================================================
-      # 🪟 Windows: Install MinGW GCC (Pure GCC Mode)
+      # 🪟 Windows: Install MinGW-w64 GCC
       # =====================================================
       - name: 🪟 Setup Pure GCC on Windows
         if: matrix.os == 'windows-latest'
@@ -46,6 +46,20 @@ jobs:
           echo "CC=gcc" >> $GITHUB_ENV
           echo "CXX=g++" >> $GITHUB_ENV
           gcc --version || echo "⚠️ GCC not found yet."
+
+      # =====================================================
+      # 🍎 macOS: Install Homebrew GCC (avoid AppleClang)
+      # =====================================================
+      - name: 🍎 Setup Pure GCC on macOS
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          echo "🍎 Installing Homebrew GCC..."
+          brew install gcc || true
+          echo "🔧 Switching to Homebrew GCC..."
+          echo "CC=gcc-14" >> $GITHUB_ENV
+          echo "CXX=g++-14" >> $GITHUB_ENV
+          gcc-14 --version
 
       # =====================================================
       # 🧱 Build
@@ -82,7 +96,7 @@ jobs:
           fi
 
       # =====================================================
-      # 📦 Packaging
+      # 📦 Package & Hash
       # =====================================================
       - name: 📦 Package & Hash
         shell: bash
@@ -140,7 +154,7 @@ PY
 
       - name: 🪶 Generate tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.6"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.7"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: 💾 Configure remote
@@ -151,13 +165,13 @@ PY
 
       - name: 🪶 Push tag
         run: |
-          git tag -a "${TAG}" -m "Pure GCC Stable Release v8.6 (3OS + AutoSchedule)"
+          git tag -a "${TAG}" -m "Pure GCC Stable Release v8.7 (3OS + AutoBuild)"
           git push origin "${TAG}"
 
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### 🧱 R3C v8.6 Pure GCC Autonomous Release"
+            echo "### 🧱 R3C v8.7 Pure GCC Universal Autonomous Release"
             echo ""
             echo "✅ 3OS Verified Build (MinGW / GCC / GCC)"
             echo "📅 Daily AutoBuild: 03:00 UTC"
@@ -173,7 +187,7 @@ PY
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Pure GCC 3OS + AutoBuild)"
+          name: "R3C ${{ env.TAG }} (Pure GCC Universal 3OS)"
           body_path: release_dist/RELEASE_NOTE.txt
           files: |
             release_dist/**/r3c-*.tar.gz
@@ -181,4 +195,4 @@ PY
             release_dist/SHA256SUMS.txt
 
       - name: ✅ Done
-        run: echo "R3C v8.6 Pure GCC AutoBuild complete ✅"
+        run: echo "R3C v8.7 Pure GCC Universal Build complete ✅"
