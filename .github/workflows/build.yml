@@ -42,7 +42,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          # 실제 경로 감지 (Intel = /usr/local, ARM = /opt/homebrew)
+          # 경로 자동 감지 (Intel = /usr/local, ARM = /opt/homebrew)
           if [ -d "/opt/homebrew/opt/gcc" ]; then
             GCC_PREFIX="/opt/homebrew/opt/gcc"
           elif [ -d "/usr/local/opt/gcc" ]; then
@@ -57,18 +57,12 @@ jobs:
           GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
           echo "Detected binaries: $GCC_BIN / $GPP_BIN"
 
-          # PATH 최상단 및 clang 대체 심볼릭 링크
-          echo "${GCC_PREFIX}/bin" >> $GITHUB_PATH
-          sudo ln -sf "${GCC_PREFIX}/bin/${GCC_BIN}" /usr/local/bin/gcc
-          sudo ln -sf "${GCC_PREFIX}/bin/${GPP_BIN}" /usr/local/bin/g++
-          export PATH="/usr/local/bin:${GCC_PREFIX}/bin:$PATH"
-
           echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
           echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
           echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
 
-          which gcc || true
-          gcc --version || true
+          echo "Using ${GCC_PREFIX}/bin/${GCC_BIN}"
+          ${GCC_PREFIX}/bin/${GCC_BIN} --version
 
       - name: 🧱 Install GCC (Windows)
         if: runner.os == 'Windows'
@@ -95,13 +89,25 @@ jobs:
           which $CC || true
           $CC --version || true
 
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            cmake -B build -G "Unix Makefiles" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_SYSTEM_NAME=Darwin \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER_WORKS=TRUE \
+              -DCMAKE_CXX_COMPILER_WORKS=TRUE \
+              -DCMAKE_VERBOSE_MAKEFILE=ON
+          elif [ "$RUNNER_OS" = "Windows" ]; then
+            cmake -B build -G "MinGW Makefiles" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           fi
 
