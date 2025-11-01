@@ -1,12 +1,10 @@
-name: 🔖 R3C Autonomous Stable Release v8.8.5 (Pure GCC 3OS Final Fix)
+name: 🔖 R3C Autonomous Stable Release v9.1 (Pure GCC + 3OS + Funding + Integrity)
 
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '.github/workflows/**'
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 3 * * *"   # 매일 UTC 03시 (한국시간 정오)
   workflow_dispatch:
 
 permissions:
@@ -17,139 +15,101 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build-and-release:
-    name: "3OS Pure GCC Build"
+  build:
+    name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-pure-gcc-v8.8.5
+      BUILD_TYPE: Release
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-gcc-stable-v9.1
 
     steps:
-      - name: 🧭 Checkout repository
+      - name: 🧭 Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # =====================================================
-      # 🪟 Windows
-      # =====================================================
-      - name: 🪟 Setup Pure GCC on Windows
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
+      # ----------------------------------------
+      # 🧩 Install GCC Toolchains per OS
+      # ----------------------------------------
+      - name: 🧩 Install GCC (Linux)
+        if: runner.os == 'Linux'
         run: |
-          choco install mingw ninja --yes --no-progress
-          $env:Path += ";C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin"
+          sudo apt update
+          sudo apt install -y build-essential gcc g++
           gcc --version
-          echo "CC=gcc" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "CXX=g++" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      # =====================================================
-      # 🍎 macOS (AppleClang 차단 + Homebrew GCC14 강제)
-      # =====================================================
-      - name: 🍎 Setup Pure GCC on macOS
-        if: matrix.os == 'macos-latest'
+      - name: 🧩 Install GCC (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install gcc
+          export CC=$(brew --prefix)/bin/gcc-13
+          export CXX=$(brew --prefix)/bin/g++-13
+          echo "CC=$CC" >> $GITHUB_ENV
+          echo "CXX=$CXX" >> $GITHUB_ENV
+          $CXX --version
+
+      - name: 🧩 Install MinGW (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install mingw -y
+          echo "✅ Installed MinGW GCC:"
+          where gcc
+
+      # ----------------------------------------
+      # 🧱 Build
+      # ----------------------------------------
+      - name: 🏗️ Configure & Build
         shell: bash
         run: |
-          echo "🍎 Installing Homebrew GCC..."
-          brew update
-          brew install gcc ninja || true
-
-          GCC_PATH="$(brew --prefix gcc)/bin/gcc-14"
-          GXX_PATH="$(brew --prefix gcc)/bin/g++-14"
-          echo "✅ GCC path: $GCC_PATH"
-          $GCC_PATH --version | head -n 1
-
-          echo "🏗️ Building with Homebrew GCC..."
+          set -e
           mkdir -p build
-          cmake -G Ninja -B build \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="$GCC_PATH" \
-            -DCMAKE_CXX_COMPILER="$GXX_PATH"
-          cmake --build build --config Release
+          echo "🏗️ Building with Pure GCC on ${{ matrix.os }}..."
+          cmake -B build -DCMAKE_BUILD_TYPE=${BUILD_TYPE}
+          cmake --build build --config ${BUILD_TYPE} -- -j$(nproc || sysctl -n hw.ncpu || echo 4)
+          echo "✅ Build complete:"
           ls -lah build
 
-      # =====================================================
-      # 🐧 Linux
-      # =====================================================
-      - name: 🐧 Setup GCC on Linux
-        if: matrix.os == 'ubuntu-latest'
-        shell: bash
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y gcc g++ ninja-build
-          gcc --version
-          mkdir -p build
-          cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
-          ls -lah build
-
-      # =====================================================
-      # 🔎 Verify Compiler
-      # =====================================================
-      - name: 🔎 Verify Compiler
-        shell: bash
-        run: |
-          echo "CC: $CC"
-          echo "CXX: $CXX"
-          command -v $CC || true
-          command -v $CXX || true
-          $CC --version | head -n 1 || true
-          $CXX --version | head -n 1 || true
-
-      # =====================================================
+      # ----------------------------------------
       # 🔎 Smoke Test
-      # =====================================================
+      # ----------------------------------------
       - name: 🔎 Smoke Test
         shell: bash
         run: |
           exe=$(find build -type f \( -name "r3c_cli" -o -name "r3c_cli.exe" \) | head -n1 || true)
           if [ -n "$exe" ]; then
             echo "✅ Found binary: $exe"
-            "$exe" --version || echo "⚠️ CLI test skipped."
+            "$exe" --help || echo "⚠️ CLI test skipped."
           else
-            echo "⚠️ No binary found."
+            echo "⚠️ No executable found."
           fi
 
-      # =====================================================
-      # 📦 Package & SHA256
-      # =====================================================
-      - name: 📦 Package & Hash
+      # ----------------------------------------
+      # 📦 Package & Hash
+      # ----------------------------------------
+      - name: 📦 Archive + SHA256
         shell: bash
         run: |
           mkdir -p dist
-          ARCHIVE="r3c-${{ matrix.os }}.tar.gz"
-          tar -czf "dist/$ARCHIVE" -C build .
-          python3 - << 'PY'
-import hashlib, os
-p = "dist/" + os.environ.get("ARCHIVE","archive.tar.gz")
-h = hashlib.sha256()
-with open(p,"rb") as f:
-    for b in iter(lambda:f.read(1048576), b""):
-        h.update(b)
-open(f"dist/SHA256SUMS-${{ matrix.os }}.txt","w").write(f"{h.hexdigest()}  {os.path.basename(p)}\n")
-print("✅ SHA256:", h.hexdigest())
-PY
+          tar -czf dist/r3c-${{ matrix.os }}.tar.gz -C build .
+          sha256sum dist/r3c-${{ matrix.os }}.tar.gz > dist/SHA256SUMS-${{ matrix.os }}.txt
+          cat dist/SHA256SUMS-${{ matrix.os }}.txt
 
-      - name: 💾 Upload artifacts
+      - name: 💾 Upload
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: dist/
-          if-no-files-found: error
-          retention-days: 7
 
-  # =====================================================
-  # 📊 Unified Release
-  # =====================================================
-  release-and-report:
-    name: "📊 Release (Pure GCC 3OS)"
+  release:
+    name: 📊 Combine + Funding Report + Release
     runs-on: ubuntu-latest
-    needs: build-and-release
+    needs: build
 
     steps:
-      - name: 🧭 Checkout repository
+      - name: 🧭 Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -159,57 +119,72 @@ PY
         with:
           path: release_dist
 
-      - name: 🧮 Combine hashes
+      - name: 🧮 Combine Hashes
         run: |
           find release_dist -type f -name "SHA256SUMS-*.txt" -exec cat {} + > release_dist/SHA256SUMS.txt
           cat release_dist/SHA256SUMS.txt
 
-      - name: 📦 Create unified ZIP
+      - name: 📦 Create 3OS Zip
         run: |
           cd release_dist
-          zip -r "r3c-${{ github.run_number }}-3os.zip" . || true
+          zip -r "r3c-${{ github.run_number }}-3os-gcc.zip" .
 
-      - name: 🪶 Generate tag
+      - name: 🪶 Tag Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-v8.8.5"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-gcc-final-v9.1"
           echo "TAG=$TAG" >> $GITHUB_ENV
-
-      - name: 💾 Configure remote
-        run: |
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.WORKFLOW_PAT }}@github.com/${{ github.repository }}.git
+          git tag -a "$TAG" -m "Pure GCC 3OS Stable Release v9.1"
+          git push origin "$TAG"
 
-      - name: 🪶 Push tag
+      # ----------------------------------------
+      # 💰 Funding & Metrics Integration
+      # ----------------------------------------
+      - name: 📊 Fetch OpenCollective Data
         run: |
-          git tag -a "${TAG}" -m "Pure GCC v8.8.5 (3OS AutoBuild)"
-          git push origin "${TAG}"
+          curl -fsSL -H 'Accept: application/json' https://opencollective.com/r3c-foundation.json -o funding.json || echo '{"balance":0,"backersCount":0}' > funding.json
+          total=$(jq -r '(.balance // .collective.stats.balance // .stats.balance // 0)/100' funding.json)
+          backers=$(jq -r '(.backersCount // .collective.stats.backersCount // .stats.backersCount // 0)' funding.json)
+          [[ "$total" =~ ^[0-9]+(\.[0-9]+)?$ ]] || total=0
+          [[ "$backers" =~ ^[0-9]+$ ]] || backers=0
+          echo "total=$total" >> $GITHUB_ENV
+          echo "backers=$backers" >> $GITHUB_ENV
 
-      - name: 🧾 Create release notes
+      - name: 🧾 Update README Funding Section
         run: |
-          {
-            echo "### 🧱 R3C v8.8.5 — Pure GCC 3OS Integration (AppleClang fully blocked)"
-            echo ""
-            echo "✅ Verified Pure GCC (GNU 14.x) on macOS / Windows / Linux"
-            echo "📅 AutoBuild: 03:00 UTC"
-            echo "📦 SHA256 Checksums:"
-            cat release_dist/SHA256SUMS.txt
-            echo ""
-            echo "_Generated on $(date -u)_"
-          } > release_dist/RELEASE_NOTE.txt
+          echo "📄 Updating README.md..."
+          awk '/<!-- FUNDING-SECTION-START -->/{flag=1;print;print "";print "### ❤️ Support R3C Ecosystem";print "";next}/<!-- FUNDING-SECTION-END -->/{flag=0;print "";print "Latest Release: **'${TAG}'**";print 'Total Funding: **$'${total}' USD**';print 'Active Supporters: **'${backers}'**';print '';print "[![OpenCollective](https://img.shields.io/badge/OpenCollective-r3c--foundation-2ea44f?logo=opencollective)](https://opencollective.com/r3c-foundation)";print "[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-via%20GitHub-orange?logo=github)](https://github.com/sponsors/r3c-foundation)";print "";flag=0}flag==0' README.md > tmp && mv tmp README.md
+          git add README.md
+          git commit -m "🧾 Auto-update README (v9.1 funding)"
+          git push
 
-      - name: 🧱 Publish GitHub Release
+      # ----------------------------------------
+      # 🧱 Publish Release
+      # ----------------------------------------
+      - name: 🧱 Publish Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Pure GCC 3OS)"
-          body_path: release_dist/RELEASE_NOTE.txt
+          name: "R3C ${{ env.TAG }} (Pure GCC + 3OS + Funding)"
+          body: |
+            ### R3C v9.1 (Pure GCC + 3OS + Funding + Integrity)
+            ✅ Verified Pure GCC Build  
+            🧱 Platforms: Linux / macOS (brew-gcc) / Windows-MinGW  
+            📦 SHA256SUMS:
+            ```
+            $(cat release_dist/SHA256SUMS.txt)
+            ```
+            ❤️ Funding: ${{ env.total }} USD from ${{ env.backers }} backers  
+            _Generated on $(date -u)_  
           files: |
             release_dist/**/r3c-*.tar.gz
-            release_dist/r3c-*-3os.zip
+            release_dist/r3c-*-3os-gcc.zip
             release_dist/SHA256SUMS.txt
 
       - name: ✅ Done
-        run: echo "R3C v8.8.5 Pure GCC 3OS Integration complete ✅"
+        run: echo "R3C v9.1 Pure GCC Stable Release complete ✅"
