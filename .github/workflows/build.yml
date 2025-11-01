@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *" # 매일 자정 자동 빌드
+    - cron: "0 0 * * *"   # 매일 자정 자동 빌드
   workflow_dispatch:
 
 permissions:
@@ -42,7 +42,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          # 경로 자동 감지 (Intel = /usr/local, ARM = /opt/homebrew)
+          # 실제 경로 감지 (Intel = /usr/local, ARM = /opt/homebrew)
           if [ -d "/opt/homebrew/opt/gcc" ]; then
             GCC_PREFIX="/opt/homebrew/opt/gcc"
           elif [ -d "/usr/local/opt/gcc" ]; then
@@ -57,9 +57,11 @@ jobs:
           GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
           echo "Detected binaries: $GCC_BIN / $GPP_BIN"
 
-          # PATH 우선순위 최상단으로 올리기
+          # PATH 최상단 및 clang 대체 심볼릭 링크
           echo "${GCC_PREFIX}/bin" >> $GITHUB_PATH
-          export PATH="${GCC_PREFIX}/bin:$PATH"
+          sudo ln -sf "${GCC_PREFIX}/bin/${GCC_BIN}" /usr/local/bin/gcc
+          sudo ln -sf "${GCC_PREFIX}/bin/${GPP_BIN}" /usr/local/bin/g++
+          export PATH="/usr/local/bin:${GCC_PREFIX}/bin:$PATH"
 
           echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
           echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
@@ -95,13 +97,11 @@ jobs:
 
           if [ "$RUNNER_OS" = "Windows" ]; then
             cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" \
-              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" \
-              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           fi
 
