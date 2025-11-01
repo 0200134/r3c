@@ -74,8 +74,8 @@ jobs:
         run: |
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
           echo "C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin" >> $env:GITHUB_PATH
-          echo "CC=gcc" >> $env:GITHUB_ENV
-          echo "CXX=g++" >> $env:GITHUB_ENV
+          echo "CC=C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin/gcc.exe" >> $env:GITHUB_ENV
+          echo "CXX=C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin/g++.exe" >> $env:GITHUB_ENV
           echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
 
       # ============================================================
@@ -95,11 +95,13 @@ jobs:
 
           if [ "$RUNNER_OS" = "Windows" ]; then
             cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER="$CC" \
+              -DCMAKE_CXX_COMPILER="$CXX" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           fi
 
