@@ -111,18 +111,27 @@ jobs:
       - name: 🔎 Verify Pure GCC
         shell: bash
         run: |
+          echo "🔎 Verifying GCC identity..."
           CACHE_FILE="build/CMakeCache.txt"
           if [ ! -f "$CACHE_FILE" ]; then
-            echo "⚠️ Skipping compiler verification (no cache)"
+            echo "⚠️ Warning: build cache not found (skip verification)"
             exit 0
           fi
-          COMP_ID=$(grep "CMAKE_CXX_COMPILER_ID:" "$CACHE_FILE" | cut -d'=' -f2)
-          echo "Compiler ID: $COMP_ID"
-          if [ "$COMP_ID" != "GNU" ]; then
-            echo "⚠️ Non-GCC compiler detected: $COMP_ID (allowed on macOS fallback)"
-          else
-            echo "✅ Verified Pure GCC build"
+
+          COMP_ID=$(grep "CMAKE_CXX_COMPILER_ID:" "$CACHE_FILE" | cut -d'=' -f2 | tr -d ' ')
+          echo "Detected Compiler ID: ${COMP_ID:-<none>}"
+
+          if [ -z "$COMP_ID" ]; then
+            echo "⚠️ No compiler ID found — assuming build succeeded."
+            exit 0
           fi
+
+          if [ "$COMP_ID" != "GNU" ]; then
+            echo "⚠️ Non-GCC compiler detected ($COMP_ID) — accepted for macOS fallback."
+            exit 0
+          fi
+
+          echo "✅ Verified: Pure GCC build confirmed."
 
       # ============================================================
       # 📦 Package Artifacts
