@@ -15,22 +15,17 @@ endif()
 option(R3C_BUILD_DEMOS "Build demo CLI and example pipeline" ON)
 
 # ==========================================================
-# ⚙️ Compiler Selection — MinGW only (no MSVC, no LLVM)
+# 🧰 Toolchain Enforcement (No MSVC / No LLVM)
 # ==========================================================
-if(WIN32)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    message(FATAL_ERROR "❌ MSVC/LLVM toolchains are not allowed in Pure MinGW mode.")
-  endif()
-
-  # ✅ Force MinGW GCC if not explicitly set
-  find_program(MINGW_GCC g++)
-  if(MINGW_GCC)
-    message(STATUS "✅ Using MinGW GCC compiler: ${MINGW_GCC}")
-    set(CMAKE_CXX_COMPILER "${MINGW_GCC}" CACHE FILEPATH "C++ compiler" FORCE)
-  else()
-    message(FATAL_ERROR "❌ MinGW GCC compiler not found. Install MinGW-w64.")
-  endif()
+if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
+  message(FATAL_ERROR "❌ MSVC compiler detected — only pure MinGW/GCC is allowed.")
 endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "LLVM")
+  message(FATAL_ERROR "❌ LLVM/Clang toolchains are not allowed in pure GCC mode.")
+endif()
+
+message(STATUS "✅ Using compiler: ${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}")
 
 # ==========================================================
 # Sources / Includes
@@ -44,32 +39,36 @@ target_include_directories(r3c PUBLIC
 )
 
 # ==========================================================
-# 🧩 Platform-Specific Settings
+# ⚙️ Platform-Specific Linking
 # ==========================================================
 if(WIN32)
-  message(STATUS "Configuring for pure MinGW Windows build...")
+  message(STATUS "Configuring for Windows (Pure MinGW)...")
   target_compile_definitions(r3c PUBLIC R3C_WINDOWS)
   target_link_libraries(r3c PRIVATE ws2_32)
 elseif(APPLE)
+  message(STATUS "Configuring for macOS...")
   target_compile_definitions(r3c PUBLIC R3C_MACOS)
   target_link_libraries(r3c PRIVATE m)
 elseif(UNIX)
+  message(STATUS "Configuring for Linux/Unix...")
   target_compile_definitions(r3c PUBLIC R3C_LINUX)
   target_link_libraries(r3c PRIVATE pthread dl m)
 endif()
 
 # ==========================================================
-# 🧩 Demo CLI (r3c_cli)
+# 🧩 Optional Demo CLI (r3c_cli)
 # ==========================================================
 if(R3C_BUILD_DEMOS)
   add_executable(r3c_cli src/main.cpp)
   target_link_libraries(r3c_cli PRIVATE r3c)
 
-  # ✅ 동일한 실행파일 경로 보장
-  set_target_properties(r3c_cli PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
-    OUTPUT_NAME "r3c_cli"
-  )
+  if(WIN32)
+    # ✅ Windows 결과물 경로 통일
+    set_target_properties(r3c_cli PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+      OUTPUT_NAME "r3c_cli"
+    )
+  endif()
 endif()
 
 # ==========================================================
