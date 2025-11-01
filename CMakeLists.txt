@@ -46,10 +46,16 @@ endif()
 # 🧩 Optional Demo CLI (r3c_cli)
 # ==========================================================
 if(R3C_BUILD_DEMOS)
-  add_executable(r3c_cli
-    src/main.cpp
-  )
-  target_link_libraries(r3c_cli r3c)
+  add_executable(r3c_cli src/main.cpp)
+  target_link_libraries(r3c_cli PRIVATE r3c)
+
+  # ✅ Windows 빌드 결과물이 Release 폴더에 생기지 않게 경로 통일
+  if(WIN32)
+    set_target_properties(r3c_cli PROPERTIES
+      RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+      OUTPUT_NAME "r3c_cli"
+    )
+  endif()
 endif()
 
 # ==========================================================
