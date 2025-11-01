@@ -19,6 +19,13 @@ if(DEFINED ENV{CC} AND DEFINED ENV{CXX})
 endif()
 
 # ==========================================================
+# 🚫 Prevent Visual Studio Generator
+# ==========================================================
+if(CMAKE_GENERATOR MATCHES "Visual Studio")
+  message(FATAL_ERROR "❌ Visual Studio generator is not allowed. Use MinGW Makefiles or Unix Makefiles only.")
+endif()
+
+# ==========================================================
 # 🚫 Enforce Pure GCC (macOS fallback allowed)
 # ==========================================================
 message(STATUS "--------------------------------------------------")
