@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.22)
 project(r3c LANGUAGES C CXX)
 
+# ==========================================================
+# 🧱 Global Configuration
+# ==========================================================
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -13,6 +16,7 @@ endif()
 # 🔧 Use Environment Variables (from CI)
 # ==========================================================
 if(DEFINED ENV{CC} AND DEFINED ENV{CXX})
+  message(STATUS "🔧 Overriding compiler from environment...")
   set(CMAKE_C_COMPILER "$ENV{CC}" CACHE STRING "C compiler" FORCE)
   set(CMAKE_CXX_COMPILER "$ENV{CXX}" CACHE STRING "C++ compiler" FORCE)
 endif()
@@ -42,12 +46,15 @@ message(STATUS "--------------------------------------------------")
 # 🧩 Platform Configuration
 # ==========================================================
 if(WIN32)
+  message(STATUS "🔧 Configuring for Windows (MinGW / GCC)")
   add_compile_definitions(R3C_WINDOWS)
   set(EXTRA_LIBS ws2_32)
 elseif(APPLE)
+  message(STATUS "🔧 Configuring for macOS (Pure GCC)")
   add_compile_definitions(R3C_MACOS)
   set(EXTRA_LIBS m)
 elseif(UNIX)
+  message(STATUS "🔧 Configuring for Linux (Pure GCC)")
   add_compile_definitions(R3C_LINUX)
   set(EXTRA_LIBS pthread dl m)
 else()
@@ -67,4 +74,9 @@ target_link_libraries(r3c PRIVATE ${EXTRA_LIBS})
 add_executable(r3c_cli src/main.cpp)
 target_link_libraries(r3c_cli PRIVATE r3c)
 
-message(STATUS "
+# ==========================================================
+# 🧾 Build Summary
+# ==========================================================
+message(STATUS "📦 Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "📁 Output dir: ${CMAKE_BINARY_DIR}")
+message(STATUS "--------------------------------------------------")
