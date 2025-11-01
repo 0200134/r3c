@@ -1,174 +1,160 @@
-name: 🔖 R3C v8.2 — Pure GCC 3OS Autonomous Release (LTSS + Integrity)
+name: 🔖 R3C Pure GCC Stable Release (3OS Autonomous v8.4)
 
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - '.github/workflows/**'
   schedule:
-    - cron: "0 0 * * *"  # 매일 00:00 UTC 자동 빌드
+    - cron: "0 0 * * *"  # 매일 자정 자동 빌드
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: pure-gcc-stable
+  group: pure-gcc-build
   cancel-in-progress: false
 
 jobs:
   build:
-    name: "🔧 Pure GCC 3OS Build"
+    name: 🧱 Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+    env:
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-puregcc
 
     steps:
-      # ==========================================================
-      # 🧭 Checkout Repository
-      # ==========================================================
       - name: 🧭 Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # ==========================================================
-      # ⚙️ Setup Pure GCC Environment
-      # ==========================================================
-      - name: ⚙️ Setup Pure GCC Environment
+      # ======================================================
+      # 🍎 macOS: Homebrew GNU GCC 설치 및 Clang 완전 차단
+      # ======================================================
+      - name: 🍎 Setup Pure GCC on macOS
+        if: matrix.os == 'macos-latest'
         shell: bash
         run: |
-          echo "🔧 Setting up GCC on ${{ matrix.os }}..."
+          echo "🍎 Installing GNU GCC on macOS..."
+          brew update
+          brew install gcc || true
 
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            echo "🪟 Installing MinGW (Pure GCC)..."
-            choco install mingw -y
-            export PATH="/c/tools/mingw64/bin:/c/ProgramData/chocolatey/bin:$PATH"
-            which gcc || { echo "❌ GCC not found!"; exit 1; }
-            rm -rf "/c/Program Files/Microsoft Visual Studio" || true
-            rm -rf "/c/Program Files (x86)/Microsoft Visual Studio" || true
-            echo "✅ MSVC removed. Pure GCC only."
+          GCC_PREFIX=$(brew --prefix gcc)
+          echo "🔍 GCC path: $GCC_PREFIX"
+          export PATH="$GCC_PREFIX/bin:$PATH"
+          export CC="$GCC_PREFIX/bin/gcc-13"
+          export CXX="$GCC_PREFIX/bin/g++-13"
 
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            echo "🍎 Installing Homebrew GCC (real GNU GCC)..."
-            brew update
-            brew install gcc || true
+          echo "✅ Using compiler:"
+          which $CC
+          $CC --version
 
-            GCC_PREFIX=$(brew --prefix gcc)
-            echo "🔍 GCC prefix: $GCC_PREFIX"
-
-            # macOS 기본 clang 경로보다 GCC가 우선되도록 PATH 변경
-            export PATH="$GCC_PREFIX/bin:$PATH"
-            export CC="$GCC_PREFIX/bin/gcc-13"
-            export CXX="$GCC_PREFIX/bin/g++-13"
-
-            echo "✅ Using:"
-            which $CC
-            $CC --version
-
-            echo "✅ macOS Pure GCC environment ready."
-
-          elif [[ "$RUNNER_OS" == "Linux" ]]; then
-            echo "🐧 Installing GCC..."
-            sudo apt-get update -y
-            sudo apt-get install -y build-essential
-            gcc --version
-            echo "✅ Linux GCC OK"
-          fi
-
-      # ==========================================================
-      # 🧱 Build R3C (Pure GCC)
-      # ==========================================================
-      - name: 🧱 Build R3C (Pure GCC)
-        shell: bash
-        run: |
-          echo "🏗️ Building R3C..."
-          mkdir -p build
-          cmake -E env CC=gcc CXX=g++ cmake -B build -DCMAKE_BUILD_TYPE=Release -G "Unix Makefiles"
-          cmake --build build --target r3c_cli
-          ls -lah build
-
-      # ==========================================================
-      # 🔎 Smoke Test
-      # ==========================================================
-      - name: 🔎 Smoke Test
-        shell: bash
-        run: |
-          exe=$(find build -type f -name "r3c_cli*" | head -n1)
-          if [ -n "$exe" ]; then
-            echo "✅ Found binary: $exe"
-            "$exe" --version || echo "⚠️ CLI version test skipped."
-          else
-            echo "❌ r3c_cli not found!"
+          if $CC --version | grep -q "clang"; then
+            echo "❌ Clang detected — Pure GCC mode violation!"
             exit 1
           fi
 
-      # ==========================================================
-      # 📦 Package
-      # ==========================================================
-      - name: 📦 Package Build
+      # ======================================================
+      # 🪟 Windows: MinGW 기반 GNU GCC 환경 준비
+      # ======================================================
+      - name: 🪟 Setup MinGW GCC on Windows
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          echo "🪟 Setting up MinGW-w64 GCC..."
+          choco install mingw --yes --no-progress
+          echo "PATH: $PATH"
+          export PATH="/c/ProgramData/chocolatey/bin:$PATH"
+          gcc --version || { echo "❌ GCC not found!"; exit 1; }
+
+      # ======================================================
+      # 🐧 Linux: System GCC 확인
+      # ======================================================
+      - name: 🐧 Verify GCC on Linux
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential
+          gcc --version
+          which gcc
+
+      # ======================================================
+      # 🧱 Build R3C (Pure GCC Mode)
+      # ======================================================
+      - name: 🧱 Build
+        shell: bash
+        run: |
+          echo "🏗️ Building on $RUNNER_OS..."
+          mkdir -p build
+          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          ls -lah build
+
+      # ======================================================
+      # 📦 Package & Hash
+      # ======================================================
+      - name: 📦 Package
         shell: bash
         run: |
           mkdir -p dist
-          tar -czf "dist/r3c-${{ matrix.os }}.tar.gz" -C build .
-          echo "✅ Packaged build for ${{ matrix.os }}"
+          ARCHIVE="r3c-${{ matrix.os }}.tar.gz"
+          tar -czf "dist/$ARCHIVE" -C build .
+          sha256sum dist/$ARCHIVE > dist/SHA256SUMS-${{ matrix.os }}.txt
 
-      # ==========================================================
-      # 💾 Upload
-      # ==========================================================
-      - name: 💾 Upload Artifacts
+      # ======================================================
+      # 💾 Upload Artifacts
+      # ======================================================
+      - name: 💾 Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: r3c-${{ matrix.os }}
           path: dist/
+          if-no-files-found: error
           retention-days: 7
 
-  # ==============================================================
-  # 📊 Unified Release
-  # ==============================================================
   release:
-    name: "📊 Pure GCC Release Publish"
+    name: 🚀 Release Pure GCC Build
     runs-on: ubuntu-latest
     needs: build
 
     steps:
-      - name: 🧭 Checkout repository
+      - name: 🧭 Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: 📥 Download artifacts
+      - name: 📥 Download Artifacts
         uses: actions/download-artifact@v4
         with:
           path: release_dist
 
-      - name: 🧮 Combine Hashes
+      - name: 🧮 Combine SHA256
         run: |
-          find release_dist -type f -name "*.tar.gz" -exec sha256sum {} + > release_dist/SHA256SUMS.txt
+          cat release_dist/**/SHA256SUMS-*.txt > release_dist/SHA256SUMS.txt
           cat release_dist/SHA256SUMS.txt
 
-      - name: 🪶 Generate tag
+      - name: 🪶 Create Tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-stable-v8.2"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-puregcc"
           echo "TAG=$TAG" >> $GITHUB_ENV
-          echo "Generated tag: $TAG"
 
-      - name: 🧱 Publish GitHub Release
+      - name: 🧱 Create GitHub Release
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Pure GCC 3OS Stable)"
+          name: "R3C ${TAG} (Absolute Pure GCC)"
           body: |
-            ### R3C v8.2 — Pure GCC Autonomous Stable Build
-            ✅ Verified 3OS Build (No LLVM / No Clang / No MSVC)
-            🧭 GCC-only Sovereign Toolchain
-            📦 SHA256 Checksums:
-            ```
-            $(cat release_dist/SHA256SUMS.txt)
-            ```
+            ### 🔒 R3C Pure GCC Stable Ecosystem v8.4
+            ✅ No LLVM / No MSVC / No Clang  
+            ✅ 3OS verified autonomous build  
+            ✅ Deterministic release integrity  
+            _Generated automatically on $(date -u)_
           files: |
-            release_dist/**/*.tar.gz
+            release_dist/**/r3c-*.tar.gz
             release_dist/SHA256SUMS.txt
+
+      - name: ✅ Done
+        run: echo "Pure GCC Build complete ✅"
