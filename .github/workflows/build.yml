@@ -49,14 +49,8 @@ jobs:
           else
             GCC_PREFIX=$(brew --prefix gcc)
           fi
-          GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
-          GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
           echo "✅ GCC prefix: $GCC_PREFIX"
-          echo "Detected binaries: $GCC_BIN / $GPP_BIN"
-          echo "CC=${GCC_PREFIX}/bin/${GCC_BIN}" >> $GITHUB_ENV
-          echo "CXX=${GCC_PREFIX}/bin/${GPP_BIN}" >> $GITHUB_ENV
-          echo "GCC_PATH=${GCC_PREFIX}" >> $GITHUB_ENV
-          ${GCC_PREFIX}/bin/${GCC_BIN} --version
+          ${GCC_PREFIX}/bin/gcc-14 --version || true
 
       - name: 🧱 Install GCC (Windows)
         if: runner.os == 'Windows'
@@ -67,6 +61,36 @@ jobs:
           echo "CC=C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin/gcc.exe" >> $env:GITHUB_ENV
           echo "CXX=C:/ProgramData/chocolatey/lib/mingw/tools/install/mingw64/bin/g++.exe" >> $env:GITHUB_ENV
           echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
+
+      # ============================================================
+      # 🧩 Create macOS Toolchain File (Inline)
+      # ============================================================
+
+      - name: 🧩 Create macOS Toolchain File
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p .github/toolchains
+          cat <<'EOF' > .github/toolchains/macos-gcc.cmake
+          # ==========================================================
+          # macOS Pure GCC Toolchain (Auto-generated)
+          # ==========================================================
+          set(CMAKE_SYSTEM_NAME Darwin)
+          set(CMAKE_SYSTEM_PROCESSOR arm64)
+
+          if(EXISTS "/opt/homebrew/opt/gcc/bin/gcc-14")
+            set(CMAKE_C_COMPILER "/opt/homebrew/opt/gcc/bin/gcc-14")
+            set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/gcc/bin/g++-14")
+          elseif(EXISTS "/usr/local/opt/gcc/bin/gcc-14")
+            set(CMAKE_C_COMPILER "/usr/local/opt/gcc/bin/gcc-14")
+            set(CMAKE_CXX_COMPILER "/usr/local/opt/gcc/bin/g++-14")
+          else()
+            set(CMAKE_C_COMPILER "gcc")
+            set(CMAKE_CXX_COMPILER "g++")
+          endif()
+
+          set(CMAKE_C_COMPILER_WORKS TRUE)
+          set(CMAKE_CXX_COMPILER_WORKS TRUE)
+          EOF
 
       # ============================================================
       # 🏗️ Build with Pure GCC
@@ -80,22 +104,10 @@ jobs:
           mkdir -p build
 
           if [ "$RUNNER_OS" = "macOS" ]; then
-            echo "⚙️ Forcing Pure GCC on macOS"
-            if [ -d "/opt/homebrew/opt/gcc" ]; then
-              GCC_PREFIX="/opt/homebrew/opt/gcc"
-            elif [ -d "/usr/local/opt/gcc" ]; then
-              GCC_PREFIX="/usr/local/opt/gcc"
-            else
-              GCC_PREFIX=$(brew --prefix gcc)
-            fi
-            GCC_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^gcc-[0-9]+$' | sort -V | tail -n1)
-            GPP_BIN=$(ls ${GCC_PREFIX}/bin | grep -E '^g\+\+-[0-9]+$' | sort -V | tail -n1)
-            echo "Using GCC: ${GCC_PREFIX}/bin/${GCC_BIN}"
-            ${GCC_PREFIX}/bin/${GCC_BIN} --version
+            echo "⚙️ Forcing Pure GCC on macOS (toolchain)"
             cmake -B build -G "Unix Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="${GCC_PREFIX}/bin/${GCC_BIN}" \
-              -DCMAKE_CXX_COMPILER="${GCC_PREFIX}/bin/${GPP_BIN}" \
+              -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           elif [ "$RUNNER_OS" = "Windows" ]; then
             cmake -B build -G "MinGW Makefiles" \
@@ -105,8 +117,8 @@ jobs:
               -DCMAKE_VERBOSE_MAKEFILE=ON
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER="$CC" \
-              -DCMAKE_CXX_COMPILER="$CXX" \
+              -DCMAKE_C_COMPILER=gcc \
+              -DCMAKE_CXX_COMPILER=g++ \
               -DCMAKE_VERBOSE_MAKEFILE=ON
           fi
 
@@ -114,7 +126,7 @@ jobs:
           ls -lah build
 
       # ============================================================
-      # ✅ Verify Compiler Identity (Safe version)
+      # ✅ Verify Compiler Identity (Safe)
       # ============================================================
 
       - name: 🔎 Verify Pure GCC
@@ -162,16 +174,3 @@ jobs:
           path: dist/
           if-no-files-found: error
           retention-days: 7
-
-      # ============================================================
-      # 🚀 Auto Release (optional)
-      # ============================================================
-
-      - name: 🚀 Auto Release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/r3c-${{ matrix.os }}-gcc.tar.gz
-          tag_name: auto-gcc-${{ github.run_number }}
-          name: "🔖 R3C Pure GCC v${{ github.run_number }}"
-          body: "Automated Pure GCC build for ${{ matrix.os }}"
