@@ -1,12 +1,12 @@
-name: 🔖 R3C Autonomous Stable Release v7.4 (3OS + PureGCC + AutoSchedule + Integrity)
+name: 🔖 R3C Autonomous Stable Release v7.4 (3OS + PureGCC + AutoSchedule)
 
 on:
   push:
     branches: [ main ]
     paths-ignore:
       - '.github/workflows/**'
-  # 매일 오전 9시(KST) 자동 빌드 → UTC 0시 기준
   schedule:
+    # 매일 오전 9시(KST) → UTC 기준 0시
     - cron: "0 0 * * *"
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   build-and-release:
-    name: "3OS Build (Pure GCC / No LLVM / No MSVC)"
+    name: "3OS Build (PureGCC)"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -33,25 +33,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      # ==========================================================
-      # 🪟 Windows (Pure MinGW Build)
-      # ==========================================================
+      # =============================
+      # 🪟 Windows (Pure MinGW)
+      # =============================
       - name: 🧱 Build on Windows (Pure MinGW)
         if: runner.os == 'Windows'
         shell: bash
         run: |
           echo "🏗️ Building on Windows (Pure MinGW)..."
           choco install mingw -y
-          export PATH="/c/tools/mingw64/bin:$PATH"
-          which g++
-          g++ --version
+          export PATH="/c/ProgramData/chocolatey/bin:/c/tools/mingw64/bin:$PATH"
+          echo "🧩 Checking compiler..."
+          which g++ || { echo "❌ g++ not found"; exit 1; }
+          g++ --version || true
+
+          echo "⚙️ Running CMake..."
           cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target r3c_cli
           ls -lah build
 
-      # ==========================================================
+      # =============================
       # 🐧 Linux
-      # ==========================================================
+      # =============================
       - name: 🧱 Build on Linux
         if: runner.os == 'Linux'
         run: |
@@ -60,9 +63,9 @@ jobs:
           cmake --build build --target r3c_cli
           ls -lah build
 
-      # ==========================================================
+      # =============================
       # 🍎 macOS
-      # ==========================================================
+      # =============================
       - name: 🧱 Build on macOS
         if: runner.os == 'macOS'
         run: |
@@ -71,23 +74,23 @@ jobs:
           cmake --build build --target r3c_cli
           ls -lah build
 
-      # ==========================================================
+      # =============================
       # 🧪 Smoke Test
-      # ==========================================================
+      # =============================
       - name: 🔎 Smoke Test
         shell: bash
         run: |
           exe=$(find build -type f \( -name "r3c_cli" -o -name "r3c_cli.exe" \) | head -n1 || true)
           if [ -n "$exe" ]; then
             echo "✅ Found executable: $exe"
-            "$exe" --help || echo "⚠️ CLI help test skipped."
+            "$exe" --help || echo "⚠️ CLI test skipped."
           else
-            echo "⚠️ r3c_cli not found!"
+            echo "⚠️ No CLI found!"
           fi
 
-      # ==========================================================
+      # =============================
       # 📦 Package & Hash
-      # ==========================================================
+      # =============================
       - name: 📦 Package & Hash
         shell: bash
         run: |
@@ -113,9 +116,9 @@ PY
           if-no-files-found: error
           retention-days: 7
 
-  # ==========================================================
-  # 📊 Unified Release + Integrity Report
-  # ==========================================================
+  # =============================
+  # 📊 Release + Integrity Report
+  # =============================
   release-and-report:
     name: "📊 Release + Integrity Report"
     runs-on: ubuntu-latest
@@ -144,11 +147,11 @@ PY
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### R3C v7.4 Autonomous Scheduled Release"
+            echo "### R3C v7.4 Automated PureGCC Release"
             echo ""
             echo "✅ Pure GCC (No Visual Studio / No LLVM)"
-            echo "⏰ Scheduled Daily Auto-Build (09:00 KST)"
-            echo "🧩 3OS Verified (Windows / macOS / Linux)"
+            echo "🕘 Scheduled Daily Auto-Build (09:00 KST)"
+            echo "🧩 Verified 3OS: Windows / macOS / Linux"
             echo ""
             echo "📦 SHA256 checksums:"
             cat release_dist/SHA256SUMS.txt
@@ -162,11 +165,11 @@ PY
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Auto-Schedule + PureGCC + 3OS)"
+          name: "R3C ${{ env.TAG }} (Auto + PureGCC + 3OS)"
           body_path: release_dist/RELEASE_NOTE.txt
           files: |
             release_dist/**/r3c-*.tar.gz
             release_dist/SHA256SUMS.txt
 
       - name: ✅ Done
-        run: echo "R3C v7.4 scheduled PureGCC release complete ✅"
+        run: echo "R3C v7.4 scheduled PureGCC build complete ✅"
