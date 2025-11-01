@@ -1,11 +1,11 @@
-name: 🔖 R3C Autonomous Stable Release v7.3 (3OS + PureGCC + Scheduled + Integrity)
+name: 🔖 R3C Autonomous Stable Release v7.4 (3OS + PureGCC + AutoSchedule + Integrity)
 
 on:
   push:
     branches: [ main ]
     paths-ignore:
       - '.github/workflows/**'
-  # 매일 00:00 UTC (한국시간 오전 9시)에 자동 빌드
+  # 매일 오전 9시(KST) 자동 빌드 → UTC 0시 기준
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -19,13 +19,13 @@ concurrency:
 
 jobs:
   build-and-release:
-    name: "3OS Build (Pure GCC for Windows)"
+    name: "3OS Build (Pure GCC / No LLVM / No MSVC)"
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     env:
-      TAG: v${{ github.run_number }}-${{ matrix.os }}-stable-v7.3
+      TAG: v${{ github.run_number }}-${{ matrix.os }}-auto-v7.4
 
     steps:
       - name: 🧭 Checkout repository
@@ -33,31 +33,47 @@ jobs:
         with:
           fetch-depth: 0
 
+      # ==========================================================
+      # 🪟 Windows (Pure MinGW Build)
+      # ==========================================================
       - name: 🧱 Build on Windows (Pure MinGW)
         if: runner.os == 'Windows'
-        shell: cmd
+        shell: bash
         run: |
-          echo 🏗️ Building on Windows (Pure MinGW)...
+          echo "🏗️ Building on Windows (Pure MinGW)..."
           choco install mingw -y
-          set PATH=C:\tools\mingw64\bin;%PATH%
+          export PATH="/c/tools/mingw64/bin:$PATH"
+          which g++
+          g++ --version
           cmake -G "MinGW Makefiles" -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target r3c_cli
-          dir build
+          ls -lah build
 
+      # ==========================================================
+      # 🐧 Linux
+      # ==========================================================
       - name: 🧱 Build on Linux
         if: runner.os == 'Linux'
         run: |
+          echo "🏗️ Building on Linux..."
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target r3c_cli
           ls -lah build
 
+      # ==========================================================
+      # 🍎 macOS
+      # ==========================================================
       - name: 🧱 Build on macOS
         if: runner.os == 'macOS'
         run: |
+          echo "🏗️ Building on macOS..."
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --target r3c_cli
           ls -lah build
 
+      # ==========================================================
+      # 🧪 Smoke Test
+      # ==========================================================
       - name: 🔎 Smoke Test
         shell: bash
         run: |
@@ -69,6 +85,9 @@ jobs:
             echo "⚠️ r3c_cli not found!"
           fi
 
+      # ==========================================================
+      # 📦 Package & Hash
+      # ==========================================================
       - name: 📦 Package & Hash
         shell: bash
         run: |
@@ -94,6 +113,9 @@ PY
           if-no-files-found: error
           retention-days: 7
 
+  # ==========================================================
+  # 📊 Unified Release + Integrity Report
+  # ==========================================================
   release-and-report:
     name: "📊 Release + Integrity Report"
     runs-on: ubuntu-latest
@@ -116,16 +138,20 @@ PY
       - name: 🪶 Generate tag
         id: tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-stable-v7.3"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-auto-v7.4"
           echo "TAG=$TAG" >> $GITHUB_ENV
 
       - name: 🧾 Create release notes
         run: |
           {
-            echo "### R3C v7.3 Automated Scheduled Build"
+            echo "### R3C v7.4 Autonomous Scheduled Release"
             echo ""
             echo "✅ Pure GCC (No Visual Studio / No LLVM)"
-            echo "⏰ Scheduled Build Triggered Automatically"
+            echo "⏰ Scheduled Daily Auto-Build (09:00 KST)"
+            echo "🧩 3OS Verified (Windows / macOS / Linux)"
+            echo ""
+            echo "📦 SHA256 checksums:"
+            cat release_dist/SHA256SUMS.txt
             echo ""
             echo "_Generated on $(date -u)_"
           } > release_dist/RELEASE_NOTE.txt
@@ -136,11 +162,11 @@ PY
           GITHUB_TOKEN: ${{ secrets.WORKFLOW_PAT }}
         with:
           tag_name: ${{ env.TAG }}
-          name: "R3C ${{ env.TAG }} (Auto-Build + PureGCC)"
+          name: "R3C ${{ env.TAG }} (Auto-Schedule + PureGCC + 3OS)"
           body_path: release_dist/RELEASE_NOTE.txt
           files: |
             release_dist/**/r3c-*.tar.gz
             release_dist/SHA256SUMS.txt
 
       - name: ✅ Done
-        run: echo "R3C v7.3 scheduled build complete ✅"
+        run: echo "R3C v7.4 scheduled PureGCC release complete ✅"
