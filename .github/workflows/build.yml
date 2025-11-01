@@ -41,8 +41,10 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install gcc
-          echo "CC=gcc-14" >> $GITHUB_ENV
-          echo "CXX=g++-14" >> $GITHUB_ENV
+          GCC_PATH=$(brew --prefix gcc)
+          echo "CC=${GCC_PATH}/bin/gcc-14" >> $GITHUB_ENV
+          echo "CXX=${GCC_PATH}/bin/g++-14" >> $GITHUB_ENV
+          echo "GCC_PATH=${GCC_PATH}" >> $GITHUB_ENV
 
       - name: 🧱 Install GCC (Windows)
         if: runner.os == 'Windows'
@@ -62,9 +64,13 @@ jobs:
           set -e
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
+          echo "Using GCC from: $CC"
           cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" \
-            -DCMAKE_VERBOSE_MAKEFILE=ON
+            -DCMAKE_C_COMPILER="$CC" \
+            -DCMAKE_CXX_COMPILER="$CXX" \
+            -DCMAKE_VERBOSE_MAKEFILE=ON \
+            -DCMAKE_C_COMPILER_AR="${GCC_PATH}/bin/gcc-ar-14" \
+            -DCMAKE_C_COMPILER_RANLIB="${GCC_PATH}/bin/gcc-ranlib-14"
           cmake --build build --config Release -v
           ls -lah build
 
@@ -83,7 +89,7 @@ jobs:
           echo "✅ Verified: Pure GCC build confirmed."
 
       # ============================================================
-      # 📦 Package
+      # 📦 Package Artifacts
       # ============================================================
       - name: 📦 Package Artifacts
         shell: bash
