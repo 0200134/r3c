@@ -1,4 +1,4 @@
-name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3 Final)
+name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.1 Final)
 
 on:
   push:
@@ -91,18 +91,10 @@ jobs:
           echo "$mingwPath" >> $env:GITHUB_PATH
           echo "CC=$mingwPath\\gcc.exe" >> $env:GITHUB_ENV
           echo "CXX=$mingwPath\\g++.exe" >> $env:GITHUB_ENV
-          echo "GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
+          echo "CMAKE_GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
 
           & "$mingwPath\\gcc.exe" --version
           & "$mingwPath\\g++.exe" --version
-
-      # ============================================================
-      # 🧩 Force MinGW Generator (Prevent MSVC)
-      # ============================================================
-      - name: 🧩 Force MinGW as Default Generator
-        if: runner.os == 'Windows'
-        run: |
-          echo "setx CMAKE_GENERATOR 'MinGW Makefiles'"
 
       # ============================================================
       # 🧩 Create macOS Toolchain File
@@ -138,7 +130,6 @@ jobs:
           mkdir -p build
           if [ "$RUNNER_OS" = "Windows" ]; then
             echo "⚙️ Forcing pure MinGW GCC build"
-            export PATH="$(cygpath -u "$CC" | xargs dirname):$PATH"
             cmake -B build -G "MinGW Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER="$CC" \
@@ -189,7 +180,6 @@ jobs:
       - name: 🧭 Checkout
         uses: actions/checkout@v4
 
-      # ⚙️ Git identity 설정 (필수)
       - name: ⚙️ Configure Git Identity
         run: |
           git config --global user.name "r3c-foundation-bot"
@@ -199,6 +189,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release-assets
+
+      - name: 🔗 Merge SHA256SUMS
+        run: |
+          find release-assets -name "SHA256SUMS-*.txt" -exec cat {} + > release-assets/SHA256SUMS_ALL.txt
+          cat release-assets/SHA256SUMS_ALL.txt
 
       - name: 🧾 Generate Funding Report
         shell: bash
@@ -236,9 +231,9 @@ jobs:
             ✅ Pure GCC Multi-OS Builds + Auto Tag + Funding Report + LTS Badge
             🧠 Self-Healing Compiler Pipeline | LTSS 2025–2030
           files: |
-            release-assets/**/*
+            release-assets/**/*.tar.gz
+            release-assets/SHA256SUMS_ALL.txt
             reports/FUNDING.md
             badges/LTS_STATUS.txt
-            release-assets/**/SHA256SUMS-*.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
