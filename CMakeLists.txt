@@ -25,13 +25,26 @@ target_include_directories(r3c PUBLIC
   ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 
-# OS-specific link deps (avoid libdl on macOS)
-if(APPLE)
-  target_link_libraries(r3c m)
+# ==========================================================
+# ⚙️ Platform-Specific Linking
+# ==========================================================
+if(WIN32)
+  message(STATUS "Configuring for Windows...")
+  target_compile_definitions(r3c PUBLIC R3C_WINDOWS)
+  target_link_libraries(r3c PRIVATE ws2_32)
+elseif(APPLE)
+  message(STATUS "Configuring for macOS...")
+  target_compile_definitions(r3c PUBLIC R3C_MACOS)
+  target_link_libraries(r3c PRIVATE m)
 elseif(UNIX)
-  target_link_libraries(r3c pthread dl m)
+  message(STATUS "Configuring for Linux/Unix...")
+  target_compile_definitions(r3c PUBLIC R3C_LINUX)
+  target_link_libraries(r3c PRIVATE pthread dl m)
 endif()
 
+# ==========================================================
+# 🧩 Optional Demo CLI (r3c_cli)
+# ==========================================================
 if(R3C_BUILD_DEMOS)
   add_executable(r3c_cli
     src/main.cpp
@@ -39,12 +52,16 @@ if(R3C_BUILD_DEMOS)
   target_link_libraries(r3c_cli r3c)
 endif()
 
-# Install rules
+# ==========================================================
+# 📦 Install Rules
+# ==========================================================
 include(GNUInstallDirs)
 install(TARGETS r3c
         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+
 if(R3C_BUILD_DEMOS)
   install(TARGETS r3c_cli
           RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 endif()
+
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
