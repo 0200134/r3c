@@ -60,12 +60,12 @@ jobs:
       - name: 🧪 Functional Smoke Test
         shell: bash
         run: |
-          echo "🧪 Running automated CLI checks..."
+          echo "🧪 Running CLI self-check..."
           exe=$(find build -type f \( -name "r3c_cli" -o -name "r3c_cli.exe" \) | head -n1 || true)
           if [ -n "$exe" ]; then
-            echo "✅ Found: $exe"
+            echo "✅ Found executable: $exe"
             "$exe" --help || echo "⚠️ help check failed"
-            "$exe" --self-heal || echo "⚠️ self-heal test skipped"
+            "$exe" --self-heal || echo "⚠️ self-heal skipped"
           else
             echo "⚠️ No executable found."
           fi
