@@ -1,4 +1,4 @@
-name: 🔖 R3C v8.1 — Pure GCC 3OS Autonomous Release (LTSS + Integrity)
+name: 🔖 R3C v8.2 — Pure GCC 3OS Autonomous Release (LTSS + Integrity)
 
 on:
   push:
@@ -42,7 +42,7 @@ jobs:
           echo "🔧 Setting up GCC on ${{ matrix.os }}..."
 
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            echo "🪟 Installing MinGW (GCC)..."
+            echo "🪟 Installing MinGW (Pure GCC)..."
             choco install mingw -y
             export PATH="/c/tools/mingw64/bin:/c/ProgramData/chocolatey/bin:$PATH"
             which gcc || { echo "❌ GCC not found!"; exit 1; }
@@ -51,14 +51,22 @@ jobs:
             echo "✅ MSVC removed. Pure GCC only."
 
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            echo "🍎 Installing Homebrew GCC..."
+            echo "🍎 Installing Homebrew GCC (real GNU GCC)..."
             brew update
             brew install gcc || true
-            ln -sf "$(brew --prefix)/bin/gcc-13" /usr/local/bin/gcc
-            ln -sf "$(brew --prefix)/bin/g++-13" /usr/local/bin/g++
-            export CC=gcc
-            export CXX=g++
-            gcc --version
+
+            GCC_PREFIX=$(brew --prefix gcc)
+            echo "🔍 GCC prefix: $GCC_PREFIX"
+
+            # macOS 기본 clang 경로보다 GCC가 우선되도록 PATH 변경
+            export PATH="$GCC_PREFIX/bin:$PATH"
+            export CC="$GCC_PREFIX/bin/gcc-13"
+            export CXX="$GCC_PREFIX/bin/g++-13"
+
+            echo "✅ Using:"
+            which $CC
+            $CC --version
+
             echo "✅ macOS Pure GCC environment ready."
 
           elif [[ "$RUNNER_OS" == "Linux" ]]; then
@@ -117,7 +125,7 @@ jobs:
           retention-days: 7
 
   # ==============================================================
-  # 📊 Unified Release (Optional)
+  # 📊 Unified Release
   # ==============================================================
   release:
     name: "📊 Pure GCC Release Publish"
@@ -142,7 +150,7 @@ jobs:
 
       - name: 🪶 Generate tag
         run: |
-          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-stable-v8.1"
+          TAG="v$(date -u +'%y.%m.%d-%H%M')-pure-gcc-stable-v8.2"
           echo "TAG=$TAG" >> $GITHUB_ENV
           echo "Generated tag: $TAG"
 
@@ -154,7 +162,7 @@ jobs:
           tag_name: ${{ env.TAG }}
           name: "R3C ${{ env.TAG }} (Pure GCC 3OS Stable)"
           body: |
-            ### R3C v8.1 — Pure GCC Autonomous Stable Build
+            ### R3C v8.2 — Pure GCC Autonomous Stable Build
             ✅ Verified 3OS Build (No LLVM / No Clang / No MSVC)
             🧭 GCC-only Sovereign Toolchain
             📦 SHA256 Checksums:
