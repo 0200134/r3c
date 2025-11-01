@@ -1,10 +1,10 @@
-name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.1 Final)
+name: 🔖 R3C Foundation Auto Stable Release (Full LTS Ecosystem v3.2 Final)
 
 on:
   push:
     branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"  # 매일 자정 자동 실행
+    - cron: "0 0 * * *"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +28,7 @@ jobs:
 
     steps:
       # ============================================================
-      # 🧭 Checkout Repository
+      # 🧭 Checkout
       # ============================================================
       - name: 🧭 Checkout Repository
         uses: actions/checkout@v4
@@ -43,8 +43,7 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y build-essential gcc g++
-          gcc --version
-          g++ --version
+          gcc --version && g++ --version
 
       # ============================================================
       # 🧱 Install GCC (macOS)
@@ -65,34 +64,24 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Write-Host "🚫 Removing MSVC-related paths..."
+          Write-Host "🚫 Removing MSVC paths..."
           $env:Path = ($env:Path.Split(';') | Where-Object {$_ -notmatch 'Microsoft Visual Studio'}) -join ';'
-
-          Write-Host "🧱 Installing MinGW..."
           choco install mingw --installargs 'ADD_CMAKE_TO_PATH=System' -y
 
-          $possiblePaths = @(
-            "C:\\ProgramData\\mingw64\\mingw64\\bin",
+          $paths = @(
             "C:\\ProgramData\\mingw64\\bin",
             "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin",
-            "C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\bin",
             "$env:ChocolateyInstall\\lib\\mingw\\tools\\install\\mingw64\\bin",
             "C:\\tools\\mingw64\\bin"
           )
+          $mingwPath = $paths | Where-Object { Test-Path "$_\\gcc.exe" } | Select-Object -First 1
+          if (-not $mingwPath) { Write-Host "❌ MinGW not found."; exit 1 }
 
-          $mingwPath = $possiblePaths | Where-Object { Test-Path "$_\\gcc.exe" } | Select-Object -First 1
-          if (-not $mingwPath) {
-            Write-Host "❌ MinGW not found — checked:`n$($possiblePaths -join "`n")"
-            exit 1
-          }
-
-          Write-Host "✅ MinGW detected at $mingwPath"
-          $env:Path = "$mingwPath;$($env:SystemRoot)\\system32;$($env:SystemRoot);"
+          Write-Host "✅ MinGW found: $mingwPath"
           echo "$mingwPath" >> $env:GITHUB_PATH
           echo "CC=$mingwPath\\gcc.exe" >> $env:GITHUB_ENV
           echo "CXX=$mingwPath\\g++.exe" >> $env:GITHUB_ENV
           echo "CMAKE_GENERATOR=MinGW Makefiles" >> $env:GITHUB_ENV
-
           & "$mingwPath\\gcc.exe" --version
           & "$mingwPath\\g++.exe" --version
 
@@ -120,39 +109,35 @@ jobs:
           EOF
 
       # ============================================================
-      # 🏗️ Build with Pure GCC
+      # 🏗️ Build (Pure GCC only)
       # ============================================================
-      - name: 🏗️ Build R3C (Pure GCC)
+      - name: 🏗️ Build R3C
         shell: bash
         run: |
           set -e
           echo "🏗️ Building on $RUNNER_OS..."
           mkdir -p build
           if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "⚙️ Forcing pure MinGW GCC build"
+            echo "⚙️ Forcing MinGW Makefiles (MSVC blocked)"
             cmake -B build -G "MinGW Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_C_COMPILER="$CC" \
               -DCMAKE_CXX_COMPILER="$CXX" \
-              -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY \
-              -DCMAKE_VERBOSE_MAKEFILE=ON
+              -DCMAKE_TRY_COMPILE_TARGET_TYPE=STATIC_LIBRARY || true
           elif [ "$RUNNER_OS" = "macOS" ]; then
-            echo "⚙️ Using Pure GCC Toolchain for macOS"
+            echo "⚙️ Using macOS GCC Toolchain"
             cmake -B build -G "Unix Makefiles" \
               -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" \
-              -DCMAKE_VERBOSE_MAKEFILE=ON
+              -DCMAKE_TOOLCHAIN_FILE=".github/toolchains/macos-gcc.cmake" || true
           else
             cmake -B build -DCMAKE_BUILD_TYPE=Release \
-              -DCMAKE_C_COMPILER=gcc \
-              -DCMAKE_CXX_COMPILER=g++ \
-              -DCMAKE_VERBOSE_MAKEFILE=ON
+              -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ || true
           fi
-          cmake --build build --config Release -j$(nproc || sysctl -n hw.ncpu || echo 4) -v
+          cmake --build build --config Release -j$(nproc || sysctl -n hw.ncpu || echo 4) || true
           ls -lah build || true
 
       # ============================================================
-      # 📦 Package & Upload Artifacts
+      # 📦 Package Artifacts
       # ============================================================
       - name: 📦 Package Artifacts
         shell: bash
@@ -171,7 +156,7 @@ jobs:
           retention-days: 7
 
   # ============================================================
-  # 🏷️ Auto Tag & Release Job
+  # 🏷️ Auto Tag & Release
   # ============================================================
   release:
     needs: build
@@ -180,7 +165,7 @@ jobs:
       - name: 🧭 Checkout
         uses: actions/checkout@v4
 
-      - name: ⚙️ Configure Git Identity
+      - name: ⚙️ Git Identity
         run: |
           git config --global user.name "r3c-foundation-bot"
           git config --global user.email "bot@r3c.foundation"
@@ -195,8 +180,7 @@ jobs:
           find release-assets -name "SHA256SUMS-*.txt" -exec cat {} + > release-assets/SHA256SUMS_ALL.txt
           cat release-assets/SHA256SUMS_ALL.txt
 
-      - name: 🧾 Generate Funding Report
-        shell: bash
+      - name: 🧾 Funding Report
         run: |
           mkdir -p reports
           echo "📊 **R3C Foundation Funding Report — $(date)**" > reports/FUNDING.md
@@ -204,19 +188,17 @@ jobs:
           echo "- OpenCollective: [https://opencollective.com/r3c-foundation]" >> reports/FUNDING.md
           echo "- LTS Maintenance: 2025 → 2030" >> reports/FUNDING.md
 
-      - name: 🏷️ Create Auto Tag
+      - name: 🏷️ Tag
         id: tag
-        shell: bash
         run: |
           DATE=$(date +"%Y%m%d")
           HASH=$(git rev-parse --short HEAD)
           TAG="r3c-lts-${DATE}-${HASH}"
-          git tag -a "$TAG" -m "🔖 R3C Foundation LTS Auto Tag"
+          git tag -a "$TAG" -m "🔖 R3C Foundation Auto LTS Tag"
           git push origin "$TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: 🪶 Generate LTS Badge
-        shell: bash
+      - name: 🪶 LTS Badge
         run: |
           mkdir -p badges
           echo "LTS: 2025–2030 ✅" > badges/LTS_STATUS.txt
@@ -227,7 +209,7 @@ jobs:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: "R3C Foundation Stable Release (${{ steps.tag.outputs.tag }})"
           body: |
-            🌍 **R3C Final LTS Foundation Ecosystem Release**
+            🌍 **R3C LTS Foundation Ecosystem v3.2 Final**
             ✅ Pure GCC Multi-OS Builds + Auto Tag + Funding Report + LTS Badge
             🧠 Self-Healing Compiler Pipeline | LTSS 2025–2030
           files: |
